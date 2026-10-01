@@ -57,7 +57,13 @@ function firstMessage(issues: Array<{ message: string; hint?: string }>): string
   return issue ? `${issue.message}${issue.hint ? ` ${issue.hint}` : ''}` : null;
 }
 
-function blockCommit(store: EditorStore, id: string, scope: Scope, key: string): Commit {
+function blockCommit(
+  store: EditorStore,
+  id: string,
+  scope: Scope,
+  key: string,
+  clears?: { scope: Scope; key: string },
+): Commit {
   return (value) => {
     if (scope === 'data') {
       // A custom block's data is one prop; replace it with the key changed.
@@ -71,8 +77,14 @@ function blockCommit(store: EditorStore, id: string, scope: Scope, key: string):
       );
       return result.ok ? null : firstMessage(result.issues);
     }
+    const patch: Record<string, Record<string, unknown>> = {
+      [scope]: { [key]: value === undefined ? null : value },
+    };
+    if (clears && clears.scope !== 'data') {
+      patch[clears.scope] = { ...patch[clears.scope], [clears.key]: null };
+    }
     const result = store.apply(
-      { op: 'update', id, [scope]: { [key]: value === undefined ? null : value } },
+      { op: 'update', id, ...patch },
       { mergeKey: `${id}.${scope}.${key}` },
     );
     return result.ok ? null : firstMessage(result.issues);
@@ -392,7 +404,7 @@ function BlockInspector({ id }: { id: string }) {
               field={localizeField(field, messages)}
               block={block}
               document={document}
-              commit={blockCommit(store, id, field.scope, field.key)}
+              commit={blockCommit(store, id, field.scope, field.key, field.clears)}
               {...(field.kind === 'image'
                 ? { commitAlt: blockCommit(store, id, 'props', 'alt') }
                 : {})}

@@ -156,6 +156,38 @@ describe('image block', () => {
   });
 });
 
+describe('corner radius on buttons and avatars', () => {
+  it('rounds the button itself, overriding its shape, up to a pill', () => {
+    const button = (borderRadius: number) =>
+      render([
+        {
+          type: 'button',
+          props: { text: 'Go', href: 'https://maildun.com', shape: 'rectangle', size: 'md' },
+          style: { borderRadius },
+        },
+      ]).html;
+    const html = button(10);
+    expect(html).toMatch(/<a [^>]*style="[^"]*border-radius:10px/);
+    // The cell around the button stays square.
+    expect(html).not.toMatch(/<td[^>]*style="[^"]*border-radius:10px/);
+    // md buttons are 44px tall, so 100px caps at a 22px pill (arcsize 50%).
+    expect(button(100)).toContain('border-radius:22px');
+    expect(button(100)).toContain('arcsize="50%"');
+  });
+
+  it('rounds the avatar itself, overriding its shape', () => {
+    const { html } = render([
+      {
+        type: 'avatar',
+        props: { src: 'https://cdn.maildun.com/a.png', alt: 'A', size: 64, shape: 'circle' },
+        style: { borderRadius: 12 },
+      },
+    ]);
+    expect(html).toMatch(/<img [^>]*style="[^"]*border-radius:12px/);
+    expect(html).not.toContain('border-radius:64px');
+  });
+});
+
 describe('sections', () => {
   it.each(SECTION_NAMES)('%s builds a valid block tree that renders cleanly', (name) => {
     const result = applyOps(emptyDocument(), { op: 'insert', blocks: [buildSection(name)] });

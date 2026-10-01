@@ -80,6 +80,18 @@ export function box(
   return `<table ${TABLE_ATTRS}${tableStyle}${annotation}><tr><td${align}${bgcolor} style="${css({ ...boxDeclarations(ctx, style), ...extra })}">${inner}</td></tr></table>`;
 }
 
+/**
+ * A block's style minus its corner radius, for blocks that apply the radius
+ * to themselves (button, avatar) rather than to their cell.
+ */
+function withoutRadius<T extends BoxStyle>(
+  style: T | undefined,
+): Omit<T, 'borderRadius'> | undefined {
+  if (!style) return style;
+  const { borderRadius: _radius, ...rest } = style;
+  return rest;
+}
+
 const HEADING_SIZES = { 1: 32, 2: 24, 3: 20 } as const;
 
 const BUTTON_SIZES = {
@@ -247,8 +259,10 @@ function renderButton(
   const width = props.fullWidth
     ? contentWidth
     : Math.min(contentWidth, Math.round((props.text ?? '').length * fontSize * 0.6 + padX * 2));
-  const radius =
+  // A corner radius overrides the shape; past half the height it is a pill.
+  const shapeRadius =
     props.shape === 'pill' ? Math.round(height / 2) : props.shape === 'rectangle' ? 0 : 6;
+  const radius = Math.min(block.style?.borderRadius ?? shapeRadius, Math.round(height / 2));
   const arcsize = `${Math.round((radius / height) * 100)}%`;
   const letterSpacing =
     block.style?.letterSpacing !== undefined ? `${block.style.letterSpacing}px` : undefined;
@@ -272,7 +286,7 @@ function renderButton(
     `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:${height}px;v-text-anchor:middle;width:${width}px;" arcsize="${arcsize}" stroke="f" fillcolor="${fill}">` +
     `<w:anchorlock/><center style="${css({ color: textColor, 'font-family': fontFamily, 'font-size': px(fontSize), 'font-weight': fontWeight })}">${label}</center></v:roundrect><![endif]-->`;
   const anchor = `<!--[if !mso]><!--><a href="${href}" target="_blank" style="${anchorStyle}">${label}</a><!--<![endif]-->`;
-  return box(ctx, id, { align: 'left', ...block.style }, vml + anchor);
+  return box(ctx, id, { align: 'left', ...withoutRadius(block.style) }, vml + anchor);
 }
 
 function imageMargin(align: BoxStyle['align']): string {
@@ -329,8 +343,9 @@ function renderAvatar(ctx: RenderContext, id: string, block: BlockOf<'avatar'>):
     return box(ctx, id, block.style, '');
   }
   const size = props.size ?? 64;
-  const radius =
+  const shapeRadius =
     props.shape === 'circle' ? size : props.shape === 'rounded' ? Math.round(size * 0.125) : 0;
+  const radius = block.style?.borderRadius ?? shapeRadius;
   const align = block.style?.align ?? 'left';
   const imgStyle = css({
     display: 'block',
@@ -345,7 +360,7 @@ function renderAvatar(ctx: RenderContext, id: string, block: BlockOf<'avatar'>):
   return box(
     ctx,
     id,
-    { ...block.style, align },
+    { ...withoutRadius(block.style), align },
     `<img src="${src}" alt="${escapeHtml(props.alt ?? '')}" width="${size}" height="${size}" style="${imgStyle}">`,
     { 'font-size': '0', 'line-height': '0' },
   );

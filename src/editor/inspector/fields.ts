@@ -10,6 +10,8 @@ interface BaseField {
   scope: Scope;
   label: string;
   hint?: string;
+  /** Another value this field resets when changed, e.g. a shape clears a custom radius. */
+  clears?: { scope: Scope; key: string };
 }
 
 export type FieldSpec =
@@ -60,6 +62,23 @@ const ALIGN = {
   ],
 } as const satisfies FieldSpec;
 
+/**
+ * Corner radius of the block itself (button, avatar), overriding its shape.
+ * Their box styles leave the radius out, so there is one radius control.
+ */
+const OWN_RADIUS = {
+  key: 'borderRadius',
+  scope: 'style',
+  label: 'Corner radius',
+  kind: 'number',
+  min: 0,
+  max: 100,
+  unit: 'px',
+  placeholder: 'From shape',
+} as const satisfies FieldSpec;
+
+const CLEARS_RADIUS = { clears: { scope: 'style', key: 'borderRadius' } } as const;
+
 const BOX: FieldSpec[] = [
   { key: 'padding', scope: 'style', label: 'Padding', kind: 'padding' },
   { key: 'backgroundColor', scope: 'style', label: 'Background', kind: 'color', allowClear: true },
@@ -73,6 +92,9 @@ const BOX: FieldSpec[] = [
     unit: 'px',
   },
 ];
+
+/** Box styles for blocks with their own corner radius (see `OWN_RADIUS`). */
+const BOX_WITHOUT_RADIUS = BOX.filter((field) => field.key !== 'borderRadius');
 
 const TYPOGRAPHY: FieldSpec[] = [
   { key: 'color', scope: 'style', label: 'Text color', kind: 'color', allowClear: true },
@@ -185,7 +207,9 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
             { value: 'rounded', label: 'Rounded' },
             { value: 'pill', label: 'Pill' },
           ],
+          ...CLEARS_RADIUS,
         },
+        OWN_RADIUS,
         {
           key: 'size',
           scope: 'props',
@@ -219,7 +243,7 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
         },
       ],
     },
-    { title: 'Box', fields: BOX },
+    { title: 'Box', fields: BOX_WITHOUT_RADIUS },
   ],
   image: [
     {
@@ -349,11 +373,13 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
             { value: 'rounded', label: 'Rounded' },
             { value: 'square', label: 'Square' },
           ],
+          ...CLEARS_RADIUS,
         },
+        OWN_RADIUS,
         ALIGN,
       ],
     },
-    { title: 'Box', fields: BOX },
+    { title: 'Box', fields: BOX_WITHOUT_RADIUS },
   ],
   divider: [
     {
