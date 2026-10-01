@@ -1,54 +1,47 @@
-import { Popover as BasePopover } from '@base-ui/react/popover';
-import { Select } from '@base-ui/react/select';
-import { Switch } from '@base-ui/react/switch';
-import { Toggle } from '@base-ui/react/toggle';
-import { ToggleGroup } from '@base-ui/react/toggle-group';
-import { Tooltip } from '@base-ui/react/tooltip';
-import { Check, ChevronDown } from 'lucide-react';
+/**
+ * The editor's UI kit: thin wrappers over the shadcn/ui components in this
+ * folder, shaped for the editor's call sites. Generated shadcn files live next
+ * to this one; see scripts/fix-shadcn-imports.ts after adding new ones.
+ */
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { type ComponentProps, type ReactElement, type ReactNode, useId, useState } from 'react';
+import { cn } from '../lib/utils';
+import { FieldDescription, FieldLabel, Field as FieldRoot } from './field';
+import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from './input-group';
+import { PopoverContent, Popover as PopoverRoot, PopoverTrigger } from './popover';
 import {
-  type ButtonHTMLAttributes,
-  createContext,
-  forwardRef,
-  type ReactElement,
-  type ReactNode,
-  useContext,
-  useId,
-  useState,
-} from 'react';
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './select';
+import { Switch } from './switch';
+import { ToggleGroup, ToggleGroupItem } from './toggle-group';
+import { Tooltip, TooltipContent, TooltipTrigger } from './tooltip';
 
-export function cx(...classes: Array<string | false | null | undefined>): string {
-  return classes.filter(Boolean).join(' ');
+export { PortalContext, usePortalContainer } from '../lib/portal';
+export { cn } from '../lib/utils';
+export { Badge } from './badge';
+export { Button, buttonVariants } from './button';
+export { Input } from './input';
+export { Kbd, KbdGroup } from './kbd';
+export { Separator } from './separator';
+export { Spinner } from './spinner';
+export { Tabs, TabsContent, TabsList, TabsTrigger } from './tabs';
+export { Textarea } from './textarea';
+export { TooltipProvider } from './tooltip';
+
+export type { IconSvgElement };
+
+/** A Hugeicons icon. Sized by its parent component, or with a `size-*` class. */
+export function Icon({
+  icon,
+  ...props
+}: { icon: IconSvgElement } & Omit<ComponentProps<typeof HugeiconsIcon>, 'icon'>) {
+  return <HugeiconsIcon icon={icon} strokeWidth={2} {...props} />;
 }
-
-/** Element popups portal into, so they inherit the editor's CSS variables. */
-export const PortalContext = createContext<HTMLElement | null>(null);
-
-function usePortal() {
-  return useContext(PortalContext) ?? undefined;
-}
-
-type ButtonVariant = 'default' | 'ghost' | 'primary' | 'danger' | 'outline';
-
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: ButtonVariant;
-  size?: 'sm' | 'md' | 'icon';
-  active?: boolean;
-}
-
-export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'default', size = 'md', active, className, type = 'button', ...props },
-  ref,
-) {
-  return (
-    <button
-      ref={ref}
-      type={type}
-      data-active={active ? '' : undefined}
-      className={cx('meb-btn', `meb-btn-${variant}`, `meb-btn-${size}`, className)}
-      {...props}
-    />
-  );
-});
 
 /** Wraps a single interactive element with a tooltip. */
 export function Tip({
@@ -60,20 +53,13 @@ export function Tip({
   children: ReactElement;
   side?: 'top' | 'bottom' | 'left' | 'right';
 }) {
-  const container = usePortal();
   return (
-    <Tooltip.Root>
-      <Tooltip.Trigger render={children} delay={400} />
-      <Tooltip.Portal container={container}>
-        <Tooltip.Positioner side={side} sideOffset={6}>
-          <Tooltip.Popup className="meb-tooltip">{label}</Tooltip.Popup>
-        </Tooltip.Positioner>
-      </Tooltip.Portal>
-    </Tooltip.Root>
+    <Tooltip>
+      <TooltipTrigger render={children} delay={400} />
+      <TooltipContent side={side}>{label}</TooltipContent>
+    </Tooltip>
   );
 }
-
-export const TooltipProvider = Tooltip.Provider;
 
 export function Popover({
   trigger,
@@ -92,43 +78,51 @@ export function Popover({
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
-  const container = usePortal();
   return (
-    <BasePopover.Root
+    <PopoverRoot
       {...(open !== undefined ? { open } : {})}
       {...(onOpenChange ? { onOpenChange } : {})}
     >
-      <BasePopover.Trigger render={trigger} />
-      <BasePopover.Portal container={container}>
-        <BasePopover.Positioner side={side} align={align} sideOffset={6} className="meb-positioner">
-          <BasePopover.Popup className={cx('meb-popover', className)}>{children}</BasePopover.Popup>
-        </BasePopover.Positioner>
-      </BasePopover.Portal>
-    </BasePopover.Root>
+      <PopoverTrigger render={trigger} />
+      <PopoverContent
+        side={side}
+        align={align}
+        sideOffset={6}
+        className={cn('w-64 gap-3 p-3', className)}
+      >
+        {children}
+      </PopoverContent>
+    </PopoverRoot>
   );
 }
 
-/** Labelled form row. */
+/** Labelled form row. `children` receives the id to put on the control. */
 export function Field({
   label,
   hint,
   children,
   inline,
+  invalid,
 }: {
   label: ReactNode;
   hint?: ReactNode;
   children: (id: string) => ReactNode;
   inline?: boolean;
+  invalid?: boolean;
 }) {
   const id = useId();
   return (
-    <div className={cx('meb-field', inline && 'meb-field-inline')}>
-      <label className="meb-label" htmlFor={id}>
+    <FieldRoot
+      orientation={inline ? 'horizontal' : 'vertical'}
+      data-invalid={invalid || undefined}
+      className={cn('gap-1.5', inline && 'items-center justify-between')}
+    >
+      <FieldLabel htmlFor={id} className="text-xs font-medium text-muted-foreground">
         {label}
-      </label>
+      </FieldLabel>
       {children(id)}
-      {hint ? <p className="meb-hint">{hint}</p> : null}
-    </div>
+      {hint ? <FieldDescription className="text-xs">{hint}</FieldDescription> : null}
+    </FieldRoot>
   );
 }
 
@@ -139,24 +133,33 @@ export interface Option<T extends string> {
   title?: string;
 }
 
+/** A row of mutually exclusive options. */
 export function Segmented<T extends string>({
   value,
   options,
   onChange,
   id,
   ariaLabel,
+  fill = true,
+  className,
 }: {
   value: T | undefined;
   options: Option<T>[];
   onChange: (value: T) => void;
   id?: string;
   ariaLabel?: string;
+  /** Stretch to the container width (the default for inspector fields). */
+  fill?: boolean;
+  className?: string;
 }) {
   return (
     <ToggleGroup
       id={id}
       aria-label={ariaLabel}
-      className="meb-segmented"
+      variant="outline"
+      size="sm"
+      spacing={0}
+      className={cn(fill && 'w-full', className)}
       value={value === undefined ? [] : [value]}
       onValueChange={(next) => {
         const picked = next[0];
@@ -164,14 +167,14 @@ export function Segmented<T extends string>({
       }}
     >
       {options.map((option) => (
-        <Toggle
+        <ToggleGroupItem
           key={option.value}
           value={option.value}
-          className="meb-segment"
           aria-label={option.title}
+          className={cn(fill && 'flex-1')}
         >
           {option.label}
-        </Toggle>
+        </ToggleGroupItem>
       ))}
     </ToggleGroup>
   );
@@ -190,38 +193,27 @@ export function SelectInput<T extends string>({
   id?: string;
   placeholder?: string;
 }) {
-  const container = usePortal();
   return (
-    <Select.Root
+    <Select
       items={options.map((option) => ({ value: option.value, label: option.label }))}
       value={value ?? null}
       onValueChange={(next) => {
         if (next !== null) onChange(next as T);
       }}
     >
-      <Select.Trigger id={id} className="meb-input meb-select-trigger">
-        <Select.Value placeholder={placeholder} />
-        <Select.Icon className="meb-select-icon">
-          <ChevronDown size={14} />
-        </Select.Icon>
-      </Select.Trigger>
-      <Select.Portal container={container}>
-        <Select.Positioner sideOffset={4} className="meb-positioner" alignItemWithTrigger={false}>
-          <Select.Popup className="meb-popover meb-select-popup">
-            <Select.List>
-              {options.map((option) => (
-                <Select.Item key={option.value} value={option.value} className="meb-select-item">
-                  <Select.ItemText>{option.label}</Select.ItemText>
-                  <Select.ItemIndicator className="meb-select-check">
-                    <Check size={14} />
-                  </Select.ItemIndicator>
-                </Select.Item>
-              ))}
-            </Select.List>
-          </Select.Popup>
-        </Select.Positioner>
-      </Select.Portal>
-    </Select.Root>
+      <SelectTrigger id={id} size="sm" className="w-full">
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent alignItemWithTrigger={false}>
+        <SelectGroup>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectGroup>
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -234,18 +226,7 @@ export function SwitchInput({
   onChange: (checked: boolean) => void;
   id?: string;
 }) {
-  return (
-    <Switch.Root
-      id={id}
-      checked={checked}
-      onCheckedChange={onChange}
-      className="meb-switch"
-      nativeButton
-      render={<button type="button" />}
-    >
-      <Switch.Thumb className="meb-switch-thumb" />
-    </Switch.Root>
-  );
+  return <Switch id={id} checked={checked} onCheckedChange={onChange} />;
 }
 
 export function NumberInput({
@@ -291,13 +272,13 @@ export function NumberInput({
   };
 
   return (
-    <div className="meb-number">
-      <input
+    <InputGroup className="h-8">
+      <InputGroupInput
         id={id}
         aria-label={ariaLabel}
-        className="meb-input"
         type="number"
         inputMode="decimal"
+        className="h-8 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
         value={draft ?? value ?? ''}
         min={min}
         max={max}
@@ -319,7 +300,11 @@ export function NumberInput({
           }
         }}
       />
-      {unit ? <span className="meb-unit">{unit}</span> : null}
-    </div>
+      {unit ? (
+        <InputGroupAddon align="inline-end">
+          <InputGroupText className="text-xs">{unit}</InputGroupText>
+        </InputGroupAddon>
+      ) : null}
+    </InputGroup>
   );
 }

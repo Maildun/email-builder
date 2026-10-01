@@ -1,0 +1,50 @@
+/*
+ * Theme for the standalone stylesheet (styles.css): shadcn/ui's neutral
+ * palette. Override any token with its `--meb-*` variable on `.meb-root` or
+ * an ancestor, e.g. `--meb-primary: oklch(0.55 0.22 263)`. Apps on Tailwind 4
+ * that use core.css get their own shadcn theme instead.
+ */
+
+.meb-root {
+  --radius: var(--meb-radius, 0.625rem);
+  --background: var(--meb-background, oklch(1 0 0));
+  --foreground: var(--meb-foreground, oklch(0.145 0 0));
+  --card: var(--meb-card, oklch(1 0 0));
+  --card-foreground: var(--meb-card-foreground, oklch(0.145 0 0));
+  --popover: var(--meb-popover, oklch(1 0 0));
+  --popover-foreground: var(--meb-popover-foreground, oklch(0.145 0 0));
+  --primary: var(--meb-primary, oklch(0.205 0 0));
+  --primary-foreground: var(--meb-primary-foreground, oklch(0.985 0 0));
+  --secondary: var(--meb-secondary, oklch(0.97 0 0));
+  --secondary-foreground: var(--meb-secondary-foreground, oklch(0.205 0 0));
+  --muted: var(--meb-muted, oklch(0.97 0 0));
+  --muted-foreground: var(--meb-muted-foreground, oklch(0.556 0 0));
+  --accent: var(--meb-accent, oklch(0.97 0 0));
+  --accent-foreground: var(--meb-accent-foreground, oklch(0.205 0 0));
+  --destructive: var(--meb-destructive, oklch(0.577 0.245 27.325));
+  --border: var(--meb-border, oklch(0.922 0 0));
+  --input: var(--meb-input, oklch(0.922 0 0));
+  --ring: var(--meb-ring, oklch(0.708 0 0));
+}
+
+.meb-root.dark,
+.dark .meb-root:not(.meb-light) {
+  --background: var(--meb-background, oklch(0.145 0 0));
+  --foreground: var(--meb-foreground, oklch(0.985 0 0));
+  --card: var(--meb-card, oklch(0.205 0 0));
+  --card-foreground: var(--meb-card-foreground, oklch(0.985 0 0));
+  --popover: var(--meb-popover, oklch(0.205 0 0));
+  --popover-foreground: var(--meb-popover-foreground, oklch(0.985 0 0));
+  --primary: var(--meb-primary, oklch(0.922 0 0));
+  --primary-foreground: var(--meb-primary-foreground, oklch(0.205 0 0));
+  --secondary: var(--meb-secondary, oklch(0.269 0 0));
+  --secondary-foreground: var(--meb-secondary-foreground, oklch(0.985 0 0));
+  --muted: var(--meb-muted, oklch(0.269 0 0));
+  --muted-foreground: var(--meb-muted-foreground, oklch(0.708 0 0));
+  --accent: var(--meb-accent, oklch(0.269 0 0));
+  --accent-foreground: var(--meb-accent-foreground, oklch(0.985 0 0));
+  --destructive: var(--meb-destructive, oklch(0.704 0.191 22.216));
+  --border: var(--meb-border, oklch(1 0 0 / 10%));
+  --input: var(--meb-input, oklch(1 0 0 / 15%));
+  --ring: var(--meb-ring, oklch(0.556 0 0));
+}

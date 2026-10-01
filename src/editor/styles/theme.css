@@ -1,0 +1,11 @@
+/*
+ * Tailwind theme entries for the editor's own colors. Shared by both
+ * stylesheets; everything else uses the standard shadcn/ui tokens.
+ */
+@theme inline {
+  --color-editor-selection: var(--editor-selection);
+  --color-editor-selection-soft: var(--editor-selection-soft);
+  --color-editor-ai: var(--editor-ai);
+  --color-editor-ai-soft: var(--editor-ai-soft);
+  --color-editor-stage: var(--editor-stage);
+}

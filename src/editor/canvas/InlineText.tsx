@@ -1,13 +1,34 @@
+import {
+  BracesIcon,
+  Cancel01Icon,
+  LeftToRightListBulletIcon,
+  LeftToRightListNumberIcon,
+  Link01Icon,
+  TextBoldIcon,
+  TextItalicIcon,
+  TextStrikethroughIcon,
+} from '@hugeicons/core-free-icons';
 import { Link } from '@tiptap/extension-link';
 import { Markdown } from '@tiptap/markdown';
 import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
-import { Bold, Braces, Italic, Link2, List, ListOrdered, Strikethrough, X } from 'lucide-react';
 import { type CSSProperties, useEffect, useState } from 'react';
 import { useEditorOptions } from '../context';
-import { Button, cx, Popover, Tip } from '../ui';
+import { Button, cn, Icon, Input, Popover, Separator, Tip } from '../ui';
 
 const MERGE_LINK_HOST = 'https://meb-merge.invalid/';
+
+/** Ghost format-bar buttons; `aria-pressed` marks the active formatting. */
+const FORMAT_BUTTON = 'aria-pressed:bg-muted aria-pressed:text-foreground';
+
+function GroupSeparator() {
+  return (
+    <Separator
+      orientation="vertical"
+      className="mx-0.5 data-vertical:h-5 data-vertical:self-center"
+    />
+  );
+}
 
 /** Merge tags are not valid markdown link targets; swap them for URLs while editing. */
 function toEditorMarkdown(markdown: string): string {
@@ -70,7 +91,7 @@ export function InlineText({
     content: toEditorMarkdown(value),
     contentType: 'markdown',
     editorProps: {
-      attributes: { class: cx('meb-inline-editor', className), spellcheck: 'true' },
+      attributes: { class: cn('meb-inline-editor', className), spellcheck: 'true' },
       handleKeyDown: (_view, event) => {
         if (event.key === 'Escape') {
           onDone();
@@ -125,70 +146,84 @@ export function InlineText({
   };
 
   return (
-    <div className="meb-inline" style={style}>
-      <div className="meb-format-bar" onMouseDown={(event) => event.preventDefault()}>
+    <div className="relative" style={style}>
+      <div
+        data-slot="format-bar"
+        className="absolute -top-10 left-0 z-7 flex h-9 items-center gap-px whitespace-nowrap rounded-md border bg-popover px-1 text-left font-normal font-sans text-popover-foreground text-xs not-italic leading-none tracking-normal normal-case shadow-md"
+        onMouseDown={(event) => event.preventDefault()}
+      >
         <Tip label="Bold (⌘B)">
           <Button
-            size="icon"
+            size="icon-xs"
             variant="ghost"
+            className={FORMAT_BUTTON}
             aria-label="Bold"
-            active={active?.bold}
+            aria-pressed={active?.bold ?? false}
             onClick={() => editor.chain().focus().toggleBold().run()}
           >
-            <Bold size={14} />
+            <Icon icon={TextBoldIcon} />
           </Button>
         </Tip>
         <Tip label="Italic (⌘I)">
           <Button
-            size="icon"
+            size="icon-xs"
             variant="ghost"
+            className={FORMAT_BUTTON}
             aria-label="Italic"
-            active={active?.italic}
+            aria-pressed={active?.italic ?? false}
             onClick={() => editor.chain().focus().toggleItalic().run()}
           >
-            <Italic size={14} />
+            <Icon icon={TextItalicIcon} />
           </Button>
         </Tip>
         <Tip label="Strikethrough">
           <Button
-            size="icon"
+            size="icon-xs"
             variant="ghost"
+            className={FORMAT_BUTTON}
             aria-label="Strikethrough"
-            active={active?.strike}
+            aria-pressed={active?.strike ?? false}
             onClick={() => editor.chain().focus().toggleStrike().run()}
           >
-            <Strikethrough size={14} />
+            <Icon icon={TextStrikethroughIcon} />
           </Button>
         </Tip>
         <Popover
           open={linkOpen}
           onOpenChange={setLinkOpen}
+          className="w-80"
           trigger={
-            <Button size="icon" variant="ghost" aria-label="Link" active={active?.link}>
-              <Link2 size={14} />
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              className={FORMAT_BUTTON}
+              aria-label="Link"
+              aria-pressed={active?.link ?? false}
+            >
+              <Icon icon={Link01Icon} />
             </Button>
           }
         >
           <form
-            className="meb-row meb-gap-sm"
+            className="flex items-center gap-2"
             onSubmit={(event) => {
               event.preventDefault();
               applyLink();
             }}
           >
-            <input
-              className="meb-input"
+            <Input
+              className="h-8"
               value={href}
               placeholder="https:// or {{ tag }}"
               aria-label="Link URL"
               onChange={(event) => setHref(event.target.value)}
             />
-            <Button type="submit" size="sm" variant="primary">
+            <Button type="submit" size="sm">
               Apply
             </Button>
             {active?.link ? (
               <Button
-                size="icon"
+                size="icon-sm"
                 variant="ghost"
                 aria-label="Remove link"
                 onClick={() => {
@@ -197,63 +232,76 @@ export function InlineText({
                   setLinkOpen(false);
                 }}
               >
-                <X size={14} />
+                <Icon icon={Cancel01Icon} />
               </Button>
             ) : null}
           </form>
         </Popover>
         {singleLine ? null : (
           <>
+            <GroupSeparator />
             <Tip label="Bulleted list">
               <Button
-                size="icon"
+                size="icon-xs"
                 variant="ghost"
+                className={FORMAT_BUTTON}
                 aria-label="Bulleted list"
-                active={active?.bulletList}
+                aria-pressed={active?.bulletList ?? false}
                 onClick={() => editor.chain().focus().toggleBulletList().run()}
               >
-                <List size={14} />
+                <Icon icon={LeftToRightListBulletIcon} />
               </Button>
             </Tip>
             <Tip label="Numbered list">
               <Button
-                size="icon"
+                size="icon-xs"
                 variant="ghost"
+                className={FORMAT_BUTTON}
                 aria-label="Numbered list"
-                active={active?.orderedList}
+                aria-pressed={active?.orderedList ?? false}
                 onClick={() => editor.chain().focus().toggleOrderedList().run()}
               >
-                <ListOrdered size={14} />
+                <Icon icon={LeftToRightListNumberIcon} />
               </Button>
             </Tip>
           </>
         )}
         {mergeTags.length > 0 ? (
-          <Popover
-            trigger={
-              <Button size="icon" variant="ghost" aria-label="Insert merge tag">
-                <Braces size={14} />
-              </Button>
-            }
-          >
-            <div className="meb-menu">
-              <p className="meb-menu-title">Insert merge tag</p>
-              {mergeTags.map((tag) => (
-                <button
-                  key={tag.key}
-                  type="button"
-                  className="meb-menu-item"
-                  onClick={() => editor.chain().focus().insertContent(`{{ ${tag.key} }}`).run()}
-                >
-                  <span>{tag.label ?? tag.key}</span>
-                  <code>{`{{ ${tag.key} }}`}</code>
-                </button>
-              ))}
-            </div>
-          </Popover>
+          <>
+            <GroupSeparator />
+            <Popover
+              className="w-auto min-w-56 gap-0 p-1"
+              trigger={
+                <Button size="icon-xs" variant="ghost" aria-label="Insert merge tag">
+                  <Icon icon={BracesIcon} />
+                </Button>
+              }
+            >
+              <div
+                data-slot="merge-tag-menu"
+                className="flex max-h-[300px] flex-col overflow-y-auto"
+              >
+                <p className="px-2 pt-1 pb-1.5 font-medium text-muted-foreground text-xs">
+                  Insert merge tag
+                </p>
+                {mergeTags.map((tag) => (
+                  <Button
+                    key={tag.key}
+                    variant="ghost"
+                    size="sm"
+                    className="justify-between gap-3 px-2 font-normal"
+                    onClick={() => editor.chain().focus().insertContent(`{{ ${tag.key} }}`).run()}
+                  >
+                    <span className="truncate">{tag.label ?? tag.key}</span>
+                    <code className="font-mono text-muted-foreground text-xs">{`{{ ${tag.key} }}`}</code>
+                  </Button>
+                ))}
+              </div>
+            </Popover>
+          </>
         ) : null}
-        <span className="meb-format-spacer" />
-        <Button size="sm" variant="ghost" onClick={onDone}>
+        <GroupSeparator />
+        <Button size="xs" variant="ghost" onClick={onDone}>
           Done
         </Button>
       </div>

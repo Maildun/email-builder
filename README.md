@@ -18,7 +18,7 @@ npm install @maildun/email-builder
 import { useState } from 'react';
 import type { EmailDocument } from '@maildun/email-builder';
 import { EmailEditor } from '@maildun/email-builder/editor';
-import '@maildun/email-builder/editor.css';
+import '@maildun/email-builder/styles.css';
 
 export function Compose() {
   const [design, setDesign] = useState<EmailDocument>();
@@ -51,7 +51,8 @@ npx email-builder validate design.json # prints {"ok", "issues", "warnings"}
 | --- | --- | --- |
 | `@maildun/email-builder` | Schema, operations, validation, lint, sections, templates, renderer | No |
 | `@maildun/email-builder/editor` | `<EmailEditor>`, `EditorStore`, hooks | Yes (19) |
-| `@maildun/email-builder/editor.css` | Editor styles | – |
+| `@maildun/email-builder/styles.css` | Editor styles, ready to use | – |
+| `@maildun/email-builder/core.css` | Editor styles for Tailwind CSS 4 apps (see [Styling](#styling)) | – |
 | `@maildun/email-builder/agent` | Agent tools, system prompt, provider adapters | No |
 | `@maildun/email-builder/compat` | `fromEmailBuilderJs` | No |
 
@@ -197,10 +198,10 @@ Pass an `agent` to get the assistant panel. Edits arrive as a **proposal**: chan
 | `agent` | Enables the assistant panel (see above). |
 | `readOnly` | Hides editing chrome. |
 | `toolbar` | Extra controls in the top bar. |
+| `appearance` | `'inherit'` (default: dark when an ancestor has the `dark` class), `'light'`, `'dark'` or `'system'`. |
+| `classNames` | Extra classes per part: `root`, `topbar`, `sidebar`, `stage`, `canvas`, `inspector`, `assistant`, `block-toolbar`. |
 
 **Ref handle:** `ref` exposes `getDocument`, `apply`, `undo`, `redo`, `propose`, `accept`, `reject` and `render`.
-
-**Theming:** the editor uses its own `--meb-*` CSS variables. Each one falls back to the matching shadcn/ui variable (`--background`, `--primary`, `--border`, …), so the editor picks up your app's theme automatically.
 
 **Keyboard shortcuts:**
 
@@ -212,6 +213,61 @@ Pass an `agent` to get the assistant panel. Edits arrive as a **proposal**: chan
 | ⌥↑ / ⌥↓ | Move up / down |
 | Enter | Edit text |
 | Esc | Stop editing / deselect |
+
+## Styling
+
+The editor UI is built with [shadcn/ui](https://ui.shadcn.com) (Base UI primitives) and Tailwind CSS. Pick the stylesheet that fits your app; the editor needs a container with a height (it fills it, with a minimum of 480px).
+
+**Any React app: `styles.css`.** Everything is precompiled. Rules are scoped to the editor, so they never touch the rest of your page, and you don't need Tailwind.
+
+```ts
+import '@maildun/email-builder/styles.css';
+```
+
+Theme it with `--meb-*` variables (shadcn's token names with a `meb-` prefix), on `.meb-root` or any ancestor:
+
+```css
+:root {
+  --meb-primary: oklch(0.55 0.22 263);
+  --meb-radius: 0.75rem;
+  --meb-font: 'Inter', sans-serif;
+}
+.dark {
+  --meb-primary: oklch(0.7 0.16 263);
+}
+```
+
+Tokens: `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `muted`, `accent` (each with a `-foreground` pair), `destructive`, `border`, `input`, `ring`, `radius`, `font`, plus the editor's own `selection`, `selection-soft`, `ai`, `ai-soft` and `stage`.
+
+**Tailwind CSS 4 + shadcn/ui apps: `core.css`.** Your app compiles the editor's classes, so the editor uses your theme (colors, radius, fonts, dark mode) and your Tailwind build. It expects the standard shadcn setup (`tw-animate-css` and `shadcn/tailwind.css` imported):
+
+```css
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@maildun/email-builder/core.css';
+@source '../node_modules/@maildun/email-builder/dist';
+```
+
+**Dark mode** follows a `dark` class on an ancestor (the shadcn convention). Use the `appearance` prop to force `light`, `dark` or follow the OS with `system`.
+
+**Customizing parts.** Each part of the editor has a `data-slot` attribute and accepts extra classes through `classNames`:
+
+```tsx
+<EmailEditor classNames={{ sidebar: 'w-72', canvas: 'bg-slate-50' }} />
+```
+
+```css
+/* Loaded after the editor's stylesheet. */
+[data-slot='topbar'] {
+  height: 56px;
+}
+.meb-block[data-selected]::after {
+  box-shadow: inset 0 0 0 2px hotpink;
+}
+```
+
+The email canvas resets your page's global styles inside it, so what you see matches what recipients get.
 
 ## Migrating from EmailBuilder.js
 
@@ -237,7 +293,14 @@ bun install
 bun run test        # vitest
 bun run typecheck
 bun run lint        # biome
-bun run build       # tsdown → dist/
+bun run build       # tsdown → dist/, then dist/styles.css and dist/core.css
+```
+
+The UI components in `src/editor/ui/` come from shadcn/ui (`base-vega` style, Hugeicons). To add one:
+
+```bash
+bunx shadcn@latest add dialog
+bun run ui:fix      # relative imports + portal popups into the editor
 ```
 
 To run the playground (from the repository root):

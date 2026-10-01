@@ -18,6 +18,7 @@ import { buildSection, SECTIONS, type SectionName } from '../core/sections';
 import { descendantIds, findParent } from '../core/tree';
 import { useEditorStore } from './context';
 import { BLOCK_ICONS } from './meta';
+import { Icon } from './ui';
 
 /** What is being dragged. */
 export type DragData =
@@ -168,7 +169,7 @@ export function EditorDnd({ children }: { children: ReactNode }) {
     }
   };
 
-  const Icon = dragging ? BLOCK_ICONS[dragging.blockType] : null;
+  const icon = dragging ? BLOCK_ICONS[dragging.blockType] : null;
   const label = dragging
     ? dragging.kind === 'section'
       ? SECTIONS[dragging.section].label
@@ -188,9 +189,12 @@ export function EditorDnd({ children }: { children: ReactNode }) {
     >
       {children}
       <DragOverlay dropAnimation={null}>
-        {dragging && Icon ? (
-          <div className="meb-drag-chip">
-            <Icon size={14} /> {label}
+        {dragging && icon ? (
+          <div
+            data-slot="drag-chip"
+            className="inline-flex h-7 cursor-grabbing items-center gap-1.5 whitespace-nowrap rounded-md bg-editor-selection px-2 font-medium font-sans text-white text-xs shadow-md"
+          >
+            <Icon icon={icon} className="size-3.5" /> {label}
           </div>
         ) : null}
       </DragOverlay>

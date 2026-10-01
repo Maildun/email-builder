@@ -1,4 +1,12 @@
-import { Code, Eye, Monitor, PenLine, Redo2, Smartphone, Undo2 } from 'lucide-react';
+import {
+  ComputerIcon,
+  PencilEdit02Icon,
+  Redo02Icon,
+  SmartPhone01Icon,
+  SourceCodeIcon,
+  Undo02Icon,
+  ViewIcon,
+} from '@hugeicons/core-free-icons';
 import {
   type CSSProperties,
   forwardRef,
@@ -7,6 +15,7 @@ import {
   useImperativeHandle,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import { emptyDocument } from '../core/defaults';
 import type { Op } from '../core/ops';
@@ -16,12 +25,14 @@ import { type RenderResult, renderEmail } from '../render/html';
 import { duplicateBlock, removeBlock } from './actions';
 import { Canvas } from './canvas/Canvas';
 import {
+  type EditorClassNames,
   EditorProvider,
   type ImageResult,
   type MergeTag,
   useEditorOptions,
   useEditorState,
   useEditorStore,
+  useSlotClassName,
 } from './context';
 import { EditorDnd } from './dnd';
 import { Inspector } from './inspector/Inspector';
@@ -29,7 +40,7 @@ import { AgentPanel, type EditorAgent } from './panels/AgentPanel';
 import { CodeView, Preview } from './panels/Preview';
 import { Sidebar } from './panels/Sidebar';
 import { EditorStore, type EditorView } from './store';
-import { Button, cx, PortalContext, Segmented, Tip, TooltipProvider } from './ui';
+import { Button, cn, Icon, PortalContext, Segmented, Separator, Tip, TooltipProvider } from './ui';
 
 export interface EmailEditorProps {
   /** Controlled document. Pair with `onChange`. */
@@ -49,6 +60,13 @@ export interface EmailEditorProps {
   agent?: EditorAgent;
   /** Extra controls at the right of the top bar. */
   toolbar?: ReactNode;
+  /**
+   * Color scheme. `inherit` (the default) follows a `.dark` class on an
+   * ancestor, the shadcn/ui convention; `system` follows the OS setting.
+   */
+  appearance?: 'inherit' | 'light' | 'dark' | 'system';
+  /** Extra class names for parts of the editor; each part also has a matching `data-slot`. */
+  classNames?: EditorClassNames;
   className?: string;
   style?: CSSProperties;
 }
@@ -155,11 +173,19 @@ function TopBar({ toolbar }: { toolbar?: ReactNode }) {
   const canUndo = useEditorState((state) => state.canUndo);
   const canRedo = useEditorState((state) => state.canRedo);
   const { readOnly } = useEditorOptions();
+  const className = useSlotClassName('topbar');
 
   return (
-    <header className="meb-topbar">
+    <header
+      data-slot="topbar"
+      className={cn(
+        'flex h-13 flex-none items-center justify-between gap-3 border-b bg-card px-3',
+        className,
+      )}
+    >
       <Segmented<EditorView>
         ariaLabel="View"
+        fill={false}
         value={view}
         onChange={(next) => store.setView(next)}
         options={[
@@ -167,66 +193,67 @@ function TopBar({ toolbar }: { toolbar?: ReactNode }) {
             value: 'design',
             label: (
               <>
-                <PenLine size={14} /> Design
+                <Icon icon={PencilEdit02Icon} data-icon="inline-start" /> Design
               </>
             ),
-            title: 'Design',
           },
           {
             value: 'preview',
             label: (
               <>
-                <Eye size={14} /> Preview
+                <Icon icon={ViewIcon} data-icon="inline-start" /> Preview
               </>
             ),
-            title: 'Preview',
           },
           {
             value: 'code',
             label: (
               <>
-                <Code size={14} /> Code
+                <Icon icon={SourceCodeIcon} data-icon="inline-start" /> Code
               </>
             ),
-            title: 'Code',
           },
         ]}
       />
-      <div className="meb-row meb-gap-sm">
+      <div className="flex items-center gap-1">
         {readOnly ? null : (
           <>
             <Tip label="Undo (⌘Z)">
               <Button
-                size="icon"
+                size="icon-sm"
                 variant="ghost"
                 aria-label="Undo"
                 disabled={!canUndo}
                 onClick={() => store.undo()}
               >
-                <Undo2 size={16} />
+                <Icon icon={Undo02Icon} />
               </Button>
             </Tip>
             <Tip label="Redo (⇧⌘Z)">
               <Button
-                size="icon"
+                size="icon-sm"
                 variant="ghost"
                 aria-label="Redo"
                 disabled={!canRedo}
                 onClick={() => store.redo()}
               >
-                <Redo2 size={16} />
+                <Icon icon={Redo02Icon} />
               </Button>
             </Tip>
-            <span className="meb-divider" />
+            <Separator
+              orientation="vertical"
+              className="mx-1 data-vertical:h-5 data-vertical:self-center"
+            />
           </>
         )}
         <Segmented
           ariaLabel="Viewport"
+          fill={false}
           value={viewport}
           onChange={(next) => store.setViewport(next)}
           options={[
-            { value: 'desktop', label: <Monitor size={15} />, title: 'Desktop' },
-            { value: 'mobile', label: <Smartphone size={15} />, title: 'Mobile' },
+            { value: 'desktop', label: <Icon icon={ComputerIcon} />, title: 'Desktop' },
+            { value: 'mobile', label: <Icon icon={SmartPhone01Icon} />, title: 'Mobile' },
           ]}
         />
         {toolbar}
@@ -239,6 +266,7 @@ function Layout({ agent, toolbar }: { agent?: EditorAgent | undefined; toolbar?:
   const store = useEditorStore();
   const view = useEditorState((state) => state.view);
   const { readOnly } = useEditorOptions();
+  const stageClassName = useSlotClassName('stage');
   const root = useRef<HTMLDivElement>(null);
   const [portal, setPortal] = useState<HTMLDivElement | null>(null);
   const editingId = useEditorState((state) => state.editingId);
@@ -255,15 +283,34 @@ function Layout({ agent, toolbar }: { agent?: EditorAgent | undefined; toolbar?:
     }
   }, [editingId]);
 
+  const panels = !readOnly && view === 'design';
+
   return (
     <PortalContext.Provider value={portal}>
       <TooltipProvider>
-        <div ref={root} className="meb-shell" tabIndex={-1}>
+        <div
+          ref={root}
+          className="meb-shell @container/editor flex min-h-0 flex-1 flex-col outline-none"
+          tabIndex={-1}
+        >
           <TopBar toolbar={toolbar} />
           <EditorDnd>
-            <div className={cx('meb-main', readOnly && 'meb-main-readonly')}>
-              {readOnly || view !== 'design' ? null : <Sidebar />}
-              <main className="meb-stage">
+            <div
+              className={cn(
+                'grid min-h-0 flex-1',
+                panels
+                  ? 'grid-cols-[minmax(0,1fr)_260px] @3xl/editor:grid-cols-[220px_minmax(0,1fr)_260px] @5xl/editor:grid-cols-[248px_minmax(0,1fr)_300px]'
+                  : 'grid-cols-[minmax(0,1fr)]',
+              )}
+            >
+              {panels ? <Sidebar /> : null}
+              <main
+                data-slot="stage"
+                className={cn(
+                  'relative flex min-h-0 min-w-0 flex-col bg-editor-stage',
+                  stageClassName,
+                )}
+              >
                 {view === 'design' ? (
                   <Canvas
                     onAddFirst={() => {
@@ -278,13 +325,30 @@ function Layout({ agent, toolbar }: { agent?: EditorAgent | undefined; toolbar?:
                 )}
                 {agent && !readOnly ? <AgentPanel agent={agent} /> : null}
               </main>
-              {readOnly || view !== 'design' ? null : <Inspector />}
+              {panels ? <Inspector /> : null}
             </div>
           </EditorDnd>
         </div>
         <div ref={setPortal} className="meb-portal" />
       </TooltipProvider>
     </PortalContext.Provider>
+  );
+}
+
+const darkQuery = '(prefers-color-scheme: dark)';
+
+function subscribeToColorScheme(onChange: () => void): () => void {
+  const query = window.matchMedia(darkQuery);
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+}
+
+/** Whether the OS prefers dark mode; false while rendering on the server. */
+function useSystemDark(enabled: boolean): boolean {
+  return useSyncExternalStore(
+    enabled ? subscribeToColorScheme : () => () => {},
+    () => enabled && window.matchMedia(darkQuery).matches,
+    () => false,
   );
 }
 
@@ -303,6 +367,8 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(funct
     onPickImage,
     agent,
     toolbar,
+    appearance = 'inherit',
+    classNames,
     className,
     style,
   },
@@ -344,12 +410,25 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(funct
   const options = {
     readOnly,
     mergeTags,
+    ...(classNames ? { classNames } : {}),
     ...(onUploadImage ? { onUploadImage } : {}),
     ...(onPickImage ? { onPickImage } : {}),
   };
+  const systemDark = useSystemDark(appearance === 'system');
+  const dark = appearance === 'dark' || systemDark;
 
   return (
-    <div className={cx('meb-root', className)} style={style}>
+    <div
+      data-slot="editor"
+      className={cn(
+        'meb-root',
+        dark && 'dark',
+        appearance === 'light' && 'meb-light',
+        classNames?.root,
+        className,
+      )}
+      style={style}
+    >
       <EditorProvider store={store} options={options}>
         <Layout agent={agent} toolbar={toolbar} />
       </EditorProvider>

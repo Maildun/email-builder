@@ -6,7 +6,15 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": ["**", "!**/dist", "!**/node_modules", "!test/fixtures", "!**/*.snap"]
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/node_modules",
+      "!test/fixtures",
+      "!**/*.snap",
+      "!src/editor/ui/*.tsx",
+      "src/editor/ui/index.tsx"
+    ]
   },
   "formatter": {
     "indentStyle": "space",
@@ -23,6 +31,9 @@
   "css": {
     "formatter": {
       "quoteStyle": "single"
+    },
+    "parser": {
+      "tailwindDirectives": true
     }
   },
   "linter": {

@@ -1,6 +1,15 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
+import {
+  Add01Icon,
+  ArrowDown02Icon,
+  ArrowUp02Icon,
+  Copy01Icon,
+  CornerLeftUpIcon,
+  Delete02Icon,
+  DragDropVerticalIcon,
+  SquareDashedIcon,
+} from '@hugeicons/core-free-icons';
 import DOMPurify from 'dompurify';
-import { ArrowDown, ArrowUp, Copy, CornerLeftUp, GripVertical, Plus, Trash } from 'lucide-react';
 import {
   type CSSProperties,
   type MouseEvent,
@@ -18,15 +27,27 @@ import { findParent } from '../../core/tree';
 import { boxDeclarations, columnWidths, renderBlock, typeDeclarations } from '../../render/blocks';
 import { createRenderContext, innerWidth, type RenderContext } from '../../render/context';
 import { duplicateBlock, removeBlock } from '../actions';
-import { useEditorOptions, useEditorState, useEditorStore, useVisibleDocument } from '../context';
+import {
+  useEditorOptions,
+  useEditorState,
+  useEditorStore,
+  useSlotClassName,
+  useVisibleDocument,
+} from '../context';
 import { dropId, resolveDrop, useActiveDrag, useOverId } from '../dnd';
 import { BLOCK_ICONS } from '../meta';
-import { Button, cx, Tip } from '../ui';
+import { Button, cn, Icon, Tip } from '../ui';
 import { InlineText } from './InlineText';
 
 const MOBILE_WIDTH = 375;
 /** Toolbar height plus a small gap. */
 const TOOLBAR_SPACE = 32;
+/**
+ * Ghost buttons on the selection-colored block toolbar. The dark hover is
+ * restated so it replaces the ghost variant's own dark hover.
+ */
+const TOOLBAR_BUTTON =
+  'text-white hover:bg-white/20 hover:text-white aria-expanded:bg-white/20 aria-expanded:text-white dark:hover:bg-white/20';
 
 /** Converts `font-size: 16px` style declarations to a React style object. */
 export function toReactStyle(
@@ -69,7 +90,9 @@ function DropZone({
   return (
     <div
       ref={setNodeRef}
-      className={cx('meb-drop-zone', `meb-drop-${position}`, edge && 'meb-drop-edge')}
+      className="meb-drop-zone"
+      data-position={position}
+      data-edge={edge || undefined}
       aria-hidden
     />
   );
@@ -78,15 +101,19 @@ function DropZone({
 function InsideZone({ id }: { id: string }) {
   const drag = useActiveDrag();
   const { setNodeRef } = useDroppable({ id: dropId('canvas', 'inside', id), disabled: !drag });
-  return <div ref={setNodeRef} className="meb-drop-inside-zone" aria-hidden />;
+  return <div ref={setNodeRef} className="meb-drop-zone" data-position="inside" aria-hidden />;
 }
 
 function EmptySlot({ parentId, label }: { parentId: string; label: string }) {
   const overId = useOverId();
   const over = overId === dropId('canvas', 'inside', parentId);
   return (
-    <div className={cx('meb-empty-slot', over && 'meb-empty-slot-over')}>
-      <Plus size={14} /> {label}
+    <div
+      data-slot="empty-slot"
+      data-over={over || undefined}
+      className="m-1 flex min-h-12 items-center justify-center gap-1.5 rounded-md border border-current/30 border-dashed font-sans text-current/55 text-xs data-[over]:border-editor-selection data-[over]:bg-editor-selection-soft data-[over]:text-editor-selection"
+    >
+      <Icon icon={Add01Icon} className="size-3.5" /> {label}
     </div>
   );
 }
@@ -107,7 +134,6 @@ function BlockToolbar({ id, block }: { id: string; block: Block }) {
     id: `move|${id}`,
     data: { kind: 'move', id, blockType: block.type },
   });
-  const Icon = BLOCK_ICONS[block.type];
   const move = (delta: number) => {
     if (!parent) return;
     store.apply({ op: 'move', id, parentId: parent.parentId, index: parent.index + delta });
@@ -129,75 +155,86 @@ function BlockToolbar({ id, block }: { id: string; block: Block }) {
   return (
     <div
       ref={toolbar}
-      className="meb-block-toolbar"
+      data-slot="block-toolbar"
+      className={cn(
+        'meb-block-toolbar absolute -top-[30px] left-[-2px] z-5 flex h-7 items-center gap-px rounded-md rounded-bl-none bg-editor-selection px-0.5 font-sans text-white text-xs leading-none shadow-md',
+        'data-[placement=bottom]:top-[calc(100%+2px)] data-[placement=bottom]:rounded-bl-md data-[placement=bottom]:rounded-tl-none',
+        useSlotClassName('block-toolbar'),
+      )}
       data-placement={below ? 'bottom' : 'top'}
       onClick={stop}
       onDoubleClick={stop}
     >
-      <button
+      <Button
         ref={setNodeRef}
-        type="button"
-        className="meb-block-handle"
+        variant="ghost"
+        size="xs"
+        className={cn(TOOLBAR_BUTTON, 'cursor-grab touch-none gap-1 pr-1.5 pl-0.5 font-semibold')}
         aria-label="Drag to move"
         {...attributes}
         {...listeners}
       >
-        <GripVertical size={13} />
-        <Icon size={13} />
+        <Icon icon={DragDropVerticalIcon} data-icon="inline-start" />
+        <Icon icon={BLOCK_ICONS[block.type]} data-icon="inline-start" />
         <span>{BLOCK_DEFINITIONS[block.type].label}</span>
-      </button>
+      </Button>
       {parent && parent.parentId !== ROOT_ID ? (
         <Tip label="Select parent">
           <Button
-            size="icon"
+            size="icon-xs"
             variant="ghost"
+            className={TOOLBAR_BUTTON}
             aria-label="Select parent"
             onClick={() => store.selectParent()}
           >
-            <CornerLeftUp size={13} />
+            <Icon icon={CornerLeftUpIcon} />
           </Button>
         </Tip>
       ) : null}
       <Tip label="Move up">
         <Button
-          size="icon"
+          size="icon-xs"
           variant="ghost"
+          className={TOOLBAR_BUTTON}
           aria-label="Move up"
           disabled={!parent || parent.index === 0}
           onClick={() => move(-1)}
         >
-          <ArrowUp size={13} />
+          <Icon icon={ArrowUp02Icon} />
         </Button>
       </Tip>
       <Tip label="Move down">
         <Button
-          size="icon"
+          size="icon-xs"
           variant="ghost"
+          className={TOOLBAR_BUTTON}
           aria-label="Move down"
           disabled={!parent || parent.index >= siblings.length - 1}
           onClick={() => move(1)}
         >
-          <ArrowDown size={13} />
+          <Icon icon={ArrowDown02Icon} />
         </Button>
       </Tip>
       <Tip label="Duplicate">
         <Button
-          size="icon"
+          size="icon-xs"
           variant="ghost"
+          className={TOOLBAR_BUTTON}
           aria-label="Duplicate"
           onClick={(event) => duplicateBlock(store, id, event.currentTarget)}
         >
-          <Copy size={13} />
+          <Icon icon={Copy01Icon} />
         </Button>
       </Tip>
       <Tip label="Delete">
         <Button
-          size="icon"
+          size="icon-xs"
           variant="ghost"
+          className={TOOLBAR_BUTTON}
           aria-label="Delete"
           onClick={(event) => removeBlock(store, id, event.currentTarget)}
         >
-          <Trash size={13} />
+          <Icon icon={Delete02Icon} />
         </Button>
       </Tip>
     </div>
@@ -302,16 +339,14 @@ function BlockView({ id, ctx, available, mobile }: BlockViewProps) {
 
   return (
     <div
-      className={cx(
-        'meb-block',
-        `meb-block-${block.type}`,
-        selected && 'meb-selected',
-        editing && 'meb-editing',
-        changed && 'meb-changed',
-        dragged && 'meb-dragged',
-        indicator && `meb-indicator-${indicator}`,
-      )}
+      className="meb-block"
       data-block-id={id}
+      data-block-type={block.type}
+      data-selected={selected || undefined}
+      data-editing={editing || undefined}
+      data-changed={changed || undefined}
+      data-dragged={dragged || undefined}
+      data-indicator={indicator ?? undefined}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
     >
@@ -349,7 +384,7 @@ function ContainerView({
     return (
       <div style={boxStyle}>
         <div
-          className="meb-columns-row"
+          className="flex"
           style={{
             gap: stack ? 16 : gap,
             flexDirection: stack ? 'column' : 'row',
@@ -359,7 +394,7 @@ function ContainerView({
           {block.children.map((childId, index) => (
             <div
               key={childId}
-              className="meb-column-cell"
+              className="min-w-0"
               style={
                 stack ? undefined : { flex: `0 0 ${widths[index] ?? 0}px`, maxWidth: widths[index] }
               }
@@ -395,7 +430,7 @@ function ContainerView({
 function RootDropZone() {
   const drag = useActiveDrag();
   const { setNodeRef } = useDroppable({ id: dropId('canvas', 'inside', ROOT_ID), disabled: !drag });
-  return <div ref={setNodeRef} className="meb-drop-inside-zone" aria-hidden />;
+  return <div ref={setNodeRef} className="meb-drop-zone" data-position="inside" aria-hidden />;
 }
 
 export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
@@ -412,18 +447,20 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
   const outer = resolvePadding(settings.padding);
   const canvasBorder = ctx.color(settings.borderColor);
   const rootOver = overId === dropId('canvas', 'inside', ROOT_ID);
+  const slotClassName = useSlotClassName('canvas');
   const validRootDrop = drag
     ? resolveDrop(store.getState().document, drag, 'inside', ROOT_ID) !== null
     : false;
 
   return (
     <div
-      className="meb-canvas-scroll"
+      data-slot="canvas"
+      className={cn('meb-canvas-scroll min-h-0 flex-1 overflow-auto', slotClassName)}
       style={{ background: ctx.color(settings.backdropColor, '$background') }}
       onClick={() => store.select(null)}
     >
       <div
-        className="meb-backdrop"
+        className="meb-backdrop min-h-full px-6 py-8"
         style={{
           paddingTop: outer.top,
           // Leave room for the floating assistant so the end of the email stays reachable.
@@ -431,11 +468,9 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
         }}
       >
         <div
-          className={cx(
-            'meb-email',
-            mobile && 'meb-email-mobile',
-            rootOver && validRootDrop && 'meb-root-over',
-          )}
+          className="meb-email data-[drop-target]:outline-2 data-[drop-target]:outline-editor-selection data-[drop-target]:outline-offset-4 data-[drop-target]:outline-dashed"
+          data-viewport={viewport}
+          data-drop-target={(rootOver && validRootDrop) || undefined}
           style={{
             maxWidth: width,
             background: ctx.color(settings.canvasColor, '$surface'),
@@ -451,21 +486,28 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
             <BlockView key={id} id={id} ctx={ctx} available={width} mobile={mobile} />
           ))}
           {document.root.length === 0 && !readOnly ? (
-            <div className="meb-empty-email">
-              <p>Your email is empty.</p>
-              <p className="meb-muted">
-                Drag blocks or sections here, click one in the sidebar, or ask the assistant.
-              </p>
+            <div
+              data-slot="empty-email"
+              className="flex flex-col items-center gap-4 px-6 py-16 text-center font-sans text-sm"
+            >
+              <div className="flex max-w-sm flex-col items-center gap-2">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-foreground">
+                  <Icon icon={SquareDashedIcon} className="size-5" />
+                </div>
+                <p className="font-medium">Your email is empty.</p>
+                <p className="text-pretty text-muted-foreground">
+                  Drag blocks or sections here, click one in the sidebar, or ask the assistant.
+                </p>
+              </div>
               {onAddFirst ? (
                 <Button
-                  variant="primary"
                   size="sm"
                   onClick={(event) => {
                     event.stopPropagation();
                     onAddFirst();
                   }}
                 >
-                  <Plus size={14} /> Add a text block
+                  <Icon icon={Add01Icon} data-icon="inline-start" /> Add a text block
                 </Button>
               ) : null}
             </div>

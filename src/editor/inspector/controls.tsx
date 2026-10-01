@@ -1,10 +1,20 @@
-import { Braces, Images, ImageUp, Link2, Square, SquareDashed, X } from 'lucide-react';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  BracesIcon,
+  Cancel01Icon,
+  Image02Icon,
+  ImageUploadIcon,
+  Link01Icon,
+  SquareDashedIcon,
+  SquareIcon,
+} from '@hugeicons/core-free-icons';
+import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { resolveColor } from '../../core/colors';
 import type { Theme } from '../../core/schema/document';
 import { type Padding, resolvePadding, THEME_COLOR_TOKENS } from '../../core/schema/primitives';
 import { useEditorOptions } from '../context';
-import { Button, cx, NumberInput, Popover, Tip } from '../ui';
+import { Button, cn, Icon, Input, NumberInput, Popover, Spinner, Textarea, Tip } from '../ui';
+import { FieldDescription, Field as FieldRoot, FieldTitle } from '../ui/field';
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../ui/input-group';
 
 /**
  * Keeps a local draft so in-progress values that do not validate yet
@@ -35,6 +45,43 @@ export function useDraft<T>(value: T, commit: (next: T) => string | null) {
 
 export type Commit<T> = (value: T) => string | null;
 
+/** Inline validation message under a control. */
+function ErrorText({ id, children }: { id?: string; children: ReactNode }) {
+  return (
+    <p data-slot="field-error" id={id} className="text-xs whitespace-pre-wrap text-destructive">
+      {children}
+    </p>
+  );
+}
+
+const MENU_TITLE = 'text-xs font-medium tracking-wide text-muted-foreground uppercase';
+
+/**
+ * A labelled form row for composite controls (option rows, padding) that have
+ * no single labelable element: the title labels the whole group instead of
+ * pointing a `<label for>` at a non-input.
+ */
+export function GroupField({
+  label,
+  hint,
+  children,
+}: {
+  label: ReactNode;
+  hint?: ReactNode;
+  children: (labelId: string) => ReactNode;
+}) {
+  const labelId = useId();
+  return (
+    <FieldRoot aria-labelledby={labelId} className="gap-1.5">
+      <FieldTitle id={labelId} className="text-xs leading-snug font-medium text-muted-foreground">
+        {label}
+      </FieldTitle>
+      {children(labelId)}
+      {hint ? <FieldDescription className="text-xs">{hint}</FieldDescription> : null}
+    </FieldRoot>
+  );
+}
+
 export function TextInput({
   id,
   value,
@@ -55,28 +102,34 @@ export function TextInput({
   const { draft, error, change } = useDraft(value ?? '', (next) =>
     onCommit(next === '' ? undefined : next),
   );
-  const className = cx('meb-input', mono && 'meb-mono', error && 'meb-invalid');
+  const errorId = `${id}-error`;
+  const shared = {
+    id,
+    value: draft,
+    placeholder,
+    'aria-invalid': error ? true : undefined,
+    'aria-describedby': error ? errorId : undefined,
+  } as const;
   return (
     <>
       {multiline ? (
-        <textarea
-          id={id}
-          className={cx(className, 'meb-textarea')}
+        <Textarea
+          {...shared}
           rows={rows}
-          value={draft}
-          placeholder={placeholder}
+          className={cn(
+            'field-sizing-fixed min-h-0 resize-y text-sm leading-normal',
+            mono && 'font-mono text-xs',
+          )}
           onChange={(event) => change(event.target.value)}
         />
       ) : (
-        <input
-          id={id}
-          className={className}
-          value={draft}
-          placeholder={placeholder}
+        <Input
+          {...shared}
+          className={cn('h-8 text-sm', mono && 'font-mono text-xs')}
           onChange={(event) => change(event.target.value)}
         />
       )}
-      {error ? <p className="meb-error">{error}</p> : null}
+      {error ? <ErrorText id={errorId}>{error}</ErrorText> : null}
     </>
   );
 }
@@ -91,26 +144,27 @@ export function MergeTagMenu({ onInsert }: { onInsert: (tag: string) => void }) 
       open={open}
       onOpenChange={setOpen}
       align="end"
+      className="w-auto min-w-56 p-2"
       trigger={
-        <Button variant="ghost" size="icon" aria-label="Insert merge tag">
-          <Braces size={14} />
-        </Button>
+        <InputGroupButton size="icon-xs" aria-label="Insert merge tag">
+          <Icon icon={BracesIcon} />
+        </InputGroupButton>
       }
     >
-      <div className="meb-menu">
-        <p className="meb-menu-title">Insert merge tag</p>
+      <div data-slot="merge-tag-menu" className="flex max-h-75 flex-col overflow-y-auto">
+        <p className={cn(MENU_TITLE, 'px-2 pt-1 pb-1.5')}>Insert merge tag</p>
         {mergeTags.map((tag) => (
           <button
             key={tag.key}
             type="button"
-            className="meb-menu-item"
+            className="flex cursor-pointer items-center justify-between gap-3 rounded-sm px-2 py-1.5 text-left text-sm outline-none hover:bg-accent hover:text-accent-foreground focus-visible:bg-accent focus-visible:text-accent-foreground"
             onClick={() => {
               onInsert(`{{ ${tag.key} }}`);
               setOpen(false);
             }}
           >
-            <span>{tag.label ?? tag.key}</span>
-            <code>{`{{ ${tag.key} }}`}</code>
+            <span className="truncate">{tag.label ?? tag.key}</span>
+            <code className="font-mono text-xs text-muted-foreground">{`{{ ${tag.key} }}`}</code>
           </button>
         ))}
       </div>
@@ -132,21 +186,28 @@ export function UrlInput({
   const { draft, error, change } = useDraft(value ?? '', (next) =>
     onCommit(next.trim() === '' ? undefined : next.trim()),
   );
+  const errorId = `${id}-error`;
   return (
     <>
-      <div className="meb-input-group">
-        <Link2 size={14} className="meb-input-icon" />
-        <input
+      <InputGroup className="h-8">
+        <InputGroupAddon align="inline-start">
+          <Icon icon={Link01Icon} className="size-3.5" />
+        </InputGroupAddon>
+        <InputGroupInput
           id={id}
-          className={cx('meb-input', error && 'meb-invalid')}
+          className="h-8 text-sm"
           value={draft}
           placeholder={placeholder}
           spellCheck={false}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
           onChange={(event) => change(event.target.value)}
         />
-        <MergeTagMenu onInsert={(tag) => change(tag)} />
-      </div>
-      {error ? <p className="meb-error">{error}</p> : null}
+        <InputGroupAddon align="inline-end" className="empty:hidden">
+          <MergeTagMenu onInsert={(tag) => change(tag)} />
+        </InputGroupAddon>
+      </InputGroup>
+      {error ? <ErrorText id={errorId}>{error}</ErrorText> : null}
     </>
   );
 }
@@ -187,10 +248,10 @@ export function ImageInput({
     <>
       <UrlInput id={id} value={value} onCommit={onCommit} placeholder="https://…/image.png" />
       {onUploadImage || onPickImage ? (
-        <div className="meb-row meb-gap-sm">
+        <div data-slot="image-input-actions" className="flex items-center gap-1.5">
           {onPickImage ? (
             <Button size="sm" variant="outline" disabled={busy} onClick={() => run(onPickImage)}>
-              <Images size={14} /> Choose
+              <Icon icon={Image02Icon} data-icon="inline-start" /> Choose
             </Button>
           ) : null}
           {onUploadImage ? (
@@ -201,7 +262,12 @@ export function ImageInput({
                 disabled={busy}
                 onClick={() => fileInput.current?.click()}
               >
-                <ImageUp size={14} /> {busy ? 'Uploading…' : 'Upload'}
+                {busy ? (
+                  <Spinner data-icon="inline-start" aria-hidden />
+                ) : (
+                  <Icon icon={ImageUploadIcon} data-icon="inline-start" />
+                )}{' '}
+                {busy ? 'Uploading…' : 'Upload'}
               </Button>
               <input
                 ref={fileInput}
@@ -218,7 +284,7 @@ export function ImageInput({
           ) : null}
         </div>
       ) : null}
-      {failure ? <p className="meb-error">{failure}</p> : null}
+      {failure ? <ErrorText>{failure}</ErrorText> : null}
     </>
   );
 }
@@ -235,6 +301,14 @@ const SWATCHES = [
   '#8b5cf6',
   '#ec4899',
 ];
+
+/** A color chip. The fill comes from an inline style (it is user data). */
+const SWATCH = 'inline-block shrink-0 rounded-[5px] inset-ring inset-ring-foreground/15';
+const SWATCH_BUTTON = cn(
+  SWATCH,
+  'size-5.5 cursor-pointer p-0 outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+  'data-active:outline-2 data-active:outline-offset-2 data-active:outline-solid data-active:outline-editor-selection',
+);
 
 export function ColorInput({
   id,
@@ -256,92 +330,110 @@ export function ColorInput({
     onCommit(next === '' ? undefined : next),
   );
   const label = value?.startsWith('$') ? value.slice(1) : value;
+  const errorId = `${id}-error`;
 
   return (
     <>
       <Popover
-        className="meb-color-popover"
+        className="w-60.5 gap-2.5"
         trigger={
-          <button
+          <Button
             id={id}
-            type="button"
-            className={cx('meb-input', 'meb-color-trigger', error && 'meb-invalid')}
+            variant="outline"
+            size="sm"
+            className="w-full justify-start gap-2 px-2.5 font-normal"
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? errorId : undefined}
           >
             <span
-              className={cx('meb-swatch', !resolved && 'meb-swatch-empty')}
+              data-slot="color-swatch"
+              className={cn(
+                SWATCH,
+                'size-4.5',
+                !resolved &&
+                  'bg-background bg-[linear-gradient(135deg,transparent_45%,var(--destructive)_45%,var(--destructive)_55%,transparent_55%)]',
+              )}
               style={resolved && resolved !== 'transparent' ? { background: resolved } : undefined}
             />
-            <span className={cx('meb-color-label', !value && 'meb-muted')}>
+            <span className={cn('truncate', !value && 'text-muted-foreground')}>
               {label ?? placeholder}
             </span>
-          </button>
+          </Button>
         }
       >
-        <p className="meb-menu-title">Theme</p>
-        <div className="meb-swatches">
-          {THEME_COLOR_TOKENS.map((token) => (
-            <Tip key={token} label={`$${token}`}>
-              <button
-                type="button"
-                aria-label={`Theme ${token}`}
-                className={cx(
-                  'meb-swatch',
-                  'meb-swatch-button',
-                  value === `$${token}` && 'meb-swatch-active',
-                )}
-                style={{ background: theme.colors[token] }}
-                onClick={() => change(`$${token}`)}
-              />
-            </Tip>
-          ))}
+        <div className="flex flex-col gap-1.5">
+          <p className={MENU_TITLE}>Theme</p>
+          <div className="grid grid-cols-[repeat(8,22px)] gap-1.5">
+            {THEME_COLOR_TOKENS.map((token) => {
+              const active = value === `$${token}`;
+              return (
+                <Tip key={token} label={`$${token}`}>
+                  <button
+                    type="button"
+                    aria-label={`Theme ${token}`}
+                    aria-pressed={active}
+                    data-active={active || undefined}
+                    className={SWATCH_BUTTON}
+                    style={{ background: theme.colors[token] }}
+                    onClick={() => change(`$${token}`)}
+                  />
+                </Tip>
+              );
+            })}
+          </div>
         </div>
-        <p className="meb-menu-title">Colors</p>
-        <div className="meb-swatches">
-          {SWATCHES.map((swatch) => (
-            <button
-              key={swatch}
-              type="button"
-              aria-label={swatch}
-              className={cx(
-                'meb-swatch',
-                'meb-swatch-button',
-                value?.toLowerCase() === swatch && 'meb-swatch-active',
-              )}
-              style={{ background: swatch }}
-              onClick={() => change(swatch)}
-            />
-          ))}
+        <div className="flex flex-col gap-1.5">
+          <p className={MENU_TITLE}>Colors</p>
+          <div className="grid grid-cols-[repeat(8,22px)] gap-1.5">
+            {SWATCHES.map((swatch) => {
+              const active = value?.toLowerCase() === swatch;
+              return (
+                <button
+                  key={swatch}
+                  type="button"
+                  aria-label={swatch}
+                  aria-pressed={active}
+                  data-active={active || undefined}
+                  className={SWATCH_BUTTON}
+                  style={{ background: swatch }}
+                  onClick={() => change(swatch)}
+                />
+              );
+            })}
+          </div>
         </div>
-        <div className="meb-row meb-gap-sm meb-mt">
+        <div className="flex items-center gap-1.5">
           <input
             type="color"
-            className="meb-native-color"
+            className="size-8 shrink-0 cursor-pointer rounded-md border border-input bg-background p-0.5"
             aria-label="Pick a color"
             value={resolved && /^#[0-9a-f]{6}$/i.test(resolved) ? resolved : '#000000'}
             onChange={(event) => change(event.target.value)}
           />
-          <input
-            className={cx('meb-input', 'meb-mono', error && 'meb-invalid')}
+          <Input
+            className="h-8 font-mono text-xs"
+            aria-label="Color value"
             value={draft}
             placeholder="#1f6feb or $primary"
             spellCheck={false}
+            aria-invalid={error ? true : undefined}
             onChange={(event) => change(event.target.value)}
           />
           {allowClear ? (
             <Tip label="Use default">
               <Button
                 variant="ghost"
-                size="icon"
+                size="icon-sm"
                 aria-label="Use default color"
                 onClick={() => change('')}
               >
-                <X size={14} />
+                <Icon icon={Cancel01Icon} />
               </Button>
             </Tip>
           ) : null}
         </div>
       </Popover>
-      {error ? <p className="meb-error">{error}</p> : null}
+      {error ? <ErrorText id={errorId}>{error}</ErrorText> : null}
     </>
   );
 }
@@ -363,27 +455,35 @@ export function PaddingInput({
 
   const sides = ['top', 'right', 'bottom', 'left'] as const;
   return (
-    <div className="meb-padding">
+    <div data-slot="padding-input" className="flex items-start gap-1">
       {linked ? (
-        <NumberInput
-          value={padding.top}
-          min={0}
-          max={200}
-          unit="px"
-          onChange={(next) => onCommit(next ?? 0)}
-        />
+        <div className="min-w-0 flex-1">
+          <NumberInput
+            ariaLabel="Padding all sides"
+            value={padding.top}
+            min={0}
+            max={200}
+            unit="px"
+            onChange={(next) => onCommit(next ?? 0)}
+          />
+        </div>
       ) : (
-        <div className="meb-padding-grid">
+        <div className="grid min-w-0 flex-1 grid-cols-2 gap-1.5">
           {sides.map((side) => (
-            <div key={side} className="meb-padding-side">
+            <div
+              key={side}
+              className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground"
+            >
               <span aria-hidden>{side[0]?.toUpperCase()}</span>
-              <NumberInput
-                ariaLabel={`Padding ${side}`}
-                value={padding[side]}
-                min={0}
-                max={200}
-                onChange={(next) => onCommit({ ...padding, [side]: next ?? 0 })}
-              />
+              <div className="min-w-0 flex-1">
+                <NumberInput
+                  ariaLabel={`Padding ${side}`}
+                  value={padding[side]}
+                  min={0}
+                  max={200}
+                  onChange={(next) => onCommit({ ...padding, [side]: next ?? 0 })}
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -391,11 +491,11 @@ export function PaddingInput({
       <Tip label={linked ? 'Set sides separately' : 'Same on all sides'}>
         <Button
           variant="ghost"
-          size="icon"
+          size="icon-sm"
           aria-label={linked ? 'Set sides separately' : 'Same on all sides'}
           onClick={() => setLinked(!linked)}
         >
-          {linked ? <SquareDashed size={14} /> : <Square size={14} />}
+          <Icon icon={linked ? SquareDashedIcon : SquareIcon} />
         </Button>
       </Tip>
     </div>
@@ -404,9 +504,11 @@ export function PaddingInput({
 
 export function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="meb-section">
-      <h3 className="meb-section-title">{title}</h3>
-      <div className="meb-section-body">{children}</div>
+    <section data-slot="inspector-section" className="flex flex-col gap-2.5 border-b p-4">
+      <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h3>
+      <div data-slot="inspector-section-body" className="flex flex-col gap-3">
+        {children}
+      </div>
     </section>
   );
 }

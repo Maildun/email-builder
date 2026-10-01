@@ -15,7 +15,10 @@
     "skipLibCheck": true,
     "declaration": true,
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["src", "test", "tsdown.config.ts", "vitest.config.ts"]
 }

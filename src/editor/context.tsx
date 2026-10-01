@@ -12,9 +12,23 @@ export interface ImageResult {
   alt?: string;
 }
 
+/** Parts of the editor that accept a class name and carry a matching `data-slot`. */
+export type EditorSlot =
+  | 'root'
+  | 'topbar'
+  | 'sidebar'
+  | 'stage'
+  | 'canvas'
+  | 'inspector'
+  | 'assistant'
+  | 'block-toolbar';
+
+export type EditorClassNames = Partial<Record<EditorSlot, string>>;
+
 export interface EditorOptions {
   readOnly: boolean;
   mergeTags: MergeTag[];
+  classNames?: EditorClassNames;
   onUploadImage?: (file: File) => Promise<ImageResult>;
   onPickImage?: () => Promise<ImageResult | null>;
 }
@@ -64,4 +78,9 @@ export function useVisibleDocument() {
 
 export function useEditorOptions(): EditorOptions {
   return useContext(OptionsContext);
+}
+
+/** The host's extra class name for one part of the editor. */
+export function useSlotClassName(slot: EditorSlot): string | undefined {
+  return useContext(OptionsContext).classNames?.[slot];
 }

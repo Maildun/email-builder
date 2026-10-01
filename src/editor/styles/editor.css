@@ -1,0 +1,231 @@
+/*
+ * Hand-written editor CSS: the root element, the editor's own tokens, and the
+ * email canvas. Panels and controls are styled with Tailwind classes instead.
+ *
+ * Public knobs are `--meb-*` variables; set them on `.meb-root` or any
+ * ancestor. `--editor-*` variables are the resolved values used internally.
+ */
+
+.meb-root {
+  --editor-selection: var(--meb-selection, oklch(0.546 0.245 262.881));
+  --editor-selection-soft: var(--meb-selection-soft, oklch(0.546 0.245 262.881 / 0.08));
+  --editor-ai: var(--meb-ai, oklch(0.541 0.281 293.009));
+  --editor-ai-soft: var(--meb-ai-soft, oklch(0.541 0.281 293.009 / 0.08));
+  --editor-stage: var(--meb-stage, color-mix(in oklch, var(--muted) 60%, var(--background)));
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 480px;
+  min-width: 0;
+  overflow: hidden;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--meb-font, var(--font-sans));
+  font-size: 0.875rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.meb-root.dark,
+.dark .meb-root:not(.meb-light) {
+  --editor-selection: var(--meb-selection, oklch(0.623 0.214 259.815));
+  --editor-selection-soft: var(--meb-selection-soft, oklch(0.623 0.214 259.815 / 0.14));
+  --editor-ai: var(--meb-ai, oklch(0.702 0.183 293.541));
+  --editor-ai-soft: var(--meb-ai-soft, oklch(0.702 0.183 293.541 / 0.14));
+}
+
+/* ---------- Canvas ---------- */
+
+.meb-email {
+  position: relative;
+  margin: 0 auto;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.04),
+    0 8px 32px rgb(0 0 0 / 0.06);
+  transition: max-width 200ms ease;
+}
+
+/*
+ * The canvas shows real email HTML, which relies on browser defaults. Undo
+ * what a global reset on the host page (such as Tailwind's preflight) changes,
+ * property by property: `all: revert` would also drop HTML attributes like
+ * `align="center"` that email markup depends on. Inline styles still win.
+ */
+.meb-leaf :where(*) {
+  box-sizing: content-box;
+}
+
+.meb-leaf :where(ul, ol),
+.meb-inline-editor :where(ul, ol) {
+  margin: revert;
+  padding: revert;
+  list-style: revert;
+}
+
+.meb-leaf :where(h1, h2, h3, h4, h5, h6),
+.meb-inline-editor :where(h1, h2, h3, h4, h5, h6) {
+  font-size: revert;
+  font-weight: revert;
+}
+
+.meb-leaf :where(a),
+.meb-inline-editor :where(a) {
+  color: revert;
+  text-decoration: revert;
+}
+
+.meb-leaf :where(img) {
+  display: revert;
+  vertical-align: revert;
+}
+
+/* `align="center"` on a table centers it with auto margins; resets zero them. */
+.meb-leaf :where(table[align='center']) {
+  margin-inline: auto;
+}
+
+.meb-email table {
+  border-collapse: collapse;
+}
+
+.meb-email :is(h1, h2, h3, p) {
+  margin: 0;
+}
+
+.meb-leaf a {
+  pointer-events: none;
+}
+
+.meb-leaf img {
+  max-width: 100%;
+}
+
+.meb-block {
+  position: relative;
+  cursor: default;
+}
+
+.meb-block::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.meb-block:hover::after {
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--editor-selection) 45%, transparent);
+}
+
+.meb-block:has(.meb-block:hover)::after {
+  box-shadow: none;
+}
+
+.meb-block[data-selected]::after,
+.meb-block[data-selected]:hover::after,
+.meb-block[data-selected]:has(.meb-block:hover)::after,
+.meb-block[data-editing]::after {
+  box-shadow: inset 0 0 0 2px var(--editor-selection);
+}
+
+.meb-block[data-changed]::after,
+.meb-block[data-changed]:hover::after {
+  box-shadow: inset 0 0 0 2px var(--editor-ai);
+  background: var(--editor-ai-soft);
+}
+
+.meb-block[data-dragged] {
+  opacity: 0.35;
+}
+
+/* Drop targets are measured by dnd-kit but never intercept the pointer. */
+.meb-drop-zone {
+  position: absolute;
+  right: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.meb-drop-zone[data-position='before'] {
+  top: 0;
+  height: 50%;
+}
+
+.meb-drop-zone[data-position='after'] {
+  bottom: 0;
+  height: 50%;
+}
+
+.meb-drop-zone[data-edge] {
+  height: 14px;
+}
+
+.meb-drop-zone[data-position='inside'] {
+  inset: 0;
+  height: auto;
+}
+
+.meb-block:is([data-indicator='before'], [data-indicator='after'])::before {
+  content: '';
+  position: absolute;
+  right: 0;
+  left: 0;
+  z-index: 6;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--editor-selection);
+  pointer-events: none;
+}
+
+.meb-block[data-indicator='before']::before {
+  top: -2px;
+}
+
+.meb-block[data-indicator='after']::before {
+  bottom: -2px;
+}
+
+.meb-block[data-indicator='inside']::after {
+  box-shadow: inset 0 0 0 2px var(--editor-selection);
+  background: var(--editor-selection-soft);
+}
+
+/* ---------- Inline text editing ---------- */
+
+.meb-inline-editor {
+  outline: none;
+  cursor: text;
+}
+
+.meb-inline-editor p {
+  margin: 0;
+}
+
+.meb-inline-editor :is(p, ul, ol) + :is(p, ul, ol) {
+  margin-top: 1em;
+}
+
+.meb-inline-editor :is(ul, ol) {
+  margin: 0;
+  padding-left: 24px;
+}
+
+.meb-inline-editor a {
+  color: var(--meb-link, inherit);
+  text-decoration: underline;
+}
+
+.meb-inline-editor code {
+  font-family: monospace;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meb-root *,
+  .meb-root *::before,
+  .meb-root *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
