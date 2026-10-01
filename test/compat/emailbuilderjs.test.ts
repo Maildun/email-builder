@@ -73,6 +73,36 @@ describe('fromEmailBuilderJs', () => {
     expect(document.blocks.t1).toMatchObject({ props: { markdown: '\\*not italic\\*' } });
   });
 
+  it('keeps text-only two-column rows side by side on mobile and stacks media rows', () => {
+    const { document } = fromEmailBuilderJs({
+      root: { type: 'EmailLayout', data: { childrenIds: ['pair', 'media'] } },
+      pair: {
+        type: 'ColumnsContainer',
+        data: {
+          props: {
+            columnsCount: 2,
+            columns: [{ childrenIds: ['l'] }, { childrenIds: ['v'] }, { childrenIds: [] }],
+          },
+        },
+      },
+      l: { type: 'Text', data: { props: { text: 'Taxes' } } },
+      v: { type: 'Text', data: { props: { text: '$0.00' } } },
+      media: {
+        type: 'ColumnsContainer',
+        data: {
+          props: {
+            columnsCount: 2,
+            columns: [{ childrenIds: ['img'] }, { childrenIds: [] }, { childrenIds: [] }],
+          },
+        },
+      },
+      img: { type: 'Image', data: { props: { url: 'https://x.test/a.png' } } },
+    });
+    expect(document.blocks.pair?.props).toMatchObject({ stackOnMobile: false });
+    expect(document.blocks.media?.props).toMatchObject({ stackOnMobile: true });
+    expect(document.blocks.img?.props).not.toHaveProperty('width');
+  });
+
   it('reports dropped content and falls back to html for tables', () => {
     const { document, warnings } = fromEmailBuilderJs({
       root: { type: 'EmailLayout', data: { childrenIds: ['t', 'x'] } },

@@ -59,7 +59,7 @@ export const ImageProps = z.strictObject({
   width: z
     .union([z.number().int().min(1).max(1200), z.literal('full')])
     .optional()
-    .describe('Width in px, or "full" to fill the content width.'),
+    .describe('Width in px, or "full" to fill the content width. Omit to keep the natural size.'),
   height: z.number().int().min(1).max(2000).optional().describe('Height in px. Usually omitted.'),
 });
 

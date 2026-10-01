@@ -1,10 +1,15 @@
 import { type Padding, resolvePadding } from '../core/schema/primitives';
 
-/** Builds an inline style string, skipping empty values. */
+/**
+ * Builds an inline style string, skipping empty values. Double quotes (as in
+ * font stacks) become single quotes so the result is safe inside `style="…"`.
+ */
 export function css(declarations: Record<string, string | number | undefined | false>): string {
   return Object.entries(declarations)
     .filter(([, value]) => value !== undefined && value !== false && value !== '')
-    .map(([property, value]) => `${property}:${value}`)
+    .map(
+      ([property, value]) => `${property}:${String(value).replace(/"/g, "'").replace(/[<>]/g, '')}`,
+    )
     .join(';');
 }
 

@@ -35,6 +35,9 @@ export interface FieldGroup {
   fields: FieldSpec[];
 }
 
+/** Select value meaning "unset, use the default" (Base UI treats '' as no selection). */
+export const DEFAULT_OPTION = '__default';
+
 export const FONT_OPTIONS = FONT_KEYS.map((key) => ({
   value: key,
   label: FONT_FAMILIES[key].label,
@@ -73,7 +76,7 @@ const TYPOGRAPHY: FieldSpec[] = [
     scope: 'style',
     label: 'Font',
     kind: 'select',
-    options: [{ value: '', label: 'Theme font' }, ...FONT_OPTIONS],
+    options: [{ value: DEFAULT_OPTION, label: 'Theme font' }, ...FONT_OPTIONS],
   },
   {
     key: 'fontSize',
@@ -197,7 +200,7 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
           scope: 'style',
           label: 'Font',
           kind: 'select',
-          options: [{ value: '', label: 'Theme font' }, ...FONT_OPTIONS],
+          options: [{ value: DEFAULT_OPTION, label: 'Theme font' }, ...FONT_OPTIONS],
         },
         {
           key: 'fontSize',

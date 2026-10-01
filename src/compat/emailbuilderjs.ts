@@ -294,8 +294,13 @@ export function fromEmailBuilderJs(input: unknown): ImportResult {
         });
 
         const columnIds: string[] = [];
+        const contentTypes = new Set<string>();
         for (let index = 0; index < count; index++) {
           const children = convertChildren(columns[index]?.childrenIds);
+          for (const childId of children) {
+            const child = blocks[childId];
+            if (child) contentTypes.add(child.type);
+          }
           const fixedWidth = fixed[index];
           const columnId = claimId(`${id}-col-${index + 1}`);
           add(columnId, {
@@ -320,7 +325,11 @@ export function fromEmailBuilderJs(input: unknown): ImportResult {
           props: clean({
             gap,
             verticalAlign: props.contentAlignment ?? 'middle',
-            stackOnMobile: true,
+            // EmailBuilder.js never stacks. Keep short text rows (label/value
+            // pairs) side by side; stack wider or media-heavy rows.
+            stackOnMobile:
+              count === 3 ||
+              ['image', 'avatar', 'button', 'columns'].some((type) => contentTypes.has(type)),
           }),
           style: clean({ padding: style.padding, backgroundColor: style.backgroundColor }),
           children: columnIds,

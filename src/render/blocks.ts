@@ -229,10 +229,14 @@ function renderImage(
     return box(ctx, id, block.style, '');
   }
   const contentWidth = innerWidth(available, block.style?.padding, block.style?.border);
+  // "full" fills the content width; a number is a fixed width; no width keeps
+  // the image's natural size (capped at the content width).
   const width =
-    props.width === 'full' || props.width === undefined
+    props.width === 'full'
       ? contentWidth
-      : Math.min(props.width, contentWidth);
+      : props.width === undefined
+        ? undefined
+        : Math.min(props.width, contentWidth);
   const align = block.style?.align ?? 'center';
   const imgStyle = css({
     display: 'block',
@@ -244,8 +248,9 @@ function renderImage(
     outline: 'none',
     'text-decoration': 'none',
   });
+  const widthAttr = width !== undefined ? ` width="${width}"` : '';
   const height = props.height ? ` height="${props.height}"` : '';
-  let img = `<img src="${src}" alt="${escapeHtml(props.alt ?? '')}" width="${width}"${height} style="${imgStyle}">`;
+  let img = `<img src="${src}" alt="${escapeHtml(props.alt ?? '')}"${widthAttr}${height} style="${imgStyle}">`;
   const href = safeUrl(props.href);
   if (href) {
     img = `<a href="${href}" target="_blank" style="text-decoration:none">${img}</a>`;
@@ -327,6 +332,9 @@ function renderColumns(
   renderChild: ChildRenderer,
 ): string {
   const widths = columnWidths(ctx, block, available);
+  const rowWidth =
+    widths.reduce((sum, width) => sum + width, 0) +
+    (block.props.gap ?? 0) * (block.children.length - 1);
   const gap = block.props.gap ?? 0;
   const stack = block.props.stackOnMobile ?? true;
   const valign = block.props.verticalAlign ?? 'top';
@@ -337,7 +345,10 @@ function renderColumns(
       const right = index === count - 1 ? 0 : Math.floor(gap / 2);
       const width = (widths[index] ?? 0) + left + right;
       const className = stack ? ` class="meb-col${index > 0 ? ' meb-col-next' : ''}"` : '';
-      return `<td${className} width="${width}" valign="${valign}" style="${css({ width: px(width), 'padding-left': px(left), 'padding-right': px(right), 'vertical-align': valign })}">${renderChild(childId, widths[index] ?? 0)}</td>`;
+      // Pixel width attribute for Outlook; percentage CSS width so rows that
+      // do not stack still shrink on screens narrower than the email.
+      const percent = rowWidth > 0 ? `${Math.round((width / rowWidth) * 10000) / 100}%` : undefined;
+      return `<td${className} width="${width}" valign="${valign}" style="${css({ width: percent, 'padding-left': px(left), 'padding-right': px(right), 'vertical-align': valign })}">${renderChild(childId, widths[index] ?? 0)}</td>`;
     })
     .join('');
   return box(

@@ -17,6 +17,17 @@ const MERGE_TAGS = [
   { key: 'web_view_url', label: 'View in browser' },
 ];
 
+/** "Add a hero for our spring sale" → "Our spring sale". */
+function headlineFrom(prompt: string): string {
+  const topic = prompt
+    .replace(
+      /^(please\s+)?(add|write|create|make)\s+(a|an|the)?\s*(hero|section|banner)?\s*(for|about)?\s*/i,
+      '',
+    )
+    .trim();
+  return topic ? `${topic[0]?.toUpperCase()}${topic.slice(1, 60)}` : 'Spring sale';
+}
+
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Scripted agent that drives the real tools, for trying the flow without an API key. */
@@ -60,9 +71,7 @@ const demoAgent: EditorAgent = {
         name: 'hero',
         index: 0,
         params: {
-          heading:
-            request.prompt.replace(/^(add|write|create)\s+(a\s+)?/i, '').slice(0, 60) ||
-            'Spring sale',
+          heading: headlineFrom(request.prompt),
           text: 'Fresh picks, limited time. Everything you love, up to **40% off**.',
           buttonText: 'Shop the sale',
           imageSrc: 'https://picsum.photos/seed/spring/1200/600',

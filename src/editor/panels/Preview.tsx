@@ -16,13 +16,41 @@ export function Preview() {
   useEffect(() => {
     const iframe = frame.current;
     if (!iframe) return;
+    let observer: ResizeObserver | null = null;
     const measure = () => {
-      const body = iframe.contentDocument?.documentElement;
+      const body = iframe.contentDocument?.body;
       if (body) setHeight(Math.max(400, body.scrollHeight));
     };
-    iframe.addEventListener('load', measure);
-    return () => iframe.removeEventListener('load', measure);
+    // Re-measure when the content reflows, e.g. columns stacking on mobile.
+    const onLoad = () => {
+      measure();
+      observer?.disconnect();
+      const body = iframe.contentDocument?.body;
+      // The observer must come from the iframe's own window to see its layout.
+      const FrameResizeObserver = (iframe.contentWindow as (Window & typeof globalThis) | null)
+        ?.ResizeObserver;
+      if (body && FrameResizeObserver) {
+        observer = new FrameResizeObserver(measure);
+        observer.observe(body);
+      }
+    };
+    iframe.addEventListener('load', onLoad);
+    return () => {
+      iframe.removeEventListener('load', onLoad);
+      observer?.disconnect();
+    };
   }, []);
+
+  // Also measure once the width transition after a viewport switch has
+  // settled, for browsers that throttle observers inside iframes.
+  useEffect(() => {
+    if (!viewport) return;
+    const timer = setTimeout(() => {
+      const body = frame.current?.contentDocument?.body;
+      if (body) setHeight(Math.max(400, body.scrollHeight));
+    }, 260);
+    return () => clearTimeout(timer);
+  }, [viewport]);
 
   return (
     <div className="meb-preview-scroll">

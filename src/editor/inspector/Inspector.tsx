@@ -9,7 +9,7 @@ import { BLOCK_ICONS } from '../meta';
 import type { EditorStore } from '../store';
 import { Button, Field, NumberInput, Segmented, SelectInput, SwitchInput, Tip } from '../ui';
 import { ColorInput, ImageInput, PaddingInput, Section, TextInput, UrlInput } from './controls';
-import { BLOCK_FIELDS, type FieldSpec, FONT_OPTIONS, type Scope } from './fields';
+import { BLOCK_FIELDS, DEFAULT_OPTION, type FieldSpec, FONT_OPTIONS, type Scope } from './fields';
 
 type Commit = (value: unknown) => string | null;
 
@@ -107,9 +107,9 @@ function FieldControl({
             return (
               <SelectInput
                 id={id}
-                value={(value as string | undefined) ?? ''}
+                value={(value as string | undefined) ?? DEFAULT_OPTION}
                 options={field.options}
-                onChange={(next) => commit(next === '' ? undefined : next)}
+                onChange={(next) => commit(next === DEFAULT_OPTION ? undefined : next)}
               />
             );
           case 'segmented':
@@ -143,20 +143,23 @@ function FieldControl({
           case 'padding':
             return <PaddingInput value={value as Padding | undefined} onCommit={commit} />;
           case 'imageWidth': {
-            const full = value === 'full' || value === undefined;
+            const mode = value === 'full' ? 'full' : value === undefined ? 'auto' : 'fixed';
             return (
               <div className="meb-stack-sm">
                 <Segmented
                   id={id}
                   ariaLabel="Width mode"
-                  value={full ? 'full' : 'fixed'}
+                  value={mode}
                   options={[
                     { value: 'full', label: 'Fill' },
+                    { value: 'auto', label: 'Natural' },
                     { value: 'fixed', label: 'Fixed' },
                   ]}
-                  onChange={(next) => commit(next === 'full' ? 'full' : 300)}
+                  onChange={(next) =>
+                    commit(next === 'full' ? 'full' : next === 'auto' ? undefined : 300)
+                  }
                 />
-                {full ? null : (
+                {mode === 'fixed' ? (
                   <NumberInput
                     value={value as number}
                     min={1}
@@ -164,7 +167,7 @@ function FieldControl({
                     unit="px"
                     onChange={(next) => commit(next ?? 300)}
                   />
-                )}
+                ) : null}
               </div>
             );
           }

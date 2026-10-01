@@ -222,7 +222,19 @@ function Layout({ agent, toolbar }: { agent?: EditorAgent | undefined; toolbar?:
   const { readOnly } = useEditorOptions();
   const root = useRef<HTMLDivElement>(null);
   const [portal, setPortal] = useState<HTMLDivElement | null>(null);
+  const editingId = useEditorState((state) => state.editingId);
   useShortcuts(root);
+
+  // When inline editing ends its editor unmounts and focus would fall back to
+  // <body>; keep it inside the editor so keyboard shortcuts keep working.
+  const wasEditing = useRef(false);
+  useEffect(() => {
+    const ended = wasEditing.current && editingId === null;
+    wasEditing.current = editingId !== null;
+    if (ended && root.current && !root.current.contains(document.activeElement)) {
+      root.current.focus({ preventScroll: true });
+    }
+  }, [editingId]);
 
   return (
     <PortalContext.Provider value={portal}>

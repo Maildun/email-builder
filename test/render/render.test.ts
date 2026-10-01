@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
+  applyOps,
   type BlockInput,
   createDocument,
   type EmailDocument,
@@ -29,6 +30,15 @@ describe('renderEmail', () => {
     expect(html).toContain('@media only screen and (max-width:620px)');
     expect(text).toBe('Hi there');
     expect(warnings).toEqual([]);
+  });
+
+  it('keeps style attributes well-formed with quoted font stacks', () => {
+    const { html } = renderEmail(TEMPLATES.newsletter.create());
+    expect(html).toContain("font-family:'Helvetica Neue'");
+    for (const [, style] of html.matchAll(/style="([^"]*)"/g)) {
+      expect(style).not.toMatch(/[<>]/);
+    }
+    expect(html).not.toMatch(/style="[^"]*"[a-z-]+=""/);
   });
 
   it('resolves theme tokens to hex colors', () => {
@@ -79,6 +89,20 @@ describe('renderEmail', () => {
     ]);
     expect(html).toContain('width="552"');
     expect(html).toContain('alt="A"');
+  });
+
+  it('keeps images without a width at their natural size', () => {
+    const doc = createDocument({
+      blocks: [
+        { id: 'logo', type: 'image', props: { src: 'https://cdn.test/logo.png', alt: 'Logo' } },
+      ],
+    });
+    const updated = applyOps(doc, { op: 'update', id: 'logo', props: { width: null } });
+    if (!updated.ok) throw new Error('update failed');
+    const { html } = renderEmail(updated.document);
+    const img = /<img[^>]*>/.exec(html)?.[0] ?? '';
+    expect(img).not.toContain('width="');
+    expect(img).toContain('max-width:100%');
   });
 
   it('keeps merge tags verbatim, including as link targets', () => {
