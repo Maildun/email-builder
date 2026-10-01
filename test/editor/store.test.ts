@@ -135,4 +135,20 @@ describe('EditorStore', () => {
     store.apply({ op: 'remove', id: 'a' });
     expect(store.getState().selectedId).toBeNull();
   });
+
+  it('shows and hides side panels', () => {
+    const store = new EditorStore(doc());
+    expect(store.getState().panels).toEqual({ sidebar: true, inspector: true });
+
+    store.setPanel('sidebar');
+    expect(store.getState().panels).toEqual({ sidebar: false, inspector: true });
+    store.setPanel('sidebar', false);
+    expect(store.getState().panels.sidebar).toBe(false);
+
+    // Hides both while any is open, then shows both again.
+    store.togglePanels();
+    expect(store.getState().panels).toEqual({ sidebar: false, inspector: false });
+    store.togglePanels();
+    expect(store.getState().panels).toEqual({ sidebar: true, inspector: true });
+  });
 });

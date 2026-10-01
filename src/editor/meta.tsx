@@ -1,16 +1,16 @@
 import {
   ArrowVerticalIcon,
   CodeIcon,
-  CursorPointer01Icon,
   Heading01Icon,
-  Image01Icon,
+  Image03Icon,
   LayoutThreeColumnIcon,
   MinusSignIcon,
-  ParagraphIcon,
   PuzzleIcon,
+  RectangleHorizontalIcon,
   RectangularIcon,
   SquareIcon,
-  UserCircleIcon,
+  SquareUserRoundIcon,
+  TextFontIcon,
 } from '@hugeicons/core-free-icons';
 import type { CustomBlockDefinition } from '../core/custom';
 import type { Block, BlockType } from '../core/schema/blocks';
@@ -19,10 +19,10 @@ import type { IconSvgElement } from './ui';
 
 export const BLOCK_ICONS: Record<BlockType, IconSvgElement> = {
   heading: Heading01Icon,
-  text: ParagraphIcon,
-  button: CursorPointer01Icon,
-  image: Image01Icon,
-  avatar: UserCircleIcon,
+  text: TextFontIcon,
+  button: RectangleHorizontalIcon,
+  image: Image03Icon,
+  avatar: SquareUserRoundIcon,
   divider: MinusSignIcon,
   spacer: ArrowVerticalIcon,
   html: CodeIcon,

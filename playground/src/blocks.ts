@@ -1,4 +1,4 @@
-import { ShoppingBag01Icon } from '@hugeicons/core-free-icons';
+import { ShoppingCart01Icon } from '@hugeicons/core-free-icons';
 import { z } from 'zod';
 // Relative import (instead of '@maildun/email-builder') because the server
 // middleware loads this file too, before Vite's aliases apply.
@@ -10,7 +10,7 @@ export const productCard = defineBlock({
   label: 'Product',
   description: 'A product with its image, name, price and a buy button.',
   category: 'content',
-  icon: ShoppingBag01Icon,
+  icon: ShoppingCart01Icon,
   schema: z.object({
     name: z.string().min(1).max(120),
     price: z.string().max(40),

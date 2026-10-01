@@ -174,6 +174,11 @@ function useShortcuts(root: React.RefObject<HTMLDivElement | null>) {
     const onKeyDown = (event: KeyboardEvent) => {
       const mod = event.metaKey || event.ctrlKey;
       const state = store.getState();
+      if (mod && event.key === '\\') {
+        event.preventDefault();
+        store.togglePanels();
+        return;
+      }
       if (mod && event.key.toLowerCase() === 'z' && !isTypingTarget(event.target)) {
         event.preventDefault();
         if (event.shiftKey) store.redo();

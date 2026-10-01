@@ -38,6 +38,12 @@ export interface EditorMessages {
     viewport: string;
     desktop: string;
     mobile: string;
+    showSidebar: string;
+    hideSidebar: string;
+    showInspector: string;
+    hideInspector: string;
+    /** Tooltip hint for the shortcut that hides or shows both panels. */
+    panelsTip: string;
   };
   sidebar: {
     label: string;
@@ -235,6 +241,11 @@ export const EN_MESSAGES: EditorMessages = {
     viewport: 'Viewport',
     desktop: 'Desktop',
     mobile: 'Mobile',
+    showSidebar: 'Show sidebar',
+    hideSidebar: 'Hide sidebar',
+    showInspector: 'Show inspector',
+    hideInspector: 'Hide inspector',
+    panelsTip: '⌘\\ hides or shows both',
   },
   sidebar: {
     label: 'Blocks and layers',

@@ -206,7 +206,7 @@ Each request includes `history`: the earlier prompts in this session and whether
 | `blockTypes` | Built-in block types offered in the palette, e.g. `['heading', 'text', 'button', 'image']` to leave out raw HTML. All by default. |
 | `sections` | Sections offered in the palette; `[]` hides them. All by default. |
 | `views` | Views in the top bar, e.g. `['design', 'preview']`. All by default. |
-| `panels` | `{ sidebar?: boolean; inspector?: boolean }` for the default layout. |
+| `panels` | `{ sidebar?: boolean; inspector?: boolean }` for the default layout. Panels left on can still be hidden from the top bar. |
 | `onSelectionChange(id, block)` | The selected block changed. |
 | `onProposalChange(proposal)` | An agent proposal appeared, changed, or was resolved (`null`). |
 | `onSave(document)` | ⌘S / Ctrl+S inside the editor; the browser's save dialog is suppressed. |
@@ -223,6 +223,7 @@ A controlled `value` that is only a copy of the current document (for example af
 | ⌘Z / ⇧⌘Z | Undo / redo |
 | ⌫ | Delete the selected block |
 | ⌘D | Duplicate |
+| ⌘\\ | Hide or show both side panels |
 | ⌥↑ / ⌥↓ | Move up / down |
 | ↑ / ↓ | Select the previous / next block |
 | ← / → | Select the parent / first child |

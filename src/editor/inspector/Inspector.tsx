@@ -610,24 +610,14 @@ export function Inspector() {
         }}
         className="gap-0"
       >
-        <TabsList
-          variant="line"
-          className="h-auto w-full shrink-0 justify-start gap-1 border-b px-3 pt-2 pb-0"
-        >
-          <TabsTrigger
-            value="block"
-            disabled={!selectedId}
-            className="h-auto flex-none px-2.5 pt-1.5 pb-2 group-data-horizontal/tabs:after:-bottom-px"
-          >
-            {text.blockTab}
-          </TabsTrigger>
-          <TabsTrigger
-            value="email"
-            className="h-auto flex-none px-2.5 pt-1.5 pb-2 group-data-horizontal/tabs:after:-bottom-px"
-          >
-            {text.emailTab}
-          </TabsTrigger>
-        </TabsList>
+        <div className="shrink-0 border-b px-3 py-2">
+          <TabsList className="w-full group-data-horizontal/tabs:h-8">
+            <TabsTrigger value="block" disabled={!selectedId}>
+              {text.blockTab}
+            </TabsTrigger>
+            <TabsTrigger value="email">{text.emailTab}</TabsTrigger>
+          </TabsList>
+        </div>
         {hasProposal ? (
           <p
             data-slot="inspector-notice"

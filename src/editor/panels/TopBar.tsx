@@ -1,6 +1,8 @@
 import {
   Add01Icon,
   ComputerIcon,
+  LayoutAlignLeftIcon,
+  LayoutAlignRightIcon,
   PencilEdit02Icon,
   Redo02Icon,
   SmartPhone01Icon,
@@ -9,9 +11,15 @@ import {
   ViewIcon,
 } from '@hugeicons/core-free-icons';
 import { createContext, type ReactNode, useContext, useState } from 'react';
-import { useEditorOptions, useEditorState, useEditorStore, useSlotClassName } from '../context';
+import {
+  useEditorOptions,
+  useEditorState,
+  useEditorStore,
+  useMessages,
+  useSlotClassName,
+} from '../context';
 import type { EditorMessages } from '../messages';
-import type { EditorView } from '../store';
+import type { EditorPanel, EditorView } from '../store';
 import { Button, cn, Icon, type IconSvgElement, Popover, Segmented, Separator, Tip } from '../ui';
 import { Palette } from './Sidebar';
 
@@ -37,11 +45,62 @@ function viewOptions(views: readonly EditorView[], messages: EditorMessages) {
 /** The host's extra top-bar controls, in their own context so only the top bar re-renders. */
 export const ToolbarContext = createContext<ReactNode>(null);
 
+/** Each panel's icon while open and while closed; the inspector mirrors the sidebar. */
+const PANEL_ICONS: Record<EditorPanel, { open: IconSvgElement; closed: IconSvgElement }> = {
+  sidebar: { open: LayoutAlignLeftIcon, closed: LayoutAlignRightIcon },
+  inspector: { open: LayoutAlignRightIcon, closed: LayoutAlignLeftIcon },
+};
+
+/** Shows or hides one side panel of the default layout. */
+function PanelToggle({ panel, className }: { panel: EditorPanel; className?: string }) {
+  const store = useEditorStore();
+  const open = useEditorState((state) => state.panels[panel]);
+  const text = useMessages().topBar;
+  const label =
+    panel === 'sidebar'
+      ? open
+        ? text.hideSidebar
+        : text.showSidebar
+      : open
+        ? text.hideInspector
+        : text.showInspector;
+  return (
+    <Tip
+      label={
+        <span className="flex flex-col">
+          {label}
+          <span className="opacity-70">{text.panelsTip}</span>
+        </span>
+      }
+    >
+      <Button
+        size="icon-sm"
+        variant="ghost"
+        aria-label={label}
+        aria-pressed={open}
+        className={cn(!open && 'text-muted-foreground', className)}
+        onClick={() => store.setPanel(panel)}
+      >
+        <Icon icon={PANEL_ICONS[panel][open ? 'open' : 'closed']} />
+      </Button>
+    </Tip>
+  );
+}
+
+export interface EditorTopBarProps {
+  /**
+   * Buttons that show and hide the side panels of `EditorLayout`. Off by
+   * default, since a custom layout may not have them.
+   */
+  panelToggles?: { sidebar?: boolean; inspector?: boolean };
+}
+
 /** Views, undo/redo, viewport and the host's extra controls. */
-export function EditorTopBar() {
+export function EditorTopBar({ panelToggles }: EditorTopBarProps = {}) {
   const toolbar = useContext(ToolbarContext);
   const store = useEditorStore();
   const view = useEditorState((state) => state.view);
+  const sidebarOpen = useEditorState((state) => state.panels.sidebar);
   const viewport = useEditorState((state) => state.viewport);
   const canUndo = useEditorState((state) => state.canUndo);
   const canRedo = useEditorState((state) => state.canRedo);
@@ -49,6 +108,11 @@ export function EditorTopBar() {
   const text = messages.topBar;
   const className = useSlotClassName('topbar');
   const [adding, setAdding] = useState(false);
+  const togglesShown = !readOnly && view === 'design';
+  const sidebarToggle = togglesShown && panelToggles?.sidebar;
+  const inspectorToggle = togglesShown && panelToggles?.inspector;
+  // The sidebar hides on narrow editors, or when closed; this keeps adding blocks one click away.
+  const addButton = !(sidebarToggle && sidebarOpen);
 
   return (
     <header
@@ -58,21 +122,24 @@ export function EditorTopBar() {
         className,
       )}
     >
-      {views.length > 1 ? (
-        <Segmented<EditorView>
-          ariaLabel={text.views}
-          fill={false}
-          value={view}
-          onChange={(next) => store.setView(next)}
-          options={viewOptions(views, messages)}
-        />
-      ) : (
-        <span />
-      )}
+      <div className="flex items-center gap-1">
+        {sidebarToggle ? (
+          // The sidebar never shows on narrow editors, so neither does its toggle.
+          <PanelToggle panel="sidebar" className="hidden @3xl/editor:inline-flex" />
+        ) : null}
+        {views.length > 1 ? (
+          <Segmented<EditorView>
+            ariaLabel={text.views}
+            fill={false}
+            value={view}
+            onChange={(next) => store.setView(next)}
+            options={viewOptions(views, messages)}
+          />
+        ) : null}
+      </div>
       <div className="flex items-center gap-1">
         {readOnly || view !== 'design' ? null : (
-          // The sidebar hides on narrow editors; this keeps adding blocks one click away.
-          <div className="@3xl/editor:hidden">
+          <div className={addButton ? undefined : '@3xl/editor:hidden'}>
             <Popover
               open={adding}
               onOpenChange={setAdding}
@@ -128,6 +195,7 @@ export function EditorTopBar() {
             { value: 'mobile', label: <Icon icon={SmartPhone01Icon} />, title: text.mobile },
           ]}
         />
+        {inspectorToggle ? <PanelToggle panel="inspector" /> : null}
         {toolbar}
       </div>
     </header>

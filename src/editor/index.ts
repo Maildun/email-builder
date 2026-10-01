@@ -30,6 +30,7 @@ export { EditorStage } from './panels/Stage';
 export { EditorTopBar } from './panels/TopBar';
 export {
   type ApplyOptions,
+  type EditorPanel,
   type EditorState,
   EditorStore,
   type EditorView,

@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { type CSSProperties, forwardRef, type ReactNode, useEffect, useRef } from 'react';
 import { useEditorOptions, useEditorState } from './context';
 import { EditorRoot, type EditorRootProps, type EmailEditorHandle } from './EditorRoot';
 import { Inspector } from './inspector/Inspector';
@@ -14,6 +14,37 @@ export interface EmailEditorProps extends Omit<EditorRootProps, 'children'> {
   panels?: { sidebar?: boolean; inspector?: boolean };
 }
 
+/**
+ * Holds a side panel at its full width inside a grid column that can shrink to
+ * nothing, so closing slides the panel out instead of squashing it. A closed
+ * panel stays mounted (keeping its tab and scroll) but is inert.
+ */
+function PanelSlot({
+  open,
+  side,
+  children,
+}: {
+  open: boolean;
+  side: 'left' | 'right';
+  children: ReactNode;
+}) {
+  return (
+    <div
+      inert={!open}
+      className={cn('flex min-h-0 min-w-0 overflow-hidden', side === 'left' && 'justify-end')}
+    >
+      <div
+        className={cn(
+          'flex min-h-0 flex-none flex-col *:min-h-0 *:flex-1',
+          side === 'left' ? 'w-(--meb-sidebar-width)' : 'w-(--meb-inspector-width)',
+        )}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
 /** The default three-column layout: sidebar, stage, inspector. */
 export function EditorLayout({
   sidebar = true,
@@ -23,26 +54,50 @@ export function EditorLayout({
   inspector?: boolean;
 }) {
   const view = useEditorState((state) => state.view);
+  const open = useEditorState((state) => state.panels);
   const { readOnly } = useEditorOptions();
   const panels = !readOnly && view === 'design';
-  const showSidebar = panels && sidebar;
-  const showInspector = panels && inspector;
+  const showSidebar = panels && sidebar && open.sidebar;
+  const showInspector = panels && inspector && open.inspector;
+  // Slide only when a panel is toggled, not when switching views or modes.
+  const previous = useRef(panels);
+  const animate = previous.current === panels;
+  useEffect(() => {
+    previous.current = panels;
+  }, [panels]);
   return (
     <div
+      data-slot="layout"
       className={cn(
-        'grid min-h-0 flex-1',
-        showSidebar && showInspector
-          ? 'grid-cols-[minmax(0,1fr)_260px] @3xl/editor:grid-cols-[220px_minmax(0,1fr)_260px] @5xl/editor:grid-cols-[248px_minmax(0,1fr)_300px]'
-          : showInspector
-            ? 'grid-cols-[minmax(0,1fr)_260px] @5xl/editor:grid-cols-[minmax(0,1fr)_300px]'
-            : showSidebar
-              ? 'grid-cols-[minmax(0,1fr)] @3xl/editor:grid-cols-[220px_minmax(0,1fr)] @5xl/editor:grid-cols-[248px_minmax(0,1fr)]'
-              : 'grid-cols-[minmax(0,1fr)]',
+        'grid min-h-0 flex-1 grid-cols-[var(--meb-sidebar-column)_minmax(0,1fr)_var(--meb-inspector-column)]',
+        // The sidebar hides on narrow editors; the inspector widens on large ones.
+        '[--meb-sidebar-width:0px] @3xl/editor:[--meb-sidebar-width:220px] @5xl/editor:[--meb-sidebar-width:248px]',
+        '[--meb-inspector-width:260px] @5xl/editor:[--meb-inspector-width:300px]',
+        animate &&
+          'transition-[grid-template-columns] duration-250 ease-[cubic-bezier(0.2,0,0,1)] motion-reduce:transition-none',
       )}
+      style={
+        {
+          '--meb-sidebar-column': showSidebar ? 'var(--meb-sidebar-width)' : '0px',
+          '--meb-inspector-column': showInspector ? 'var(--meb-inspector-width)' : '0px',
+        } as CSSProperties
+      }
     >
-      {showSidebar ? <Sidebar /> : null}
+      {panels && sidebar ? (
+        <PanelSlot side="left" open={showSidebar}>
+          <Sidebar />
+        </PanelSlot>
+      ) : (
+        <div />
+      )}
       <EditorStage />
-      {showInspector ? <Inspector /> : null}
+      {panels && inspector ? (
+        <PanelSlot side="right" open={showInspector}>
+          <Inspector />
+        </PanelSlot>
+      ) : (
+        <div />
+      )}
     </div>
   );
 }
@@ -53,7 +108,9 @@ const EmailEditorBase = forwardRef<EmailEditorHandle, EmailEditorProps>(function
 ) {
   return (
     <EditorRoot ref={ref} {...props}>
-      <EditorTopBar />
+      <EditorTopBar
+        panelToggles={{ sidebar: panels?.sidebar ?? true, inspector: panels?.inspector ?? true }}
+      />
       <EditorLayout sidebar={panels?.sidebar ?? true} inspector={panels?.inspector ?? true} />
     </EditorRoot>
   );

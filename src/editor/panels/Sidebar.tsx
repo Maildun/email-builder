@@ -354,17 +354,12 @@ export function Sidebar() {
       className={cn('hidden min-h-0 flex-col border-r bg-card @3xl/editor:flex', className)}
     >
       <Tabs defaultValue="add" className="min-h-0 flex-1 gap-0">
-        <TabsList
-          variant="line"
-          className="w-full flex-none justify-start border-b px-2 pt-1 group-data-horizontal/tabs:h-10"
-        >
-          <TabsTrigger value="add" className="flex-none px-2.5">
-            {text.addTab}
-          </TabsTrigger>
-          <TabsTrigger value="layers" className="flex-none px-2.5">
-            {text.layersTab}
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex-none border-b px-3 py-2">
+          <TabsList className="w-full group-data-horizontal/tabs:h-8">
+            <TabsTrigger value="add">{text.addTab}</TabsTrigger>
+            <TabsTrigger value="layers">{text.layersTab}</TabsTrigger>
+          </TabsList>
+        </div>
         <TabsContent value="add" className="min-h-0 overflow-y-auto">
           <Palette />
         </TabsContent>

@@ -1,8 +1,10 @@
 import { Copy01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createRenderContext } from '../../render/context';
 import { renderEmail } from '../../render/html';
+import { EmailFrame, emailWidth } from '../canvas/EmailFrame';
 import { useEditorOptions, useEditorState, useMessages, useVisibleDocument } from '../context';
-import { Badge, Button, cn, Icon, Tabs, TabsList, TabsTrigger } from '../ui';
+import { Badge, Button, Icon, Tabs, TabsList, TabsTrigger } from '../ui';
 
 /** The real rendered email in an isolated iframe, so media queries apply. */
 export function Preview() {
@@ -10,6 +12,14 @@ export function Preview() {
   const viewport = useEditorState((state) => state.viewport);
   const { customBlocks, messages } = useEditorOptions();
   const { html } = useMemo(() => renderEmail(document, { customBlocks }), [document, customBlocks]);
+  const backdrop = useMemo(
+    () =>
+      createRenderContext(document, { customBlocks }).color(
+        document.settings.backdropColor,
+        '$background',
+      ),
+    [document, customBlocks],
+  );
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(600);
 
@@ -19,7 +29,7 @@ export function Preview() {
     let observer: ResizeObserver | null = null;
     const measure = () => {
       const body = iframe.contentDocument?.body;
-      if (body) setHeight(Math.max(400, body.scrollHeight));
+      if (body) setHeight(body.scrollHeight);
     };
     // Re-measure when the content reflows, e.g. columns stacking on mobile.
     const onLoad = () => {
@@ -47,7 +57,7 @@ export function Preview() {
     if (!viewport) return;
     const timer = setTimeout(() => {
       const body = frame.current?.contentDocument?.body;
-      if (body) setHeight(Math.max(400, body.scrollHeight));
+      if (body) setHeight(body.scrollHeight);
     }, 260);
     return () => clearTimeout(timer);
   }, [viewport]);
@@ -57,13 +67,12 @@ export function Preview() {
       data-slot="preview"
       className="min-h-0 flex-1 overflow-auto p-6 pb-[calc(24px+var(--meb-overlay-space,0px))]"
     >
-      <div
+      {/* The same frame as the design canvas; the email renders at its real width inside. */}
+      <EmailFrame
         data-slot="preview-frame"
-        data-viewport={viewport === 'mobile' ? 'mobile' : 'desktop'}
-        className={cn(
-          'mx-auto max-w-full overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-foreground/5 transition-[width] duration-200 ease-out',
-          viewport === 'mobile' && 'w-[375px] rounded-[36px] border-[10px] border-neutral-900',
-        )}
+        data-viewport={viewport}
+        width={emailWidth(document, viewport)}
+        backdrop={backdrop}
       >
         <iframe
           ref={frame}
@@ -73,7 +82,7 @@ export function Preview() {
           srcDoc={html}
           style={{ height }}
         />
-      </div>
+      </EmailFrame>
     </div>
   );
 }

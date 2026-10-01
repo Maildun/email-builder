@@ -44,6 +44,7 @@ import { dropId, resolveDrop, useActiveDrag, useDropIndicator, useIsOver } from 
 import type { EditorMessages } from '../messages';
 import { BLOCK_ICONS, blockIcon, blockLabel } from '../meta';
 import { Button, cn, Icon, Tip } from '../ui';
+import { EmailFrame, emailWidth } from './EmailFrame';
 
 /**
  * The rich-text editor (Tiptap/ProseMirror) is the heaviest part of the
@@ -53,7 +54,6 @@ const InlineText = lazy(() =>
   import('./InlineText').then((module) => ({ default: module.InlineText })),
 );
 
-const MOBILE_WIDTH = 375;
 /** Toolbar height plus a small gap. */
 const TOOLBAR_SPACE = 32;
 /**
@@ -598,7 +598,7 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
   const drag = useActiveDrag();
   const ctx = styleContextOf(document, customBlocks);
   const mobile = viewport === 'mobile';
-  const width = mobile ? MOBILE_WIDTH : document.settings.width;
+  const width = emailWidth(document, viewport);
   const { settings } = document;
   const outer = resolvePadding(settings.padding);
   const canvasBorder = ctx.color(settings.borderColor);
@@ -622,19 +622,10 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
       style={{ paddingBottom: 'calc(24px + var(--meb-overlay-space, 0px))' }}
       onClick={() => store.select(null)}
     >
-      {/*
-        The email's backdrop (what recipients see around the content) is a
-        framed card on the stage, like the Preview, so the stage can follow
-        the editor's theme while the email keeps its own colors.
-      */}
-      <div
-        className="meb-backdrop mx-auto rounded-lg px-6 shadow-sm ring-1 ring-foreground/5 transition-[max-width] duration-200"
-        style={{
-          background: ctx.color(settings.backdropColor, '$background'),
-          maxWidth: width + 48,
-          paddingTop: outer.top,
-          paddingBottom: outer.bottom,
-        }}
+      <EmailFrame
+        width={width}
+        backdrop={ctx.color(settings.backdropColor, '$background')}
+        style={{ paddingTop: outer.top, paddingBottom: outer.bottom }}
       >
         <div
           className="meb-email data-[drop-target]:outline-2 data-[drop-target]:outline-editor-selection data-[drop-target]:outline-offset-4 data-[drop-target]:outline-dashed"
@@ -682,7 +673,7 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
           ) : null}
           {drag ? <RootDropZone /> : null}
         </div>
-      </div>
+      </EmailFrame>
     </section>
   );
 }

@@ -4,7 +4,17 @@
  * to this one; see scripts/fix-shadcn-imports.ts after adding new ones.
  */
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
-import { type ComponentProps, type ReactElement, type ReactNode, useId, useState } from 'react';
+import {
+  type ComponentProps,
+  type ReactElement,
+  type ReactNode,
+  type RefObject,
+  useCallback,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 import { cn } from '../lib/utils';
 import { FieldDescription, FieldLabel, Field as FieldRoot } from './field';
 import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from './input-group';
@@ -133,7 +143,40 @@ export interface Option<T extends string> {
   title?: string;
 }
 
-/** A row of mutually exclusive options. */
+/**
+ * Where the selected item sits in its group, kept current as items resize.
+ * `animate` turns on after the first measurement, so the thumb appears in
+ * place instead of sliding in from the edge.
+ */
+function useThumb(group: RefObject<HTMLElement | null>) {
+  const [thumb, setThumb] = useState<{ left: number; width: number } | null>(null);
+  const [animate, setAnimate] = useState(false);
+  const measure = useCallback(() => {
+    const item = group.current?.querySelector<HTMLElement>(':scope > [data-pressed]');
+    setThumb((previous) => {
+      if (!item) return null;
+      const next = { left: item.offsetLeft, width: item.offsetWidth };
+      return previous?.left === next.left && previous.width === next.width ? previous : next;
+    });
+  }, [group]);
+  // After every render, since the selection or the labels may have changed.
+  useLayoutEffect(measure);
+  useLayoutEffect(() => {
+    const element = group.current;
+    if (!element) return;
+    const frame = requestAnimationFrame(() => setAnimate(true));
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    for (const child of element.children) observer.observe(child);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [group, measure]);
+  return { thumb, animate };
+}
+
+/** A row of mutually exclusive options, with a thumb that slides to the selected one. */
 export function Segmented<T extends string>({
   value,
   options,
@@ -152,14 +195,20 @@ export function Segmented<T extends string>({
   fill?: boolean;
   className?: string;
 }) {
+  const group = useRef<HTMLDivElement>(null);
+  const { thumb, animate } = useThumb(group);
   return (
     <ToggleGroup
+      ref={group}
       id={id}
       aria-label={ariaLabel}
-      variant="outline"
-      size="sm"
+      data-slot="segmented"
       spacing={0}
-      className={cn(fill && 'w-full', className)}
+      className={cn(
+        'relative isolate h-8 gap-0 rounded-lg bg-muted p-[3px]',
+        fill && 'w-full',
+        className,
+      )}
       value={value === undefined ? [] : [value]}
       onValueChange={(next) => {
         const picked = next[0];
@@ -171,11 +220,26 @@ export function Segmented<T extends string>({
           key={option.value}
           value={option.value}
           aria-label={option.title}
-          className={cn(fill && 'flex-1')}
+          className={cn(
+            'h-full min-w-0 rounded-md px-2.5 text-[13px] text-muted-foreground hover:bg-transparent aria-pressed:bg-transparent data-pressed:text-foreground [&_svg:not([class*=size-])]:size-3.5',
+            fill && 'flex-1',
+          )}
         >
           {option.label}
         </ToggleGroupItem>
       ))}
+      {thumb ? (
+        <span
+          aria-hidden
+          data-slot="segmented-thumb"
+          className={cn(
+            'absolute inset-y-[3px] left-0 -z-1 rounded-md bg-background shadow-sm ring-1 ring-foreground/5 dark:bg-input dark:ring-0',
+            animate &&
+              'transition-[translate,width] duration-200 ease-out motion-reduce:transition-none',
+          )}
+          style={{ width: thumb.width, translate: `${thumb.left}px 0` }}
+        />
+      ) : null}
     </ToggleGroup>
   );
 }

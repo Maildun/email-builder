@@ -6,6 +6,8 @@ import { findParent } from '../core/tree';
 
 export type Viewport = 'desktop' | 'mobile';
 export type EditorView = 'design' | 'preview' | 'code';
+/** A side panel of the default layout that the user can hide. */
+export type EditorPanel = 'sidebar' | 'inspector';
 
 export interface Proposal {
   /** The document as it would be after accepting. */
@@ -39,6 +41,8 @@ export interface EditorState {
   editingId: string | null;
   viewport: Viewport;
   view: EditorView;
+  /** Which side panels are open; hidden panels give the canvas their room. */
+  panels: Record<EditorPanel, boolean>;
   proposal: Proposal | null;
   canUndo: boolean;
   canRedo: boolean;
@@ -84,6 +88,7 @@ export class EditorStore {
       editingId: null,
       viewport: 'desktop',
       view: 'design',
+      panels: { sidebar: true, inspector: true },
       proposal: null,
       canUndo: false,
       canRedo: false,
@@ -254,6 +259,19 @@ export class EditorStore {
 
   setView(view: EditorView): void {
     this.set({ view, editingId: null });
+  }
+
+  /** Shows or hides a side panel; toggles it when `open` is omitted. */
+  setPanel(panel: EditorPanel, open = !this.state.panels[panel]): void {
+    if (this.state.panels[panel] === open) return;
+    this.set({ panels: { ...this.state.panels, [panel]: open } });
+  }
+
+  /** Hides both side panels, or shows both again when they're already hidden. */
+  togglePanels(): void {
+    const { sidebar, inspector } = this.state.panels;
+    const open = !sidebar && !inspector;
+    this.set({ panels: { sidebar: open, inspector: open } });
   }
 
   /**
