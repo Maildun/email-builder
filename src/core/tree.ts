@@ -158,9 +158,6 @@ function placementHint(parentType: ParentType, childType: BlockType): string {
   if (parentType === 'columns') {
     return 'Put content inside one of its "column" children.';
   }
-  if (parentType === 'column' && childType === 'columns') {
-    return 'Columns cannot be nested; place the row outside the column.';
-  }
   return 'Only "container", "column" and the document body accept children.';
 }
 

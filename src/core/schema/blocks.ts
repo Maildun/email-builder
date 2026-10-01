@@ -237,7 +237,8 @@ export const BLOCK_DEFINITIONS = {
   },
   column: {
     label: 'Column',
-    description: 'One column inside a columns block. Holds any non-columns blocks.',
+    description:
+      'One column inside a columns block. Holds any blocks, including another columns row.',
     category: 'layout',
     props: ColumnProps,
     style: BoxStyle,
@@ -267,13 +268,7 @@ export function canContain(parentType: BlockType | 'root', childType: BlockType)
   if (childType === 'column') {
     return false;
   }
-  if (parentType === 'column') {
-    return childType !== 'columns';
-  }
-  if (parentType === 'root' || parentType === 'container') {
-    return true;
-  }
-  return false;
+  return parentType === 'root' || parentType === 'container' || parentType === 'column';
 }
 
 const childrenShape = { children: z.array(z.string()).describe('Ids of child blocks, in order.') };

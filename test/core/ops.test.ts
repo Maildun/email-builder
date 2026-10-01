@@ -166,13 +166,22 @@ describe('applyOps', () => {
     expect(applyOps(base(), { op: 'insert', parentId: 'a', blocks: [{ type: 'text' }] }).ok).toBe(
       false,
     );
+    expect(
+      applyOps(createDocument(), {
+        op: 'insert',
+        blocks: [{ type: 'columns', children: [{ type: 'column' }] }],
+      }).ok,
+    ).toBe(true);
+  });
+
+  it('allows a columns row nested inside a column', () => {
     const nested = applyOps(createDocument(), {
       op: 'insert',
       blocks: [
         { type: 'columns', children: [{ type: 'column', children: [{ type: 'columns' }] }] },
       ],
     });
-    expect(nested.ok).toBe(false);
+    expect(nested.ok).toBe(true);
   });
 
   it('rejects duplicate ids', () => {
