@@ -152,6 +152,9 @@ export function InlineText({
         data-slot="format-bar"
         className="absolute -top-10 left-0 z-7 flex h-9 items-center gap-px whitespace-nowrap rounded-md border bg-popover px-1 text-left font-normal font-sans text-popover-foreground text-xs not-italic leading-none tracking-normal normal-case shadow-md"
         onMouseDown={(event) => event.preventDefault()}
+        // Keep clicks from reaching the block, whose click handler would
+        // start editing again right after Done.
+        onClick={(event) => event.stopPropagation()}
       >
         <Tip label={text.boldTip}>
           <Button
