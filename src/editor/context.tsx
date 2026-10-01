@@ -2,6 +2,7 @@ import { createContext, type ReactNode, useContext, useSyncExternalStore } from 
 import type { CustomBlockDefinition, CustomBlocks } from '../core/custom';
 import type { BlockType } from '../core/schema/blocks';
 import type { SectionName } from '../core/sections';
+import { DEFAULT_ASSETS_URL } from '../core/social';
 import { type EditorMessages, EN_MESSAGES } from './messages';
 import type { EditorAgent } from './panels/AgentPanel';
 import type { EditorState, EditorStore, EditorView } from './store';
@@ -49,6 +50,8 @@ export interface EditorOptions {
   onPickImage?: () => Promise<ImageResult | null>;
   /** The UI text, already merged over the English defaults. */
   messages: EditorMessages;
+  /** Where the social icons are hosted (see `RenderOptions.assetsUrl`). */
+  assetsUrl: string;
 }
 
 const StoreContext = createContext<EditorStore | null>(null);
@@ -59,6 +62,7 @@ export const DEFAULT_OPTIONS: EditorOptions = {
   customBlockMap: new Map(),
   views: ['design', 'preview', 'code'],
   messages: EN_MESSAGES,
+  assetsUrl: DEFAULT_ASSETS_URL,
 };
 
 const OptionsContext = createContext<EditorOptions>(DEFAULT_OPTIONS);

@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import { BLOCK_TYPES } from './schema/blocks';
 
 /**
  * A validation or operation problem. Messages are written so an LLM agent can
@@ -80,7 +81,7 @@ export function issuesFromZod(
       issues.push({
         path: basePath,
         message: 'Unknown block type.',
-        hint: 'Use one of: heading, text, button, image, avatar, divider, spacer, html, custom, container, columns, column.',
+        hint: `Use one of: ${BLOCK_TYPES.join(', ')}.`,
         ...(options.blockId ? { blockId: options.blockId } : {}),
         ...(options.opIndex !== undefined ? { opIndex: options.opIndex } : {}),
       });

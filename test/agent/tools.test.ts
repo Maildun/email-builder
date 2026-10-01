@@ -137,7 +137,9 @@ describe('adapters and prompt', () => {
       'heading',
       'text',
       'button',
+      'social',
       'image',
+      'video',
       'avatar',
       'divider',
       'spacer',
@@ -151,5 +153,6 @@ describe('adapters and prompt', () => {
     expect(prompt).toContain('href:');
     expect(prompt).toContain('{{ first_name }}');
     expect(prompt).toContain('- footer:');
+    expect(prompt).toContain('- testimonial:');
   });
 });

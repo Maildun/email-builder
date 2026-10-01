@@ -2,6 +2,7 @@ import { contrastRatio, resolveColor } from './colors';
 import type { Block } from './schema/blocks';
 import { type EmailDocument, ROOT_ID } from './schema/document';
 import { walk } from './tree';
+import { videoThumbnail } from './video';
 
 export interface LintWarning {
   code:
@@ -29,6 +30,8 @@ export interface LintOptions {
 }
 
 const PLACEHOLDER = /placehold\.co|example\.com|lorem ipsum/i;
+/** A bare network home page such as https://x.com, with no profile path. */
+const SOCIAL_HOME = /^https?:\/\/(www\.)?[^/]+\/?$/i;
 
 /** Deliverability, accessibility and quality checks. Never blocks rendering. */
 export function lintDocument(document: EmailDocument, options: LintOptions = {}): LintWarning[] {
@@ -131,6 +134,57 @@ function lintBlock(
         });
       }
       break;
+    case 'video':
+      if (!block.props.url) {
+        warnings.push({
+          code: 'missing-href',
+          severity: 'warning',
+          blockId: id,
+          message: 'Video has no link.',
+        });
+      }
+      if (!videoThumbnail(block.props)) {
+        warnings.push({
+          code: 'missing-src',
+          severity: 'warning',
+          blockId: id,
+          message: 'Video needs a thumbnail image (only YouTube links get one automatically).',
+        });
+      }
+      if (!block.props.alt?.trim()) {
+        warnings.push({
+          code: 'missing-alt',
+          severity: 'warning',
+          blockId: id,
+          message: 'Video has no alt text.',
+        });
+      }
+      break;
+    case 'social': {
+      const links = block.props.links ?? [];
+      if (links.length === 0) {
+        warnings.push({
+          code: 'missing-href',
+          severity: 'warning',
+          blockId: id,
+          message: 'Social block has no links.',
+        });
+      }
+      // The default links point at each network's home page, not a profile.
+      const unset = links.filter(
+        (link) =>
+          link.network !== 'website' && link.network !== 'email' && SOCIAL_HOME.test(link.href),
+      );
+      if (unset.length) {
+        warnings.push({
+          code: 'placeholder-content',
+          severity: 'warning',
+          blockId: id,
+          message: `Social links still point to the network's home page: ${unset.map((link) => link.network).join(', ')}.`,
+        });
+      }
+      break;
+    }
     case 'button': {
       if (!block.props.text?.trim()) {
         warnings.push({

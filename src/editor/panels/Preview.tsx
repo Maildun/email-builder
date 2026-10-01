@@ -10,8 +10,11 @@ import { Badge, Button, Icon, Tabs, TabsList, TabsTrigger } from '../ui';
 export function Preview() {
   const document = useVisibleDocument();
   const viewport = useEditorState((state) => state.viewport);
-  const { customBlocks, messages } = useEditorOptions();
-  const { html } = useMemo(() => renderEmail(document, { customBlocks }), [document, customBlocks]);
+  const { customBlocks, assetsUrl, messages } = useEditorOptions();
+  const { html } = useMemo(
+    () => renderEmail(document, { customBlocks, assetsUrl }),
+    [document, customBlocks, assetsUrl],
+  );
   const backdrop = useMemo(
     () =>
       createRenderContext(document, { customBlocks }).color(
@@ -109,9 +112,12 @@ function CopyButton({ text }: { text: string }) {
 /** HTML, plain-text and JSON output. */
 export function CodeView() {
   const document = useVisibleDocument();
-  const { customBlocks, messages } = useEditorOptions();
+  const { customBlocks, assetsUrl, messages } = useEditorOptions();
   const text = messages.code;
-  const rendered = useMemo(() => renderEmail(document, { customBlocks }), [document, customBlocks]);
+  const rendered = useMemo(
+    () => renderEmail(document, { customBlocks, assetsUrl }),
+    [document, customBlocks, assetsUrl],
+  );
   const json = useMemo(() => JSON.stringify(document, null, 2), [document]);
   const outputs = { html: rendered.html, text: rendered.text, json };
   const [tab, setTab] = useState<keyof typeof outputs>('html');

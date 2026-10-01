@@ -19,6 +19,10 @@ export function summarizeBlock(block: Block): string {
       return `${quote(block.props.text, 40)} → ${block.props.href ?? '(no link)'}`;
     case 'image':
       return `${quote(block.props.alt, 40)} ${block.props.src ?? '(no src)'}${block.props.href ? ` → ${block.props.href}` : ''}`;
+    case 'social':
+      return (block.props.links ?? []).map((link) => `${link.network} ${link.href}`).join(', ');
+    case 'video':
+      return `${quote(block.props.alt, 40)} ${block.props.url ?? '(no link)'}${block.props.thumbnail ? ` poster ${block.props.thumbnail}` : ''}`;
     case 'avatar':
       return `${block.props.shape ?? 'circle'} ${block.props.size ?? 64}px ${block.props.src ?? '(no src)'}`;
     case 'divider':

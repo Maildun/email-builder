@@ -8,6 +8,8 @@ const src = (path: string) => fileURLToPath(new URL(`../src/${path}`, import.met
 
 export default defineConfig({
   plugins: [react(), agentMiddleware()],
+  // The social icons, served at /social/… (see ASSETS_URL in App.tsx).
+  publicDir: fileURLToPath(new URL('../assets', import.meta.url)),
   // Same pipeline as dist/styles.css, so the playground shows what standalone users get.
   css: { postcss: { plugins: standalonePlugins() } },
   resolve: {

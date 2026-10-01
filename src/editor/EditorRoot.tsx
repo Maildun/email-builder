@@ -59,6 +59,11 @@ export interface EditorRootProps {
   agent?: EditorAgent;
   /** Block types defined by your app (see `defineBlock`). */
   customBlocks?: CustomBlocks;
+  /**
+   * Where the social icons are hosted: a copy of this package's `assets/`
+   * folder. Defaults to jsDelivr.
+   */
+  assetsUrl?: string;
   /** Built-in block types offered in the palette, e.g. to leave out `html`. All by default. */
   blockTypes?: BlockType[];
   /** Sections offered in the palette; `[]` hides them. All by default. */
@@ -375,6 +380,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
     onPickImage,
     agent,
     customBlocks: customBlocksProp = NO_CUSTOM_BLOCKS,
+    assetsUrl = DEFAULT_OPTIONS.assetsUrl,
     blockTypes: blockTypesProp,
     sections: sectionsProp,
     views: viewsProp,
@@ -425,6 +431,9 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
   );
   useStoreEffect(store, (state) => state.proposal, onProposalChange);
 
+  const assetsRef = useRef(assetsUrl);
+  assetsRef.current = assetsUrl;
+
   useImperativeHandle(
     ref,
     () => ({
@@ -441,7 +450,11 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
       reject: () => store.reject(),
       load: (document) => store.load(document),
       select: (id) => store.select(id),
-      render: () => renderEmail(store.getState().document, { customBlocks: store.customBlocks }),
+      render: () =>
+        renderEmail(store.getState().document, {
+          customBlocks: store.customBlocks,
+          assetsUrl: assetsRef.current,
+        }),
     }),
     [store],
   );
@@ -477,6 +490,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
       customBlockMap: customBlockMap(customBlocks),
       views,
       messages,
+      assetsUrl,
       ...(slotClassNames ? { classNames: slotClassNames } : {}),
       ...(uploadImage ? { onUploadImage: uploadImage } : {}),
       ...(pickImage ? { onPickImage: pickImage } : {}),
@@ -498,6 +512,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
       customBlocks,
       views,
       messages,
+      assetsUrl,
       slotClassNames,
       uploadImage,
       pickImage,

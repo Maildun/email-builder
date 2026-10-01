@@ -12,6 +12,11 @@ export interface RenderOptions {
   lang?: string;
   /** Definitions for the document's custom blocks. */
   customBlocks?: CustomBlocks;
+  /**
+   * Where the social icons are hosted: a copy of this package's `assets/`
+   * folder. Defaults to jsDelivr (`DEFAULT_ASSETS_URL`).
+   */
+  assetsUrl?: string;
 }
 
 export type { RenderWarning };
@@ -36,6 +41,7 @@ const PREHEADER_FILLER = '&#847;&zwnj;&nbsp;'.repeat(80);
 export function renderEmail(document: EmailDocument, options: RenderOptions = {}): RenderResult {
   const ctx = createRenderContext(document, {
     ...(options.customBlocks ? { customBlocks: options.customBlocks } : {}),
+    ...(options.assetsUrl ? { assetsUrl: options.assetsUrl } : {}),
   });
   const html = renderDocumentHtml(ctx, options);
   const warnings: RenderWarning[] = [...ctx.warnings];

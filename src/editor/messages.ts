@@ -95,6 +95,15 @@ export interface EditorMessages {
     deleteTip: string;
     unknownCustom: (name: string) => string;
     invalidJson: string;
+    /** Social block links. `network` is the network's display name. */
+    addSocialLink: string;
+    removeSocialLink: (network: string) => string;
+    socialNetwork: string;
+    socialUrl: (network: string) => string;
+    socialIcon: (network: string) => string;
+    customIcon: string;
+    customIconHint: string;
+    useBuiltInIcon: string;
     selectPlaceholder: string;
     widthMode: string;
     widthFill: string;
@@ -300,6 +309,14 @@ export const EN_MESSAGES: EditorMessages = {
     unknownCustom: (name) =>
       `This email uses a custom block called "${name}" that this editor doesn't know. It's kept as is and won't appear in the sent email until its definition is added.`,
     invalidJson: 'This is not valid JSON.',
+    addSocialLink: 'Add link',
+    removeSocialLink: (network) => `Remove ${network}`,
+    socialNetwork: 'Network',
+    socialUrl: (network) => `${network} link`,
+    socialIcon: (network) => `${network} icon`,
+    customIcon: 'Custom icon',
+    customIconHint: 'Use your own image instead of the built-in icon. Square images work best.',
+    useBuiltInIcon: 'Use built-in icon',
     selectPlaceholder: 'Select…',
     widthMode: 'Width mode',
     widthFill: 'Fill',

@@ -92,7 +92,10 @@ function useHydrated(): boolean {
  * same object until the theme or settings change, and memoized blocks can
  * skip re-rendering.
  */
-const styleContexts = new WeakMap<object, WeakMap<object, WeakMap<CustomBlocks, RenderContext>>>();
+const styleContexts = new WeakMap<
+  object,
+  WeakMap<object, WeakMap<CustomBlocks, Map<string, RenderContext>>>
+>();
 
 function cached<K extends object, V>(map: WeakMap<K, V>, key: K, create: () => V): V {
   let value = map.get(key);
@@ -103,12 +106,23 @@ function cached<K extends object, V>(map: WeakMap<K, V>, key: K, create: () => V
   return value;
 }
 
-function styleContextOf(document: EmailDocument, customBlocks: CustomBlocks): RenderContext {
+function styleContextOf(
+  document: EmailDocument,
+  customBlocks: CustomBlocks,
+  assetsUrl: string,
+): RenderContext {
   const bySettings = cached(styleContexts, document.theme, () => new WeakMap());
   const byCustom = cached(bySettings, document.settings, () => new WeakMap());
-  return cached(byCustom, customBlocks, () =>
-    createRenderContext({ ...document, root: [], blocks: {} }, { customBlocks }),
-  );
+  const byAssets = cached(byCustom, customBlocks, () => new Map<string, RenderContext>());
+  let context = byAssets.get(assetsUrl);
+  if (!context) {
+    context = createRenderContext(
+      { ...document, root: [], blocks: {} },
+      { customBlocks, assetsUrl },
+    );
+    byAssets.set(assetsUrl, context);
+  }
+  return context;
 }
 
 /** A render context that can render `blocks` (a block and the children it reads). */
@@ -593,10 +607,10 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
   const store = useEditorStore();
   const document: EmailDocument = useVisibleDocument();
   const viewport = useEditorState((state) => state.viewport);
-  const { readOnly, customBlocks, messages } = useEditorOptions();
+  const { readOnly, customBlocks, assetsUrl, messages } = useEditorOptions();
   const text = messages.canvas;
   const drag = useActiveDrag();
-  const ctx = styleContextOf(document, customBlocks);
+  const ctx = styleContextOf(document, customBlocks, assetsUrl);
   const mobile = viewport === 'mobile';
   const width = emailWidth(document, viewport);
   const { settings } = document;

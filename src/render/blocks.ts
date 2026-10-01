@@ -1,6 +1,8 @@
 import type { z } from 'zod';
 import type { Block, BlockOf } from '../core/schema/blocks';
 import type { BorderSchema, Padding } from '../core/schema/primitives';
+import { SOCIAL_LABELS, socialIconUrl } from '../core/social';
+import { videoThumbnail } from '../core/video';
 import { innerWidth, type RenderContext } from './context';
 import { css, fontWeightCss, paddingCss, px } from './css';
 import { escapeHtml, safeUrl } from './escape';
@@ -110,8 +112,12 @@ export function renderBlock(
       return renderText(ctx, id, block);
     case 'button':
       return renderButton(ctx, id, block, available);
+    case 'social':
+      return renderSocial(ctx, id, block);
     case 'image':
       return renderImage(ctx, id, block, available);
+    case 'video':
+      return renderVideo(ctx, id, block, available);
     case 'avatar':
       return renderAvatar(ctx, id, block);
     case 'divider':
@@ -300,6 +306,8 @@ function renderImage(
     'max-width': '100%',
     height: props.height ? px(props.height) : 'auto',
     margin: imageMargin(align),
+    // Round the picture itself: the cell's radius doesn't clip its content.
+    'border-radius': px(block.style?.borderRadius),
     border: '0',
     outline: 'none',
     'text-decoration': 'none',
@@ -341,6 +349,98 @@ function renderAvatar(ctx: RenderContext, id: string, block: BlockOf<'avatar'>):
     `<img src="${src}" alt="${escapeHtml(props.alt ?? '')}" width="${size}" height="${size}" style="${imgStyle}">`,
     { 'font-size': '0', 'line-height': '0' },
   );
+}
+
+function renderSocial(ctx: RenderContext, id: string, block: BlockOf<'social'>): string {
+  const props = block.props;
+  const links = (props.links ?? []).flatMap((link) => {
+    const href = safeUrl(link.href);
+    return href ? [{ ...link, href }] : [];
+  });
+  if (links.length === 0) {
+    return box(ctx, id, block.style, '');
+  }
+  const size = props.size ?? 32;
+  const gap = props.gap ?? 12;
+  const variant = props.variant ?? 'dark';
+  const radius =
+    props.shape === 'square' ? 0 : props.shape === 'rounded' ? Math.round(size * 0.25) : size;
+  const align = block.style?.align ?? 'center';
+  const cells = links
+    .map((link, index) => {
+      const src =
+        safeUrl(link.icon) ?? escapeHtml(socialIconUrl(ctx.assetsUrl, link.network, variant));
+      const alt = escapeHtml(link.label ?? SOCIAL_LABELS[link.network]);
+      const imgStyle = css({
+        display: 'block',
+        width: px(size),
+        height: px(size),
+        'border-radius': px(radius),
+        border: '0',
+        outline: 'none',
+      });
+      const padding = index < links.length - 1 ? ` style="padding-right:${gap}px"` : '';
+      return `<td${padding}><a href="${link.href}" target="_blank" style="text-decoration:none"><img src="${src}" alt="${alt}" width="${size}" height="${size}" style="${imgStyle}"></a></td>`;
+    })
+    .join('');
+  const row = `<table role="presentation" align="${align}" cellpadding="0" cellspacing="0" border="0" style="margin:${imageMargin(align)}"><tr>${cells}</tr></table>`;
+  return box(ctx, id, { ...block.style, align }, row, { 'font-size': '0', 'line-height': '0' });
+}
+
+/** The play button over a video poster: a dark disc with a white triangle. */
+const PLAY_SIZE = 64;
+
+function renderVideo(
+  ctx: RenderContext,
+  id: string,
+  block: BlockOf<'video'>,
+  available: number,
+): string {
+  const props = block.props;
+  const poster = safeUrl(videoThumbnail(props));
+  const href = safeUrl(props.url) ?? '#';
+  if (!poster) {
+    return box(ctx, id, block.style, '');
+  }
+  const contentWidth = innerWidth(available, block.style?.padding, block.style?.border);
+  const width =
+    props.width === undefined || props.width === 'full'
+      ? contentWidth
+      : Math.min(props.width, contentWidth);
+  const height = Math.round((width * 9) / 16);
+  const align = block.style?.align ?? 'center';
+  const alt = escapeHtml(props.alt ?? '');
+  const radius = block.style?.borderRadius;
+  // A background image (VML for Outlook) under a link that fills the frame,
+  // so the whole poster is clickable; the dark fill shows if images are off.
+  const cellStyle = css({
+    width: px(width),
+    height: px(height),
+    'background-color': '#111111',
+    'background-image': `url('${poster}')`,
+    'background-size': 'cover',
+    'background-position': 'center',
+    'border-radius': px(radius),
+  });
+  const discStyle = css({
+    width: px(PLAY_SIZE),
+    height: px(PLAY_SIZE),
+    'border-radius': px(PLAY_SIZE / 2),
+    'background-color': 'rgba(0,0,0,0.6)',
+    color: '#ffffff',
+    'font-family': 'Arial, sans-serif',
+    'font-size': '26px',
+    'line-height': px(PLAY_SIZE),
+    'text-align': 'center',
+    'mso-line-height-rule': 'exactly',
+  });
+  const linkStyle = css({ display: 'block', height: px(height), 'text-decoration': 'none' });
+  const above = Math.max(0, Math.floor((height - PLAY_SIZE) / 2));
+  const disc = `<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto"><tr><td height="${above}" style="height:${above}px;font-size:0;line-height:0">&#8202;</td></tr><tr><td width="${PLAY_SIZE}" height="${PLAY_SIZE}" align="center" valign="middle" bgcolor="#333333" style="${discStyle}">&#9654;&#xFE0E;</td></tr></table>`;
+  const vmlOpen = `<!--[if gte mso 9]><v:rect xmlns:v="urn:schemas-microsoft-com:vml" fill="true" stroke="false" style="width:${width}px;height:${height}px;"><v:fill type="frame" src="${poster}" color="#111111"/><v:textbox inset="0,0,0,0"><![endif]-->`;
+  const vmlClose = '<!--[if gte mso 9]></v:textbox></v:rect><![endif]-->';
+  const frame = `<table role="presentation" align="${align}" width="${width}" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:${width}px;margin:${imageMargin(align)}"><tr><td background="${poster}" bgcolor="#111111" width="${width}" height="${height}" valign="top" style="${cellStyle}">${vmlOpen}<a href="${href}" target="_blank" title="${alt}" aria-label="${alt}" style="${linkStyle}">${disc}</a>${vmlClose}</td></tr></table>`;
+  return box(ctx, id, { ...block.style, align }, frame);
 }
 
 function renderDivider(ctx: RenderContext, id: string, block: BlockOf<'divider'>): string {

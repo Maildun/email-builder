@@ -48,6 +48,7 @@ import {
   FONT_OPTIONS,
   type Scope,
 } from './fields';
+import { SocialLinksInput } from './SocialLinks';
 
 type Commit = (value: unknown) => string | null;
 
@@ -157,6 +158,13 @@ function FieldControl({
       </GroupField>
     );
   }
+  if (field.kind === 'socialLinks') {
+    return (
+      <GroupField label={field.label} hint={field.hint}>
+        {() => <SocialLinksInput value={value} commit={commit} />}
+      </GroupField>
+    );
+  }
   if (field.kind === 'padding') {
     return (
       <GroupField label={field.label} hint={field.hint}>
@@ -165,7 +173,14 @@ function FieldControl({
     );
   }
   if (field.kind === 'imageWidth') {
-    const mode = value === 'full' ? 'full' : value === undefined ? 'auto' : 'fixed';
+    const natural = field.natural !== false;
+    // Without a natural size, unset means "fill" (e.g. video).
+    const mode =
+      value === 'full' || (value === undefined && !natural)
+        ? 'full'
+        : value === undefined
+          ? 'auto'
+          : 'fixed';
     return (
       <GroupField label={field.label} hint={field.hint}>
         {() => (
@@ -175,7 +190,9 @@ function FieldControl({
               value={mode}
               options={[
                 { value: 'full', label: strings.widthFill },
-                { value: 'auto', label: strings.widthNatural },
+                ...(field.natural === false
+                  ? []
+                  : [{ value: 'auto' as const, label: strings.widthNatural }]),
                 { value: 'fixed', label: strings.widthFixed },
               ]}
               onChange={(next) =>

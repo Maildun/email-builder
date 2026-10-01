@@ -10,6 +10,10 @@ import {
 import { useMemo, useRef, useState } from 'react';
 import { CUSTOM_BLOCKS } from './blocks';
 
+// Serve the social icons from this repo (vite's publicDir) until the package is
+// on npm; published installs load them from jsDelivr by default.
+const ASSETS_URL = window.location.origin;
+
 const MERGE_TAGS = [
   { key: 'first_name', label: 'First name' },
   { key: 'last_name', label: 'Last name' },
@@ -210,6 +214,7 @@ export function App() {
           onChange={setDocument}
           mergeTags={MERGE_TAGS}
           customBlocks={CUSTOM_BLOCKS}
+          assetsUrl={ASSETS_URL}
           appearance={theme}
           agent={agent}
           onPickImage={async () => ({

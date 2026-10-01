@@ -10,6 +10,8 @@ export * from './schema/blocks';
 export * from './schema/document';
 export * from './schema/primitives';
 export * from './sections';
+export * from './social';
 export * from './templates';
 export * from './tree';
 export * from './validate';
+export * from './video';

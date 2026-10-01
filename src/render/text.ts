@@ -1,6 +1,7 @@
 import { type CustomBlocks, customBlockMap } from '../core/custom';
 import { hasChildren } from '../core/schema/blocks';
 import type { EmailDocument } from '../core/schema/document';
+import { SOCIAL_LABELS } from '../core/social';
 import { inlineMarkdownToPlainText, markdownToPlainText } from './markdown';
 
 /** Plain-text alternative of the email for the text/plain MIME part. */
@@ -37,6 +38,17 @@ export function renderPlainText(
           if (block.props.href && block.props.alt) {
             parts.push(`${block.props.alt}: ${block.props.href}`);
           }
+          break;
+        case 'social': {
+          const links = (block.props.links ?? []).map(
+            (link) => `${link.label ?? SOCIAL_LABELS[link.network]}: ${link.href}`,
+          );
+          if (links.length) parts.push(links.join('\n'));
+          break;
+        }
+        case 'video':
+          if (block.props.url)
+            parts.push(`${block.props.alt || 'Watch the video'}: ${block.props.url}`);
           break;
         case 'divider':
           parts.push('---');

@@ -80,8 +80,8 @@ A document is a flat map of blocks plus an ordered list of top-level ids. Contai
 
 | Group | Blocks |
 | --- | --- |
-| Content | `heading`, `text`, `button` |
-| Media | `image`, `avatar` |
+| Content | `heading`, `text`, `button`, `social` (icons linking to your profiles) |
+| Media | `image`, `video` (a poster with a play button that links to the video), `avatar` |
 | Layout | `divider`, `spacer`, `container`, `columns` (1–4 `column` children that stack on mobile) |
 | Advanced | `html` |
 
@@ -90,6 +90,10 @@ A document is a flat map of blocks plus an ordered list of top-level ids. Contai
 - **Colors** are hex values or theme tokens (`$primary`, `$text`, …). With tokens, a single theme change restyles the whole email.
 - **Text** is restricted markdown: bold, italic, strike, code, links and lists. Raw HTML is escaped.
 - **Merge tags** (`{{ first_name }}`, `{{ unsubscribe_url }}`) are kept as-is, even as link targets, so your sending platform can fill them in.
+
+**Sections** are ready-made groups of blocks, offered in the palette and to agents (`buildSection(name, params)`): `header`, `navHeader`, `hero`, `article`, `imageText`, `cards`, `gallery`, `testimonial`, `promo`, `signoff`, `cta` and `footer`.
+
+**Social icons.** Email clients don't show SVG, so the `social` block uses PNG icons (17 networks in brand, dark and light styles) shipped in this package's `assets/` folder. By default they load from jsDelivr, pinned to the installed version, so sent emails keep working. To serve them yourself, copy `node_modules/@maildun/email-builder/assets` to your CDN and pass its URL as `assetsUrl` to `renderEmail()` and `<EmailEditor>`. Each link can also use its own image instead (`icon`, or **Custom icon** in the inspector).
 
 ## Operations
 
@@ -203,6 +207,7 @@ Each request includes `history`: the earlier prompts in this session and whether
 | `appearance` | `'inherit'` (default: dark when an ancestor has the `dark` class), `'light'`, `'dark'` or `'system'`. |
 | `classNames` | Extra classes per part: `root`, `topbar`, `sidebar`, `stage`, `canvas`, `inspector`, `assistant`, `block-toolbar`. |
 | `customBlocks` | Your own block types (see [Custom blocks](#custom-blocks)). |
+| `assetsUrl` | Where the social icons are hosted, if not jsDelivr (see [Social icons](#the-document)). |
 | `blockTypes` | Built-in block types offered in the palette, e.g. `['heading', 'text', 'button', 'image']` to leave out raw HTML. All by default. |
 | `sections` | Sections offered in the palette; `[]` hides them. All by default. |
 | `views` | Views in the top bar, e.g. `['design', 'preview']`. All by default. |

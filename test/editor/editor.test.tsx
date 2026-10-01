@@ -338,7 +338,7 @@ describe('<EmailEditor>', () => {
     const { container } = render(
       <EmailEditor ref={ref} defaultValue={doc()} customBlocks={[card]} />,
     );
-    fireEvent.click(screen.getByRole('button', { name: /promo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^promo$/i }));
     const block = container.querySelector('[data-block-type="custom"]');
     expect(block?.textContent).toContain('Use SPRING');
     fireEvent.change(screen.getByDisplayValue('SPRING'), { target: { value: 'SUMMER' } });

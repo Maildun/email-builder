@@ -2,6 +2,7 @@ import { resolveColor } from '../core/colors';
 import { type CustomBlockDefinition, type CustomBlocks, customBlockMap } from '../core/custom';
 import type { EmailDocument, Theme } from '../core/schema/document';
 import { type Padding, resolveFontStack, resolvePadding } from '../core/schema/primitives';
+import { DEFAULT_ASSETS_URL } from '../core/social';
 
 export interface RenderWarning {
   code:
@@ -31,13 +32,15 @@ export interface RenderContext {
   annotate: boolean;
   /** Custom block definitions by name. */
   customBlocks: ReadonlyMap<string, CustomBlockDefinition>;
+  /** Base URL of the bundled image assets (social icons). */
+  assetsUrl: string;
   /** Problems found while rendering (collected, never thrown). */
   warnings: RenderWarning[];
 }
 
 export function createRenderContext(
   document: EmailDocument,
-  options: { annotate?: boolean; customBlocks?: CustomBlocks } = {},
+  options: { annotate?: boolean; customBlocks?: CustomBlocks; assetsUrl?: string } = {},
 ): RenderContext {
   const theme = document.theme;
   const color = (value: string | undefined, fallback?: string) =>
@@ -58,6 +61,7 @@ export function createRenderContext(
     lineHeight: document.settings.lineHeight,
     annotate: options.annotate ?? false,
     customBlocks: customBlockMap(options.customBlocks),
+    assetsUrl: options.assetsUrl ?? DEFAULT_ASSETS_URL,
     warnings: [],
   };
 }

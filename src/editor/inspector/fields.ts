@@ -31,7 +31,9 @@ export type FieldSpec =
   | (BaseField & { kind: 'color'; allowClear?: boolean })
   | (BaseField & { kind: 'padding' })
   | (BaseField & { kind: 'json' })
-  | (BaseField & { kind: 'imageWidth' });
+  /** Fill, natural size or fixed px; `natural: false` hides the natural option. */
+  | (BaseField & { kind: 'imageWidth'; natural?: boolean })
+  | (BaseField & { kind: 'socialLinks' });
 
 export interface FieldGroup {
   title: string;
@@ -233,6 +235,90 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
         },
         { key: 'href', scope: 'props', label: 'Link', kind: 'url' },
         { key: 'width', scope: 'props', label: 'Width', kind: 'imageWidth' },
+        ALIGN,
+      ],
+    },
+    { title: 'Box', fields: BOX },
+  ],
+  social: [
+    {
+      title: 'Social',
+      fields: [{ key: 'links', scope: 'props', label: 'Links', kind: 'socialLinks' }],
+    },
+    {
+      title: 'Icons',
+      fields: [
+        {
+          key: 'variant',
+          scope: 'props',
+          label: 'Style',
+          kind: 'segmented',
+          options: [
+            { value: 'brand', label: 'Brand' },
+            { value: 'dark', label: 'Dark' },
+            { value: 'light', label: 'Light' },
+          ],
+        },
+        {
+          key: 'shape',
+          scope: 'props',
+          label: 'Shape',
+          kind: 'segmented',
+          options: [
+            { value: 'circle', label: 'Circle' },
+            { value: 'rounded', label: 'Rounded' },
+            { value: 'square', label: 'Square' },
+          ],
+        },
+        {
+          key: 'size',
+          scope: 'props',
+          label: 'Size',
+          kind: 'number',
+          min: 16,
+          max: 48,
+          unit: 'px',
+        },
+        {
+          key: 'gap',
+          scope: 'props',
+          label: 'Spacing',
+          kind: 'number',
+          min: 0,
+          max: 32,
+          unit: 'px',
+        },
+        ALIGN,
+      ],
+    },
+    { title: 'Box', fields: BOX },
+  ],
+  video: [
+    {
+      title: 'Video',
+      fields: [
+        {
+          key: 'url',
+          scope: 'props',
+          label: 'Video link',
+          kind: 'url',
+          placeholder: 'https://youtube.com/watch?v=…',
+        },
+        {
+          key: 'thumbnail',
+          scope: 'props',
+          label: 'Thumbnail',
+          kind: 'image',
+          hint: 'YouTube links use the video’s HD thumbnail when this is empty.',
+        },
+        {
+          key: 'alt',
+          scope: 'props',
+          label: 'Alt text',
+          kind: 'text',
+          hint: 'Read out by screen readers, e.g. “Watch: product tour”.',
+        },
+        { key: 'width', scope: 'props', label: 'Width', kind: 'imageWidth', natural: false },
         ALIGN,
       ],
     },

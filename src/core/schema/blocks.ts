@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SOCIAL_NETWORKS } from '../social';
 import {
   AlignStyleShape,
   BoxStyleShape,
@@ -61,6 +62,38 @@ export const ImageProps = z.strictObject({
     .optional()
     .describe('Width in px, or "full" to fill the content width. Omit to keep the natural size.'),
   height: z.number().int().min(1).max(2000).optional().describe('Height in px. Usually omitted.'),
+});
+
+export const VideoProps = z.strictObject({
+  url: UrlSchema.optional().describe('Where the video plays, e.g. a YouTube or Vimeo link.'),
+  thumbnail: UrlSchema.optional().describe(
+    "Poster image URL. Omit for YouTube links to use the video's own thumbnail.",
+  ),
+  alt: z.string().max(500).optional().describe('Describe the video, e.g. "Watch: product tour".'),
+  width: z
+    .union([z.number().int().min(80).max(1200), z.literal('full')])
+    .optional()
+    .describe('Width in px, or "full" to fill the content width. Shown at 16:9.'),
+});
+
+export const SocialLinkSchema = z.strictObject({
+  network: z.enum(SOCIAL_NETWORKS),
+  href: UrlSchema.describe('Profile URL (mailto: for email).'),
+  label: z.string().max(100).optional().describe('Alt text; defaults to the network name.'),
+  icon: UrlSchema.optional().describe(
+    'Your own icon image (square works best). Omit to use the built-in icon.',
+  ),
+});
+
+export const SocialProps = z.strictObject({
+  links: z.array(SocialLinkSchema).max(16).optional().describe('Icons in order.'),
+  variant: z
+    .enum(['brand', 'dark', 'light'])
+    .optional()
+    .describe("brand = each network's color, dark = black tiles, light = gray tiles."),
+  shape: z.enum(['circle', 'rounded', 'square']).optional(),
+  size: z.number().int().min(16).max(48).optional().describe('Icon size in px.'),
+  gap: z.number().int().min(0).max(32).optional().describe('Space between icons in px.'),
 });
 
 export const AvatarProps = z.strictObject({
@@ -171,6 +204,29 @@ export const BLOCK_DEFINITIONS = {
       style: { padding: { top: 16, right: 24, bottom: 16, left: 24 }, fontWeight: 'bold' },
     },
   },
+  social: {
+    label: 'Social',
+    description: 'A row of social network icons linking to your profiles.',
+    category: 'content',
+    props: SocialProps,
+    style: BoxAlignStyle,
+    container: false,
+    defaults: {
+      props: {
+        links: [
+          { network: 'x', href: 'https://x.com' },
+          { network: 'linkedin', href: 'https://linkedin.com' },
+          { network: 'instagram', href: 'https://instagram.com' },
+          { network: 'youtube', href: 'https://youtube.com' },
+        ],
+        variant: 'dark',
+        shape: 'circle',
+        size: 32,
+        gap: 12,
+      },
+      style: { padding: { top: 16, right: 24, bottom: 16, left: 24 }, align: 'center' },
+    },
+  },
   image: {
     label: 'Image',
     description: 'A picture, optionally linked.',
@@ -180,6 +236,23 @@ export const BLOCK_DEFINITIONS = {
     container: false,
     defaults: {
       props: { src: 'https://placehold.co/1104x552/png', alt: '', width: 'full' },
+      style: { padding: { top: 16, right: 24, bottom: 16, left: 24 }, align: 'center' },
+    },
+  },
+  video: {
+    label: 'Video',
+    description:
+      'A video thumbnail with a play button that links to the video (email cannot play video inline).',
+    category: 'media',
+    props: VideoProps,
+    style: BoxAlignStyle,
+    container: false,
+    defaults: {
+      props: {
+        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+        alt: 'Watch the video',
+        width: 'full',
+      },
       style: { padding: { top: 16, right: 24, bottom: 16, left: 24 }, align: 'center' },
     },
   },
@@ -320,6 +393,16 @@ export const ImageBlockSchema = z.strictObject({
   props: ImageProps,
   style: BoxAlignStyle.optional(),
 });
+export const SocialBlockSchema = z.strictObject({
+  type: z.literal('social'),
+  props: SocialProps,
+  style: BoxAlignStyle.optional(),
+});
+export const VideoBlockSchema = z.strictObject({
+  type: z.literal('video'),
+  props: VideoProps,
+  style: BoxAlignStyle.optional(),
+});
 export const AvatarBlockSchema = z.strictObject({
   type: z.literal('avatar'),
   props: AvatarProps,
@@ -368,7 +451,9 @@ export const BlockSchema = z.discriminatedUnion('type', [
   HeadingBlockSchema,
   TextBlockSchema,
   ButtonBlockSchema,
+  SocialBlockSchema,
   ImageBlockSchema,
+  VideoBlockSchema,
   AvatarBlockSchema,
   DividerBlockSchema,
   SpacerBlockSchema,
