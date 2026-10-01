@@ -1,4 +1,5 @@
 export * from './colors';
+export * from './custom';
 export * from './defaults';
 export * from './ids';
 export * from './issues';

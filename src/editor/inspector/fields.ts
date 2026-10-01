@@ -1,7 +1,9 @@
+import type { CustomBlockDefinition } from '../../core/custom';
 import type { BlockType } from '../../core/schema/blocks';
 import { FONT_FAMILIES, FONT_KEYS } from '../../core/schema/primitives';
 
-export type Scope = 'props' | 'style';
+/** Where a field's value lives: block props, block style, or a custom block's `props.data`. */
+export type Scope = 'props' | 'style' | 'data';
 
 interface BaseField {
   key: string;
@@ -28,6 +30,7 @@ export type FieldSpec =
   | (BaseField & { kind: 'switch' })
   | (BaseField & { kind: 'color'; allowClear?: boolean })
   | (BaseField & { kind: 'padding' })
+  | (BaseField & { kind: 'json' })
   | (BaseField & { kind: 'imageWidth' });
 
 export interface FieldGroup {
@@ -328,6 +331,7 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
     { title: 'Typography', fields: [ALIGN, ...TYPOGRAPHY] },
     { title: 'Box', fields: BOX },
   ],
+  custom: [{ title: 'Box', fields: [ALIGN, ...BOX] }],
   container: [{ title: 'Box', fields: [ALIGN, ...BOX] }],
   columns: [
     {
@@ -369,3 +373,63 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
     { title: 'Box', fields: BOX },
   ],
 };
+
+/** Inspector fields for a custom block: its own fields, or a JSON editor when it has none. */
+export function customFieldGroups(definition: CustomBlockDefinition): FieldGroup[] {
+  if (!definition.fields?.length) {
+    return [
+      {
+        title: definition.label,
+        fields: [
+          {
+            key: 'data',
+            scope: 'props',
+            label: 'Data (JSON)',
+            kind: 'json',
+            hint: definition.description,
+          },
+        ],
+      },
+    ];
+  }
+  return [
+    {
+      title: definition.label,
+      fields: definition.fields.map((field): FieldSpec => {
+        const base = {
+          key: field.key,
+          scope: 'data' as const,
+          label: field.label,
+          ...(field.hint ? { hint: field.hint } : {}),
+        };
+        const placeholder = field.placeholder ? { placeholder: field.placeholder } : {};
+        switch (field.type) {
+          case 'number':
+            return {
+              ...base,
+              ...placeholder,
+              kind: 'number',
+              ...(field.min !== undefined ? { min: field.min } : {}),
+              ...(field.max !== undefined ? { max: field.max } : {}),
+              ...(field.step !== undefined ? { step: field.step } : {}),
+              ...(field.unit ? { unit: field.unit } : {}),
+            };
+          case 'select':
+            return { ...base, kind: 'select', options: field.options ?? [] };
+          case 'color':
+            return { ...base, kind: 'color', allowClear: true };
+          case 'switch':
+            return { ...base, kind: 'switch' };
+          case 'image':
+            return { ...base, kind: 'image' };
+          case 'textarea':
+            return { ...base, ...placeholder, kind: 'textarea' };
+          case 'url':
+            return { ...base, ...placeholder, kind: 'url' };
+          default:
+            return { ...base, ...placeholder, kind: 'text' };
+        }
+      }),
+    },
+  ];
+}

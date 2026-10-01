@@ -9,6 +9,7 @@ import {
 } from '../src/agent';
 import type { EmailDocument } from '../src/core/schema/document';
 import { validateDocument } from '../src/core/validate';
+import { CUSTOM_BLOCKS } from './src/blocks';
 
 const MODEL = 'claude-opus-5-5';
 const MAX_TURNS = 16;
@@ -33,9 +34,13 @@ async function readJson(request: import('node:http').IncomingMessage): Promise<u
  */
 async function runAgent(body: AgentRequestBody) {
   const client = new Anthropic();
-  const session = createAgentSession(body.document, { lint: { requireUnsubscribe: true } });
+  const session = createAgentSession(body.document, {
+    lint: { requireUnsubscribe: true },
+    customBlocks: CUSTOM_BLOCKS,
+  });
   const tools = toAnthropicTools(session.tools);
   const system = buildSystemPrompt({
+    customBlocks: CUSTOM_BLOCKS,
     ...(body.mergeTags ? { mergeTags: body.mergeTags } : {}),
     brief:
       'You are working inside a visual editor; the user reviews your changes before they are applied.',

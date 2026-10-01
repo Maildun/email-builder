@@ -27,6 +27,10 @@ export function summarizeBlock(block: Block): string {
       return `${block.props.height ?? 24}px`;
     case 'html':
       return quote(block.props.html, 50);
+    case 'custom': {
+      const data = JSON.stringify(block.props.data ?? {});
+      return `${block.props.name} ${data.length > 60 ? `${data.slice(0, 59)}…` : data}`;
+    }
     case 'columns':
       return `${block.children.length} columns, gap ${block.props.gap ?? 0}${block.props.stackOnMobile === false ? ', no stacking' : ''}`;
     case 'column':

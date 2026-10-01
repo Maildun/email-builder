@@ -1,7 +1,8 @@
+import type { CustomBlocks } from '../core/custom';
 import type { EmailDocument } from '../core/schema/document';
 import { resolvePadding } from '../core/schema/primitives';
 import { renderBlock } from './blocks';
-import { createRenderContext, type RenderContext } from './context';
+import { createRenderContext, type RenderContext, type RenderWarning } from './context';
 import { css, paddingCss, px } from './css';
 import { escapeHtml } from './escape';
 import { renderPlainText } from './text';
@@ -9,12 +10,11 @@ import { renderPlainText } from './text';
 export interface RenderOptions {
   /** Overrides `settings.lang`. Defaults to "en". */
   lang?: string;
+  /** Definitions for the document's custom blocks. */
+  customBlocks?: CustomBlocks;
 }
 
-export interface RenderWarning {
-  code: 'gmail-clipping' | 'unresolved-token';
-  message: string;
-}
+export type { RenderWarning };
 
 export interface RenderResult {
   html: string;
@@ -34,9 +34,11 @@ const PREHEADER_FILLER = '&#847;&zwnj;&nbsp;'.repeat(80);
  * and edge runtimes. Merge tags (`{{ key }}`) are kept verbatim.
  */
 export function renderEmail(document: EmailDocument, options: RenderOptions = {}): RenderResult {
-  const ctx = createRenderContext(document);
+  const ctx = createRenderContext(document, {
+    ...(options.customBlocks ? { customBlocks: options.customBlocks } : {}),
+  });
   const html = renderDocumentHtml(ctx, options);
-  const warnings: RenderWarning[] = [];
+  const warnings: RenderWarning[] = [...ctx.warnings];
 
   const bytes = new TextEncoder().encode(html).length;
   if (bytes > GMAIL_CLIP_BYTES) {
@@ -49,7 +51,7 @@ export function renderEmail(document: EmailDocument, options: RenderOptions = {}
     warnings.push({ code: 'unresolved-token', message: 'A theme color token was not resolved.' });
   }
 
-  return { html, text: renderPlainText(document), warnings };
+  return { html, text: renderPlainText(document, options), warnings };
 }
 
 /** Responsive and client-reset CSS placed in <head>. */

@@ -88,6 +88,20 @@ export const HtmlProps = z.strictObject({
     .describe('Raw HTML inserted as-is. Use only when no other block fits.'),
 });
 
+export const CustomProps = z.strictObject({
+  name: z
+    .string()
+    .regex(
+      /^[a-z][a-z0-9-]{0,63}$/,
+      'Use lowercase letters, digits and dashes, e.g. "product-card".',
+    )
+    .describe('Name of a custom block type the host app defined, e.g. "product-card".'),
+  data: z
+    .record(z.string(), z.json())
+    .optional()
+    .describe("The custom block's content; its shape is set by the custom block definition."),
+});
+
 export const ContainerProps = z.strictObject({});
 
 export const ColumnsProps = z.strictObject({
@@ -214,6 +228,19 @@ export const BLOCK_DEFINITIONS = {
       style: { padding: { top: 16, right: 24, bottom: 16, left: 24 } },
     },
   },
+  custom: {
+    label: 'Custom',
+    description:
+      'A block type defined by the host app (see "Custom blocks"). props.name picks the type, props.data holds its content.',
+    category: 'advanced',
+    props: CustomProps,
+    style: BoxAlignStyle,
+    container: false,
+    defaults: {
+      props: { name: 'custom', data: {} },
+      style: { padding: { top: 16, right: 24, bottom: 16, left: 24 } },
+    },
+  },
   container: {
     label: 'Container',
     description: 'Groups blocks with a shared background, border or padding.',
@@ -313,6 +340,11 @@ export const HtmlBlockSchema = z.strictObject({
   props: HtmlProps,
   style: TextStyle.optional(),
 });
+export const CustomBlockSchema = z.strictObject({
+  type: z.literal('custom'),
+  props: CustomProps,
+  style: BoxAlignStyle.optional(),
+});
 export const ContainerBlockSchema = z.strictObject({
   type: z.literal('container'),
   props: ContainerProps,
@@ -341,6 +373,7 @@ export const BlockSchema = z.discriminatedUnion('type', [
   DividerBlockSchema,
   SpacerBlockSchema,
   HtmlBlockSchema,
+  CustomBlockSchema,
   ContainerBlockSchema,
   ColumnsBlockSchema,
   ColumnBlockSchema,

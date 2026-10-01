@@ -9,9 +9,10 @@ import {
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { type AgentTool, createAgentTools } from '../../agent/tools';
 import type { Op } from '../../core/ops';
-import { BLOCK_DEFINITIONS } from '../../core/schema/blocks';
 import type { EmailDocument } from '../../core/schema/document';
-import { useEditorState, useEditorStore, useSlotClassName } from '../context';
+import { useEditorOptions, useEditorState, useEditorStore, useSlotClassName } from '../context';
+import type { EditorMessages } from '../messages';
+import { blockLabel } from '../meta';
 import type { EditorStore, Proposal } from '../store';
 import { Badge, Button, cn, Icon, Kbd, Spinner } from '../ui';
 
@@ -67,16 +68,15 @@ export interface EditorAgent {
 const OVERLAY_GAP = 16;
 const MAX_HISTORY = 10;
 
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
-
 /** "2 blocks changed · 1 removed · Theme updated". */
-export function describeProposal(proposal: Proposal): string {
+export function describeProposal(proposal: Proposal, messages: EditorMessages): string {
+  const text = messages.assistant;
   const parts: string[] = [];
-  if (proposal.changed.length) parts.push(`${plural(proposal.changed.length, 'block')} changed`);
-  if (proposal.removed.length) parts.push(`${proposal.removed.length} removed`);
-  if (proposal.themeChanged) parts.push('Theme updated');
-  if (proposal.settingsChanged) parts.push('Settings updated');
-  return parts.length ? parts.join(' · ') : 'No visible changes';
+  if (proposal.changed.length) parts.push(text.blocksChanged(proposal.changed.length));
+  if (proposal.removed.length) parts.push(text.blocksRemoved(proposal.removed.length));
+  if (proposal.themeChanged) parts.push(text.themeUpdated);
+  if (proposal.settingsChanged) parts.push(text.settingsUpdated);
+  return parts.length ? parts.join(' · ') : text.noVisibleChanges;
 }
 
 /**
@@ -101,11 +101,13 @@ function revealBlock(from: Element | null, id: string): boolean {
 }
 
 /** Short, readable error text for the user (details go to the console). */
-function errorText(issues: Array<{ path: string; message: string }>): string {
+function errorText(
+  issues: Array<{ path: string; message: string }>,
+  messages: EditorMessages,
+): string {
   const [first] = issues;
-  if (!first) return 'The assistant made a change that could not be applied.';
-  const more = issues.length > 1 ? ` (and ${issues.length - 1} more)` : '';
-  return `The assistant made a change that could not be applied: ${first.message}${more}`;
+  if (!first) return messages.assistant.applyFailed;
+  return messages.assistant.applyFailedDetail(first.message, issues.length - 1);
 }
 
 function recordTurn(history: { current: AgentTurn[] }, turn: AgentTurn): void {
@@ -113,13 +115,16 @@ function recordTurn(history: { current: AgentTurn[] }, turn: AgentTurn): void {
 }
 
 function bindTools(store: EditorStore, label: string, signal: AbortSignal): AgentTool[] {
-  return createAgentTools({
-    getDocument: () => store.visibleDocument(),
-    setDocument: (_document, change) => {
-      // After Stop, late tool calls from the agent are ignored.
-      if (!signal.aborted) store.propose(change.ops, { label });
+  return createAgentTools(
+    {
+      getDocument: () => store.visibleDocument(),
+      setDocument: (_document, change) => {
+        // After Stop, late tool calls from the agent are ignored.
+        if (!signal.aborted) store.propose(change.ops, { label });
+      },
     },
-  });
+    { customBlocks: store.customBlocks },
+  );
 }
 
 export function AgentPanel({ agent }: { agent: EditorAgent }) {
@@ -127,9 +132,12 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
   const proposal = useEditorState((state) => state.proposal);
   const view = useEditorState((state) => state.view);
   const selectedId = useEditorState((state) => state.selectedId);
-  const selectedType = useEditorState((state) =>
-    state.selectedId ? state.document.blocks[state.selectedId]?.type : undefined,
-  );
+  const { customBlockMap: custom, messages } = useEditorOptions();
+  const strings = messages.assistant;
+  const selectedLabel = useEditorState((state) => {
+    const block = state.selectedId ? state.document.blocks[state.selectedId] : undefined;
+    return block ? blockLabel(block, custom, messages) : undefined;
+  });
   const [prompt, setPrompt] = useState('');
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -215,7 +223,7 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
     abort.current = controller;
     setRunning(true);
     setError(null);
-    setStatus('Thinking…');
+    setStatus(strings.thinking);
 
     try {
       const response = await agent.onRequest({
@@ -236,7 +244,7 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
         const result = store.propose(response.ops, { label: trimmed });
         if (!result.ok) {
           console.warn('[email-builder] Rejected agent ops:', result.issues);
-          setError({ message: errorText(result.issues), prompt: trimmed });
+          setError({ message: errorText(result.issues, messages), prompt: trimmed });
         }
       }
       const pending = store.getState().proposal;
@@ -256,7 +264,7 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
           ...(response?.summary ? { summary: response.summary } : {}),
           outcome: 'no-changes',
         });
-        setStatus(response?.summary ?? 'No changes proposed.');
+        setStatus(response?.summary ?? strings.noChanges);
       }
       setPrompt('');
     } catch (caught) {
@@ -265,17 +273,17 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
         if (pending) {
           pendingTurn.current = { prompt: trimmed, outcome: 'stopped' };
           if (!pending.summary) {
-            store.setProposalSummary('Stopped early. Review what was done so far.');
+            store.setProposalSummary(strings.stoppedEarly);
           }
         } else {
           recordTurn(history, { prompt: trimmed, outcome: 'stopped' });
         }
-        setStatus(pending ? null : 'Stopped.');
+        setStatus(pending ? null : strings.stopped);
       } else {
         console.error('[email-builder] Agent request failed:', caught);
         recordTurn(history, { prompt: trimmed, outcome: 'failed' });
         setError({
-          message: (caught as Error).message || 'The assistant failed.',
+          message: (caught as Error).message || strings.failed,
           prompt: trimmed,
         });
         setStatus(null);
@@ -328,7 +336,9 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
         >
           <Icon icon={SparklesIcon} className="size-4 shrink-0 text-editor-ai" />
           <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            <strong className="text-sm font-semibold">{describeProposal(proposal)}</strong>
+            <strong className="text-sm font-semibold">
+              {describeProposal(proposal, messages)}
+            </strong>
             {proposal.summary ? (
               <span className="text-xs text-muted-foreground">{proposal.summary}</span>
             ) : null}
@@ -338,9 +348,9 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
               size="sm"
               variant="ghost"
               onClick={showNextChange}
-              aria-label={changes > 1 ? 'Show the next change' : 'Show the change'}
+              aria-label={changes > 1 ? strings.showNextChange : strings.showChange}
             >
-              Show
+              {strings.show}
             </Button>
           ) : null}
           <Button
@@ -351,7 +361,7 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
               setStatus(null);
             }}
           >
-            <Icon icon={Cancel01Icon} data-icon="inline-start" /> Reject
+            <Icon icon={Cancel01Icon} data-icon="inline-start" /> {strings.reject}
           </Button>
           <Button
             size="sm"
@@ -359,10 +369,13 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
             onClick={() => {
               store.accept();
               setStatus(null);
-              store.showToast('Changes applied', { label: 'Undo', run: () => store.undo() });
+              store.showToast(messages.toast.changesApplied, {
+                label: messages.toast.undo,
+                run: () => store.undo(),
+              });
             }}
           >
-            <Icon icon={Tick02Icon} data-icon="inline-start" /> Accept
+            <Icon icon={Tick02Icon} data-icon="inline-start" /> {strings.accept}
           </Button>
         </div>
       ) : null}
@@ -373,12 +386,12 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
         >
           <span className="flex-1">{error.message}</span>
           <Button size="xs" variant="outline" onClick={() => submit(error.prompt)}>
-            Try again
+            {strings.tryAgain}
           </Button>
           <Button
             size="icon-xs"
             variant="ghost"
-            aria-label="Dismiss"
+            aria-label={messages.common.dismiss}
             onClick={() => setError(null)}
           >
             <Icon icon={Cancel01Icon} />
@@ -395,7 +408,7 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
           }}
         >
           <Icon icon={SparklesIcon} data-icon="inline-start" className="text-editor-ai" />
-          Ask AI
+          {strings.askAi}
           <Kbd>⌘K</Kbd>
         </Button>
       ) : (
@@ -410,9 +423,9 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
             data-running={running || undefined}
             className="flex flex-wrap items-end gap-2 rounded-xl border bg-popover py-2 pr-2 pl-3.5 text-popover-foreground shadow-lg transition-colors focus-within:border-editor-ai/50 data-running:border-editor-ai/40"
           >
-            {selectedId && selectedType ? (
+            {selectedId && selectedLabel ? (
               <div className="basis-full">
-                <Badge variant="secondary">Selected: {BLOCK_DEFINITIONS[selectedType].label}</Badge>
+                <Badge variant="secondary">{strings.selected(selectedLabel)}</Badge>
               </div>
             ) : null}
             <textarea
@@ -420,10 +433,8 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
               className="field-sizing-content max-h-40 min-w-50 flex-1 resize-none border-0 bg-transparent py-1.5 text-sm leading-normal text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
               rows={1}
               value={prompt}
-              placeholder={
-                agent.placeholder ?? 'Ask AI to write, restyle or restructure this email…'
-              }
-              aria-label="Ask the assistant"
+              placeholder={agent.placeholder ?? strings.placeholder}
+              aria-label={strings.inputLabel}
               aria-keyshortcuts="Meta+K Control+K"
               disabled={running}
               onChange={(event) => setPrompt(event.target.value)}
@@ -435,13 +446,14 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
                   aria-live="polite"
                   className="inline-flex items-center gap-1.5 text-xs text-editor-ai"
                 >
-                  <Spinner aria-hidden className="size-3.5" /> {status}
+                  <Spinner aria-hidden aria-label={messages.common.loading} className="size-3.5" />{' '}
+                  {status}
                 </span>
                 <Button
                   size="icon-sm"
                   variant="outline"
-                  aria-label="Stop"
-                  title="Stop (Esc)"
+                  aria-label={strings.stop}
+                  title={strings.stopTip}
                   onClick={() => abort.current?.abort()}
                 >
                   <Icon icon={StopIcon} />
@@ -452,7 +464,7 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
                 <Button
                   size="icon-sm"
                   variant="ghost"
-                  aria-label="Collapse the assistant"
+                  aria-label={strings.collapse}
                   onClick={() => setCollapsed(true)}
                 >
                   <Icon icon={ArrowDown01Icon} />
@@ -460,7 +472,7 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
                 <Button
                   size="icon-sm"
                   variant="default"
-                  aria-label="Send"
+                  aria-label={strings.send}
                   disabled={!prompt.trim()}
                   onClick={() => submit()}
                 >

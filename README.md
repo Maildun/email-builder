@@ -202,8 +202,19 @@ Each request includes `history`: the earlier prompts in this session and whether
 | `toolbar` | Extra controls in the top bar. |
 | `appearance` | `'inherit'` (default: dark when an ancestor has the `dark` class), `'light'`, `'dark'` or `'system'`. |
 | `classNames` | Extra classes per part: `root`, `topbar`, `sidebar`, `stage`, `canvas`, `inspector`, `assistant`, `block-toolbar`. |
+| `customBlocks` | Your own block types (see [Custom blocks](#custom-blocks)). |
+| `blockTypes` | Built-in block types offered in the palette, e.g. `['heading', 'text', 'button', 'image']` to leave out raw HTML. All by default. |
+| `sections` | Sections offered in the palette; `[]` hides them. All by default. |
+| `views` | Views in the top bar, e.g. `['design', 'preview']`. All by default. |
+| `panels` | `{ sidebar?: boolean; inspector?: boolean }` for the default layout. |
+| `onSelectionChange(id, block)` | The selected block changed. |
+| `onProposalChange(proposal)` | An agent proposal appeared, changed, or was resolved (`null`). |
+| `onSave(document)` | ⌘S / Ctrl+S inside the editor; the browser's save dialog is suppressed. |
+| `messages` | Translations for the editor's UI text (see below). |
 
-**Ref handle:** `ref` exposes `getDocument`, `apply`, `undo`, `redo`, `propose`, `accept`, `reject` and `render`.
+**Ref handle:** `ref` exposes `getDocument`, `apply` and `propose` (both return `{ ok, issues }`), `undo`, `redo`, `accept`, `reject`, `select`, `load` (open another document and clear its undo history) and `render`.
+
+A controlled `value` that is only a copy of the current document (for example after a JSON round trip) is ignored, so undo history and pending proposals survive.
 
 **Keyboard shortcuts:**
 
@@ -218,6 +229,78 @@ Each request includes `history`: the earlier prompts in this session and whether
 | Enter | Edit text |
 | Esc | Stop editing / deselect, or stop the assistant |
 | ⌘K | Open the assistant |
+
+**Translations:** every piece of UI text comes from `messages`. Pass only what you translate; the rest stays English. Messages with values are functions.
+
+```tsx
+<EmailEditor
+  messages={{
+    topBar: { design: 'Desain', preview: 'Pratinjau', undo: 'Urungkan' },
+    toast: { deleted: (label) => `${label} dihapus`, undo: 'Urungkan' },
+    blocks: { text: { label: 'Teks' }, divider: { label: 'Pemisah' } },
+    inspector: { fields: { Padding: 'Jarak dalam', Alignment: 'Perataan' } },
+  }}
+/>
+```
+
+`EN_MESSAGES` holds every key with its English text. `inspector.fields` translates inspector labels and options by their English text. Validation messages from the core stay English, since agents read them too.
+
+## Custom blocks
+
+Add your own block types, like a product card fed from your store. A custom block renders to email-safe HTML, validates its data with a [Zod](https://zod.dev) schema, gets inspector fields, and is documented for agents automatically.
+
+```ts
+import { defineBlock } from '@maildun/email-builder';
+import { z } from 'zod';
+
+export const productCard = defineBlock({
+  name: 'product-card', // stored in documents; don't rename it later
+  label: 'Product',
+  description: 'A product with its image, name, price and a buy button.',
+  category: 'content', // palette group (default "advanced")
+  schema: z.object({ name: z.string().min(1), price: z.string(), image: z.string().url(), href: z.string().url() }),
+  defaults: { name: 'Pour-over set', price: '$48', image: 'https://…', href: 'https://…' },
+  fields: [
+    { key: 'name', label: 'Name', type: 'text' },
+    { key: 'price', label: 'Price', type: 'text' },
+    { key: 'image', label: 'Image', type: 'image' },
+    { key: 'href', label: 'Link', type: 'url' },
+  ],
+  render: (data, ctx) => `<a href="${ctx.escape(data.href)}" style="color:${ctx.color('$primary')}">${ctx.escape(data.name)} · ${ctx.escape(data.price)}</a>`,
+  text: (data) => `${data.name} – ${data.price}: ${data.href}`,
+});
+```
+
+Pass the same list everywhere documents are edited or rendered:
+
+```ts
+<EmailEditor customBlocks={[productCard]} />
+renderEmail(design, { customBlocks: [productCard] });
+applyOps(design, ops, { customBlocks: [productCard] }); // validates data
+createAgentSession(design, { customBlocks: [productCard] });
+buildSystemPrompt({ customBlocks: [productCard] }); // documents name + data schema
+```
+
+- **Stored as** `{ type: "custom", props: { name, data } }`, so documents stay valid even where a definition is missing.
+- **`render`** returns the block's content as email HTML (tables and inline styles, no scripts). It goes inside the block's padded cell. Escape user content with `ctx.escape`, and use `ctx.color('$primary')`, `ctx.font()` and `ctx.width` to match the email.
+- **Field types:** `text`, `textarea`, `url`, `image`, `number`, `color`, `switch` and `select`. Without `fields`, the inspector shows a JSON editor.
+- **Problems don't break the email:** a missing definition, data that fails the schema, or a `render` that throws leaves the block out and adds a `renderEmail` warning (`unknown-custom-block`, `invalid-custom-block`, `custom-block-error`).
+
+## Custom layouts
+
+`<EmailEditor>` is a ready-made arrangement of parts. Compose your own with `EmailEditor.Root`, which takes every editor prop, and any of the parts:
+
+```tsx
+<EmailEditor.Root defaultValue={design} onChange={setDesign} agent={agent}>
+  <MyHeader /> {/* can use useEditorStore() / useEditorState() */}
+  <div className="grid min-h-0 flex-1 grid-cols-[1fr_320px]">
+    <EmailEditor.Stage /> {/* canvas, preview or code, plus the assistant and toasts */}
+    <EmailEditor.Inspector />
+  </div>
+</EmailEditor.Root>
+```
+
+Parts: `EmailEditor.TopBar`, `EmailEditor.Sidebar`, `EmailEditor.Stage`, `EmailEditor.Inspector` and `EmailEditor.Layout` (sidebar, stage and inspector). They're also exported as `EditorTopBar`, `EditorSidebar`, `EditorStage`, `EditorInspector`, `EditorLayout`, `EditorPalette` and `EditorRoot`.
 
 ## Styling
 

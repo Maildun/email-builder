@@ -69,7 +69,8 @@ export function InlineText({
   onChange,
   onDone,
 }: InlineTextProps) {
-  const { mergeTags } = useEditorOptions();
+  const { mergeTags, messages } = useEditorOptions();
+  const text = messages.formatBar;
   const editor = useEditor({
     immediatelyRender: false,
     autofocus: 'end',
@@ -152,36 +153,36 @@ export function InlineText({
         className="absolute -top-10 left-0 z-7 flex h-9 items-center gap-px whitespace-nowrap rounded-md border bg-popover px-1 text-left font-normal font-sans text-popover-foreground text-xs not-italic leading-none tracking-normal normal-case shadow-md"
         onMouseDown={(event) => event.preventDefault()}
       >
-        <Tip label="Bold (⌘B)">
+        <Tip label={text.boldTip}>
           <Button
             size="icon-xs"
             variant="ghost"
             className={FORMAT_BUTTON}
-            aria-label="Bold"
+            aria-label={text.bold}
             aria-pressed={active?.bold ?? false}
             onClick={() => editor.chain().focus().toggleBold().run()}
           >
             <Icon icon={TextBoldIcon} />
           </Button>
         </Tip>
-        <Tip label="Italic (⌘I)">
+        <Tip label={text.italicTip}>
           <Button
             size="icon-xs"
             variant="ghost"
             className={FORMAT_BUTTON}
-            aria-label="Italic"
+            aria-label={text.italic}
             aria-pressed={active?.italic ?? false}
             onClick={() => editor.chain().focus().toggleItalic().run()}
           >
             <Icon icon={TextItalicIcon} />
           </Button>
         </Tip>
-        <Tip label="Strikethrough">
+        <Tip label={text.strikethrough}>
           <Button
             size="icon-xs"
             variant="ghost"
             className={FORMAT_BUTTON}
-            aria-label="Strikethrough"
+            aria-label={text.strikethrough}
             aria-pressed={active?.strike ?? false}
             onClick={() => editor.chain().focus().toggleStrike().run()}
           >
@@ -197,7 +198,7 @@ export function InlineText({
               size="icon-xs"
               variant="ghost"
               className={FORMAT_BUTTON}
-              aria-label="Link"
+              aria-label={text.link}
               aria-pressed={active?.link ?? false}
             >
               <Icon icon={Link01Icon} />
@@ -214,18 +215,18 @@ export function InlineText({
             <Input
               className="h-8"
               value={href}
-              placeholder="https:// or {{ tag }}"
-              aria-label="Link URL"
+              placeholder={text.linkPlaceholder}
+              aria-label={text.linkUrl}
               onChange={(event) => setHref(event.target.value)}
             />
             <Button type="submit" size="sm">
-              Apply
+              {text.apply}
             </Button>
             {active?.link ? (
               <Button
                 size="icon-sm"
                 variant="ghost"
-                aria-label="Remove link"
+                aria-label={text.removeLink}
                 onClick={() => {
                   setHref('');
                   editor.chain().focus().extendMarkRange('link').unsetLink().run();
@@ -240,24 +241,24 @@ export function InlineText({
         {singleLine ? null : (
           <>
             <GroupSeparator />
-            <Tip label="Bulleted list">
+            <Tip label={text.bulletedList}>
               <Button
                 size="icon-xs"
                 variant="ghost"
                 className={FORMAT_BUTTON}
-                aria-label="Bulleted list"
+                aria-label={text.bulletedList}
                 aria-pressed={active?.bulletList ?? false}
                 onClick={() => editor.chain().focus().toggleBulletList().run()}
               >
                 <Icon icon={LeftToRightListBulletIcon} />
               </Button>
             </Tip>
-            <Tip label="Numbered list">
+            <Tip label={text.numberedList}>
               <Button
                 size="icon-xs"
                 variant="ghost"
                 className={FORMAT_BUTTON}
-                aria-label="Numbered list"
+                aria-label={text.numberedList}
                 aria-pressed={active?.orderedList ?? false}
                 onClick={() => editor.chain().focus().toggleOrderedList().run()}
               >
@@ -272,7 +273,7 @@ export function InlineText({
             <Popover
               className="w-auto min-w-56 gap-0 p-1"
               trigger={
-                <Button size="icon-xs" variant="ghost" aria-label="Insert merge tag">
+                <Button size="icon-xs" variant="ghost" aria-label={text.insertMergeTag}>
                   <Icon icon={BracesIcon} />
                 </Button>
               }
@@ -282,7 +283,7 @@ export function InlineText({
                 className="flex max-h-[300px] flex-col overflow-y-auto"
               >
                 <p className="px-2 pt-1 pb-1.5 font-medium text-muted-foreground text-xs">
-                  Insert merge tag
+                  {text.insertMergeTag}
                 </p>
                 {mergeTags.map((tag) => (
                   <Button
@@ -302,7 +303,7 @@ export function InlineText({
         ) : null}
         <GroupSeparator />
         <Button size="xs" variant="ghost" onClick={onDone}>
-          Done
+          {text.done}
         </Button>
       </div>
       <EditorContent editor={editor} />

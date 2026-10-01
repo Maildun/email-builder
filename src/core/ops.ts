@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { type CustomBlocks, validateCustomBlocks } from './custom';
 import { emptyDocument } from './defaults';
 import { createUniqueId } from './ids';
 import { aliasHint, type Issue, issuesFromZod, joinPath } from './issues';
@@ -156,7 +157,19 @@ interface Draft {
  * Applies operations atomically: either every op succeeds and the result is a
  * valid document, or the original document is untouched and issues explain why.
  */
-export function applyOps(document: EmailDocument, ops: Op | Op[]): ApplyResult {
+export interface ApplyOptions {
+  /**
+   * Custom block definitions. When given, the data of every custom block the
+   * operations add or change is checked against its definition's schema.
+   */
+  customBlocks?: CustomBlocks;
+}
+
+export function applyOps(
+  document: EmailDocument,
+  ops: Op | Op[],
+  options: ApplyOptions = {},
+): ApplyResult {
   const list = Array.isArray(ops) ? ops : [ops];
   const draft: Draft = {
     document: structuredClone(document),
@@ -187,6 +200,11 @@ export function applyOps(document: EmailDocument, ops: Op | Op[]): ApplyResult {
 
   for (const id of draft.removed) {
     draft.changed.delete(id);
+  }
+  if (options.customBlocks) {
+    const touched = new Set([...draft.changed, ...draft.inserted]);
+    const issues = validateCustomBlocks(validation.document, options.customBlocks, touched);
+    if (issues.length > 0) return { ok: false, issues };
   }
   return {
     ok: true,
@@ -617,6 +635,7 @@ export function materializeOp(document: EmailDocument, op: Op): Op {
 export function applyOpsMaterialized(
   document: EmailDocument,
   ops: Op[],
+  options: ApplyOptions = {},
 ): (Extract<ApplyResult, { ok: true }> & { ops: Op[] }) | Extract<ApplyResult, { ok: false }> {
   let current = document;
   const materialized: Op[] = [];
@@ -626,7 +645,7 @@ export function applyOpsMaterialized(
   for (const [index, raw] of ops.entries()) {
     const parsed = OpSchema.safeParse(raw);
     const op = parsed.success ? materializeOp(current, parsed.data as Op) : raw;
-    const result = applyOps(current, op);
+    const result = applyOps(current, op, options);
     if (!result.ok) {
       return { ok: false, issues: result.issues.map((issue) => ({ ...issue, opIndex: index })) };
     }

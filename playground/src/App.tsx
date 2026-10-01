@@ -8,6 +8,7 @@ import {
   type EmailEditorHandle,
 } from '@maildun/email-builder/editor';
 import { useMemo, useRef, useState } from 'react';
+import { CUSTOM_BLOCKS } from './blocks';
 
 const MERGE_TAGS = [
   { key: 'first_name', label: 'First name' },
@@ -196,6 +197,7 @@ export function App() {
           value={document}
           onChange={setDocument}
           mergeTags={MERGE_TAGS}
+          customBlocks={CUSTOM_BLOCKS}
           agent={agent}
           onPickImage={async () => ({
             url: `https://picsum.photos/seed/${Math.random().toString(36).slice(2, 8)}/1200/600`,

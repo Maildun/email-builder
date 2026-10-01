@@ -1,6 +1,6 @@
 import { Cancel01Icon } from '@hugeicons/core-free-icons';
 import { useEffect } from 'react';
-import { useEditorState, useEditorStore } from '../context';
+import { useEditorState, useEditorStore, useMessages } from '../context';
 import { Button, Icon } from '../ui';
 
 const TOAST_MS = 5000;
@@ -9,6 +9,7 @@ const TOAST_MS = 5000;
 export function EditorToast() {
   const store = useEditorStore();
   const toast = useEditorState((state) => state.toast);
+  const messages = useMessages();
 
   useEffect(() => {
     if (!toast) return;
@@ -33,7 +34,7 @@ export function EditorToast() {
             <Button
               size="xs"
               variant="secondary"
-              aria-label={`${toast.action.label}: ${toast.message}`}
+              aria-label={messages.toast.actionLabel(toast.action.label, toast.message)}
               onClick={() => {
                 toast.action?.run();
                 store.dismissToast(toast.id);
@@ -45,7 +46,7 @@ export function EditorToast() {
           <Button
             size="icon-xs"
             variant="ghost"
-            aria-label="Dismiss"
+            aria-label={messages.common.dismiss}
             onClick={() => store.dismissToast(toast.id)}
           >
             <Icon icon={Cancel01Icon} />

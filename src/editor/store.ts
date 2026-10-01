@@ -1,3 +1,4 @@
+import type { CustomBlocks } from '../core/custom';
 import type { Issue } from '../core/issues';
 import { applyOps, type Op } from '../core/ops';
 import type { EmailDocument } from '../core/schema/document';
@@ -73,6 +74,8 @@ export class EditorStore {
   private lastMerge: { key: string; at: number } | null = null;
   /** Called with every committed document (not proposals). */
   onDocumentChange: ((document: EmailDocument) => void) | null = null;
+  /** Custom block definitions; their data is validated on every change. */
+  customBlocks: CustomBlocks = [];
 
   constructor(document: EmailDocument) {
     this.state = {
@@ -143,7 +146,7 @@ export class EditorStore {
     ops: Op | Op[],
     options: ApplyOptions = {},
   ): { ok: boolean; inserted: string[]; issues: Issue[] } {
-    const result = applyOps(this.state.document, ops);
+    const result = applyOps(this.state.document, ops, { customBlocks: this.customBlocks });
     if (!result.ok) {
       this.set({ lastIssues: result.issues });
       return { ok: false, inserted: [], issues: result.issues };
@@ -167,6 +170,21 @@ export class EditorStore {
           : null,
       editingId: null,
       proposal: null,
+    });
+  }
+
+  /** Opens another document: clears history, selection and any pending proposal. */
+  load(document: EmailDocument): void {
+    this.past = [];
+    this.future = [];
+    this.lastMerge = null;
+    this.set({
+      document,
+      selectedId: null,
+      editingId: null,
+      proposal: null,
+      lastIssues: [],
+      toast: null,
     });
   }
 
@@ -247,7 +265,7 @@ export class EditorStore {
     meta: { label?: string; summary?: string } = {},
   ): { ok: boolean; issues: Issue[] } {
     const base = this.state.proposal?.document ?? this.state.document;
-    const result = applyOps(base, ops);
+    const result = applyOps(base, ops, { customBlocks: this.customBlocks });
     if (!result.ok) {
       this.set({ lastIssues: result.issues });
       return { ok: false, issues: result.issues };

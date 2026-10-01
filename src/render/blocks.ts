@@ -120,6 +120,8 @@ export function renderBlock(
       return renderSpacer(ctx, id, block);
     case 'html':
       return box(ctx, id, block.style, block.props.html ?? '', typeDeclarations(ctx, block.style));
+    case 'custom':
+      return renderCustom(ctx, id, block, available);
     case 'container': {
       const width = innerWidth(available, block.style?.padding, block.style?.border);
       return box(
@@ -140,6 +142,60 @@ export function renderBlock(
         block.children.map((child) => renderChild(child, width)).join(''),
       );
     }
+  }
+}
+
+/**
+ * Renders a host-defined block inside the standard block cell. Missing
+ * definitions, invalid data and errors thrown by `render` become warnings
+ * (and an empty cell) instead of breaking the whole email.
+ */
+function renderCustom(
+  ctx: RenderContext,
+  id: string,
+  block: BlockOf<'custom'>,
+  available: number,
+): string {
+  const { name } = block.props;
+  const definition = ctx.customBlocks.get(name);
+  const empty = ctx.annotate ? box(ctx, id, block.style, '') : '';
+  if (!definition) {
+    ctx.warnings.push({
+      code: 'unknown-custom-block',
+      message: `No definition for custom block "${name}"; it was left out.`,
+      blockId: id,
+    });
+    return empty;
+  }
+  const data = definition.schema.safeParse(block.props.data ?? {});
+  if (!data.success) {
+    ctx.warnings.push({
+      code: 'invalid-custom-block',
+      message: `Custom block "${name}" has invalid data; it was left out.`,
+      blockId: id,
+    });
+    return empty;
+  }
+  try {
+    const inner = definition.render(data.data, {
+      theme: ctx.theme,
+      color: ctx.color,
+      font: ctx.font,
+      textColor: ctx.textColor,
+      linkColor: ctx.linkColor,
+      fontSize: ctx.fontSize,
+      lineHeight: ctx.lineHeight,
+      width: innerWidth(available, block.style?.padding, block.style?.border),
+      escape: escapeHtml,
+    });
+    return box(ctx, id, block.style, inner);
+  } catch (error) {
+    ctx.warnings.push({
+      code: 'custom-block-error',
+      message: `Custom block "${name}" failed to render: ${(error as Error).message}`,
+      blockId: id,
+    });
+    return empty;
   }
 }
 

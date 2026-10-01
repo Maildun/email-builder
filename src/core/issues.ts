@@ -80,7 +80,7 @@ export function issuesFromZod(
       issues.push({
         path: basePath,
         message: 'Unknown block type.',
-        hint: 'Use one of: heading, text, button, image, avatar, divider, spacer, html, container, columns, column.',
+        hint: 'Use one of: heading, text, button, image, avatar, divider, spacer, html, custom, container, columns, column.',
         ...(options.blockId ? { blockId: options.blockId } : {}),
         ...(options.opIndex !== undefined ? { opIndex: options.opIndex } : {}),
       });
@@ -88,7 +88,11 @@ export function issuesFromZod(
     }
     issues.push({
       path: basePath,
-      message: zodIssue.message,
+      // "Invalid input: expected string, received undefined" means a missing value.
+      message:
+        zodIssue.code === 'invalid_type' && zodIssue.message.endsWith('received undefined')
+          ? 'Required.'
+          : zodIssue.message,
       ...(options.blockId ? { blockId: options.blockId } : {}),
       ...(options.opIndex !== undefined ? { opIndex: options.opIndex } : {}),
     });

@@ -19,17 +19,24 @@ import {
   useSyncExternalStore,
 } from 'react';
 import type { Op } from '../core/ops';
-import { BLOCK_DEFINITIONS, type BlockType, canContain } from '../core/schema/blocks';
-import { type EmailDocument, ROOT_ID } from '../core/schema/document';
-import { buildSection, SECTIONS, type SectionName } from '../core/sections';
+import { type BlockType, canContain } from '../core/schema/blocks';
+import { type BlockInput, type EmailDocument, ROOT_ID } from '../core/schema/document';
+import { buildSection, type SectionName } from '../core/sections';
 import { descendantIds, findParent } from '../core/tree';
-import { useEditorStore } from './context';
-import { BLOCK_ICONS } from './meta';
-import { Icon } from './ui';
+import { useEditorOptions, useEditorStore } from './context';
+import { BLOCK_ICONS, blockIcon, blockLabel } from './meta';
+import { Icon, type IconSvgElement } from './ui';
 
 /** What is being dragged. */
 export type DragData =
-  | { kind: 'new'; blockType: BlockType }
+  | {
+      kind: 'new';
+      blockType: BlockType;
+      /** The block to insert; defaults to `{ type: blockType }`. */
+      input?: BlockInput;
+      label?: string;
+      icon?: IconSvgElement;
+    }
   | { kind: 'section'; section: SectionName; blockType: BlockType }
   | { kind: 'move'; id: string; blockType: BlockType };
 
@@ -103,7 +110,7 @@ function opsForDrop(drag: DragData, target: Target): Op[] {
           op: 'insert',
           parentId: target.parentId,
           index: target.index,
-          blocks: [{ type: drag.blockType }],
+          blocks: [drag.input ?? ({ type: drag.blockType } as BlockInput)],
         },
       ];
     case 'section':
@@ -231,12 +238,24 @@ export function EditorDnd({ children }: { children: ReactNode }) {
     }
   };
 
-  const icon = dragging ? BLOCK_ICONS[dragging.blockType] : null;
-  const label = dragging
-    ? dragging.kind === 'section'
-      ? SECTIONS[dragging.section].label
-      : BLOCK_DEFINITIONS[dragging.blockType].label
-    : '';
+  const { customBlockMap: custom, messages } = useEditorOptions();
+  const moving = dragging?.kind === 'move' ? store.getState().document.blocks[dragging.id] : null;
+  const icon = !dragging
+    ? null
+    : moving
+      ? blockIcon(moving, custom)
+      : dragging.kind === 'new' && dragging.icon
+        ? dragging.icon
+        : BLOCK_ICONS[dragging.blockType];
+  const label = !dragging
+    ? ''
+    : dragging.kind === 'section'
+      ? messages.sections[dragging.section].label
+      : moving
+        ? blockLabel(moving, custom, messages)
+        : dragging.kind === 'new' && dragging.label
+          ? dragging.label
+          : messages.blocks[dragging.blockType].label;
 
   return (
     <DndContext

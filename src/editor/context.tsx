@@ -1,5 +1,10 @@
 import { createContext, type ReactNode, useContext, useSyncExternalStore } from 'react';
-import type { EditorState, EditorStore } from './store';
+import type { CustomBlockDefinition, CustomBlocks } from '../core/custom';
+import type { BlockType } from '../core/schema/blocks';
+import type { SectionName } from '../core/sections';
+import { type EditorMessages, EN_MESSAGES } from './messages';
+import type { EditorAgent } from './panels/AgentPanel';
+import type { EditorState, EditorStore, EditorView } from './store';
 
 export interface MergeTag {
   /** Tag key, rendered as `{{ key }}`. */
@@ -29,12 +34,34 @@ export interface EditorOptions {
   readOnly: boolean;
   mergeTags: MergeTag[];
   classNames?: EditorClassNames;
+  /** Enables the assistant. */
+  agent?: EditorAgent;
+  /** Host-defined block types, and the same list by name. */
+  customBlocks: CustomBlocks;
+  customBlockMap: ReadonlyMap<string, CustomBlockDefinition>;
+  /** Built-in block types offered in the palette (all when undefined). */
+  blockTypes?: readonly BlockType[];
+  /** Sections offered in the palette (all when undefined, none when empty). */
+  sections?: readonly SectionName[];
+  /** Views offered in the top bar. */
+  views: readonly EditorView[];
   onUploadImage?: (file: File) => Promise<ImageResult>;
   onPickImage?: () => Promise<ImageResult | null>;
+  /** The UI text, already merged over the English defaults. */
+  messages: EditorMessages;
 }
 
 const StoreContext = createContext<EditorStore | null>(null);
-const OptionsContext = createContext<EditorOptions>({ readOnly: false, mergeTags: [] });
+export const DEFAULT_OPTIONS: EditorOptions = {
+  readOnly: false,
+  mergeTags: [],
+  customBlocks: [],
+  customBlockMap: new Map(),
+  views: ['design', 'preview', 'code'],
+  messages: EN_MESSAGES,
+};
+
+const OptionsContext = createContext<EditorOptions>(DEFAULT_OPTIONS);
 
 export function EditorProvider({
   store,
@@ -83,4 +110,9 @@ export function useEditorOptions(): EditorOptions {
 /** The host's extra class name for one part of the editor. */
 export function useSlotClassName(slot: EditorSlot): string | undefined {
   return useContext(OptionsContext).classNames?.[slot];
+}
+
+/** The editor's UI text (translated when the host passed `messages`). */
+export function useMessages(): EditorMessages {
+  return useContext(OptionsContext).messages;
 }
