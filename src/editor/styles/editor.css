@@ -172,29 +172,48 @@
   height: auto;
 }
 
+/*
+ * Where a dragged block will land. Between blocks, a dashed placeholder sits
+ * over the gap; dnd-kit measures drop zones when the drag starts, so it
+ * overlays the neighbours instead of pushing them apart. It is opaque so the
+ * text underneath doesn't show through.
+ */
 .meb-block:is([data-indicator='before'], [data-indicator='after'])::before {
   content: '';
   position: absolute;
   right: 0;
   left: 0;
   z-index: 6;
-  height: 3px;
-  border-radius: 2px;
-  background: var(--editor-selection);
+  height: 20px;
+  box-sizing: border-box;
+  border: 1.5px dashed var(--editor-selection);
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--editor-selection) 10%, white);
   pointer-events: none;
+  animation: meb-drop-in 120ms ease-out;
 }
 
 .meb-block[data-indicator='before']::before {
-  top: -2px;
+  top: -10px;
 }
 
 .meb-block[data-indicator='after']::before {
-  bottom: -2px;
+  bottom: -10px;
 }
 
 .meb-block[data-indicator='inside']::after {
-  box-shadow: inset 0 0 0 2px var(--editor-selection);
+  outline: 1.5px dashed var(--editor-selection);
+  outline-offset: -1.5px;
+  border-radius: 4px;
+  box-shadow: none;
   background: var(--editor-selection-soft);
+}
+
+@keyframes meb-drop-in {
+  from {
+    opacity: 0;
+    transform: scaleY(0.5);
+  }
 }
 
 /* ---------- Inline text editing ---------- */

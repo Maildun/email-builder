@@ -628,12 +628,13 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
         style={{ paddingTop: outer.top, paddingBottom: outer.bottom }}
       >
         <div
-          className="meb-email data-[drop-target]:outline-2 data-[drop-target]:outline-editor-selection data-[drop-target]:outline-offset-4 data-[drop-target]:outline-dashed"
+          className="meb-email data-[drop-target]:bg-[image:linear-gradient(var(--editor-selection-soft),var(--editor-selection-soft))] data-[drop-target]:outline-[1.5px] data-[drop-target]:outline-editor-selection data-[drop-target]:outline-offset-4 data-[drop-target]:outline-dashed"
           data-viewport={viewport}
           data-drop-target={(rootOver && validRootDrop) || undefined}
           style={{
             maxWidth: width,
-            background: ctx.color(settings.canvasColor, '$surface'),
+            // Not the `background` shorthand, which would clear the drop highlight.
+            backgroundColor: ctx.color(settings.canvasColor, '$surface'),
             borderRadius: settings.borderRadius,
             border: canvasBorder ? `1px solid ${canvasBorder}` : undefined,
             fontFamily: ctx.font(undefined),
