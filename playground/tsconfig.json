@@ -1,0 +1,13 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@maildun/email-builder": ["../src/index.ts"],
+      "@maildun/email-builder/editor": ["../src/editor/index.ts"],
+      "@maildun/email-builder/agent": ["../src/agent/index.ts"],
+      "@maildun/email-builder/compat": ["../src/compat/index.ts"]
+    }
+  },
+  "include": ["src", "vite.config.ts", "agent-middleware.ts"]
+}

@@ -1,0 +1,59 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: #f4f4f5;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 48px;
+  padding: 0 16px;
+  border-bottom: 1px solid #e4e4e7;
+  background: #18181b;
+  color: #fafafa;
+  font-size: 13px;
+}
+
+.app-header strong {
+  font-size: 14px;
+}
+
+.app-header .spacer {
+  flex: 1;
+}
+
+.app-header select {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  background: #27272a;
+  color: #fafafa;
+  font: inherit;
+}
+
+.app-header label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #a1a1aa;
+}
+
+.app-editor {
+  flex: 1;
+  min-height: 0;
+}
