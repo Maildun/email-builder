@@ -1,15 +1,42 @@
-import { Tabs } from '@base-ui/react/tabs';
-import { ChevronRight, Copy, Trash } from 'lucide-react';
+import { ArrowRight01Icon, Copy01Icon, Delete02Icon } from '@hugeicons/core-free-icons';
 import { BLOCK_DEFINITIONS, type Block } from '../../core/schema/blocks';
 import { type EmailDocument, ROOT_ID } from '../../core/schema/document';
 import { FONT_FAMILIES, type FontKey, type Padding } from '../../core/schema/primitives';
 import { ancestorIds } from '../../core/tree';
 import { duplicateBlock, removeBlock } from '../actions';
-import { useEditorOptions, useEditorState, useEditorStore, useVisibleDocument } from '../context';
+import {
+  useEditorOptions,
+  useEditorState,
+  useEditorStore,
+  useSlotClassName,
+  useVisibleDocument,
+} from '../context';
 import { BLOCK_ICONS } from '../meta';
 import type { EditorStore } from '../store';
-import { Button, Field, NumberInput, Segmented, SelectInput, SwitchInput, Tip } from '../ui';
-import { ColorInput, ImageInput, PaddingInput, Section, TextInput, UrlInput } from './controls';
+import {
+  Button,
+  cn,
+  Field,
+  Icon,
+  NumberInput,
+  Segmented,
+  SelectInput,
+  SwitchInput,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Tip,
+} from '../ui';
+import {
+  ColorInput,
+  GroupField,
+  ImageInput,
+  PaddingInput,
+  Section,
+  TextInput,
+  UrlInput,
+} from './controls';
 import { BLOCK_FIELDS, DEFAULT_OPTION, type FieldSpec, FONT_OPTIONS, type Scope } from './fields';
 
 type Commit = (value: unknown) => string | null;
@@ -47,6 +74,63 @@ function FieldControl({
     unknown
   >;
   const value = source[field.key];
+
+  // Option rows, padding and image width have no single labelable element,
+  // so their title labels the group rather than a `<label for>`.
+  if (field.kind === 'segmented') {
+    return (
+      <GroupField label={field.label} hint={field.hint}>
+        {() => (
+          <Segmented
+            ariaLabel={field.label}
+            value={value === undefined ? undefined : String(value)}
+            options={field.options}
+            onChange={(next) => commit(field.key === 'level' ? Number(next) : next)}
+          />
+        )}
+      </GroupField>
+    );
+  }
+  if (field.kind === 'padding') {
+    return (
+      <GroupField label={field.label} hint={field.hint}>
+        {() => <PaddingInput value={value as Padding | undefined} onCommit={commit} />}
+      </GroupField>
+    );
+  }
+  if (field.kind === 'imageWidth') {
+    const mode = value === 'full' ? 'full' : value === undefined ? 'auto' : 'fixed';
+    return (
+      <GroupField label={field.label} hint={field.hint}>
+        {() => (
+          <div className="flex flex-col gap-1.5">
+            <Segmented
+              ariaLabel="Width mode"
+              value={mode}
+              options={[
+                { value: 'full', label: 'Fill' },
+                { value: 'auto', label: 'Natural' },
+                { value: 'fixed', label: 'Fixed' },
+              ]}
+              onChange={(next) =>
+                commit(next === 'full' ? 'full' : next === 'auto' ? undefined : 300)
+              }
+            />
+            {mode === 'fixed' ? (
+              <NumberInput
+                ariaLabel={`${field.label} in pixels`}
+                value={value as number}
+                min={1}
+                max={1200}
+                unit="px"
+                onChange={(next) => commit(next ?? 300)}
+              />
+            ) : null}
+          </div>
+        )}
+      </GroupField>
+    );
+  }
 
   return (
     <Field label={field.label} hint={field.hint} inline={field.kind === 'switch'}>
@@ -113,16 +197,6 @@ function FieldControl({
                 onChange={(next) => commit(next === DEFAULT_OPTION ? undefined : next)}
               />
             );
-          case 'segmented':
-            return (
-              <Segmented
-                id={id}
-                ariaLabel={field.label}
-                value={value === undefined ? undefined : String(value)}
-                options={field.options}
-                onChange={(next) => commit(field.key === 'level' ? Number(next) : next)}
-              />
-            );
           case 'switch':
             return (
               <SwitchInput
@@ -141,37 +215,6 @@ function FieldControl({
                 onCommit={commit}
               />
             );
-          case 'padding':
-            return <PaddingInput value={value as Padding | undefined} onCommit={commit} />;
-          case 'imageWidth': {
-            const mode = value === 'full' ? 'full' : value === undefined ? 'auto' : 'fixed';
-            return (
-              <div className="meb-stack-sm">
-                <Segmented
-                  id={id}
-                  ariaLabel="Width mode"
-                  value={mode}
-                  options={[
-                    { value: 'full', label: 'Fill' },
-                    { value: 'auto', label: 'Natural' },
-                    { value: 'fixed', label: 'Fixed' },
-                  ]}
-                  onChange={(next) =>
-                    commit(next === 'full' ? 'full' : next === 'auto' ? undefined : 300)
-                  }
-                />
-                {mode === 'fixed' ? (
-                  <NumberInput
-                    value={value as number}
-                    min={1}
-                    max={1200}
-                    unit="px"
-                    onChange={(next) => commit(next ?? 300)}
-                  />
-                ) : null}
-              </div>
-            );
-          }
         }
       }}
     </Field>
@@ -183,52 +226,57 @@ function BlockInspector({ id }: { id: string }) {
   const document = useVisibleDocument();
   const block = document.blocks[id];
   if (!block) return null;
-  const Icon = BLOCK_ICONS[block.type];
   const trail = ancestorIds(document, id).reverse();
 
   return (
-    <div className="meb-inspector-body">
-      <div className="meb-inspector-head">
-        <div className="meb-breadcrumbs">
-          {trail.map((ancestor) => {
-            const ancestorBlock = document.blocks[ancestor];
-            return ancestorBlock ? (
-              <span key={ancestor} className="meb-crumb">
-                <button
-                  type="button"
-                  className="meb-link-button"
-                  onClick={() => store.select(ancestor)}
-                >
-                  {BLOCK_DEFINITIONS[ancestorBlock.type].label}
-                </button>
-                <ChevronRight size={12} />
-              </span>
-            ) : null;
-          })}
-        </div>
-        <div className="meb-row meb-between">
-          <h2 className="meb-inspector-title">
-            <Icon size={16} /> {BLOCK_DEFINITIONS[block.type].label}
+    <div data-slot="inspector-body" className="pb-6">
+      <div data-slot="inspector-header" className="flex flex-col gap-1 border-b px-4 py-3">
+        {trail.length > 0 ? (
+          <nav
+            aria-label="Breadcrumb"
+            className="flex flex-wrap items-center gap-0.5 text-xs text-muted-foreground"
+          >
+            {trail.map((ancestor) => {
+              const ancestorBlock = document.blocks[ancestor];
+              return ancestorBlock ? (
+                <span key={ancestor} className="inline-flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    className="cursor-pointer rounded-sm outline-none hover:text-foreground hover:underline focus-visible:ring-3 focus-visible:ring-ring/50"
+                    onClick={() => store.select(ancestor)}
+                  >
+                    {BLOCK_DEFINITIONS[ancestorBlock.type].label}
+                  </button>
+                  <Icon icon={ArrowRight01Icon} className="size-3" />
+                </span>
+              ) : null;
+            })}
+          </nav>
+        ) : null}
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+            <Icon icon={BLOCK_ICONS[block.type]} className="size-4 shrink-0" />{' '}
+            {BLOCK_DEFINITIONS[block.type].label}
           </h2>
-          <div className="meb-row">
+          <div className="flex items-center gap-0.5">
             <Tip label="Duplicate (⌘D)">
               <Button
                 variant="ghost"
-                size="icon"
+                size="icon-sm"
                 aria-label="Duplicate block"
                 onClick={(event) => duplicateBlock(store, id, event.currentTarget)}
               >
-                <Copy size={15} />
+                <Icon icon={Copy01Icon} />
               </Button>
             </Tip>
             <Tip label="Delete (⌫)">
               <Button
                 variant="ghost"
-                size="icon"
+                size="icon-sm"
                 aria-label="Delete block"
                 onClick={(event) => removeBlock(store, id, event.currentTarget)}
               >
-                <Trash size={15} />
+                <Icon icon={Delete02Icon} />
               </Button>
             </Tip>
           </div>
@@ -284,7 +332,7 @@ function EmailInspector() {
   const fontValue = (font: string) => (font in FONT_FAMILIES ? (font as FontKey) : undefined);
 
   return (
-    <div className="meb-inspector-body">
+    <div data-slot="inspector-body" className="pb-6">
       <Section title="Inbox">
         <Field label="Preheader" hint="Preview text shown after the subject line.">
           {(id) => (
@@ -371,9 +419,9 @@ function EmailInspector() {
             />
           )}
         </Field>
-        <Field label="Outer padding">
+        <GroupField label="Outer padding">
           {() => <PaddingInput value={settings.padding} onCommit={setting('padding')} />}
-        </Field>
+        </GroupField>
         <Field label="Backdrop">
           {(id) => (
             <ColorInput
@@ -449,36 +497,64 @@ export function Inspector() {
   const hasProposal = useEditorState((state) => state.proposal !== null);
   const { readOnly } = useEditorOptions();
   const store = useEditorStore();
+  const slotClassName = useSlotClassName('inspector');
   const tab = selectedId && selectedId !== ROOT_ID ? 'block' : 'email';
 
   return (
-    <aside className="meb-inspector" aria-label="Inspector">
-      <Tabs.Root
+    <aside
+      data-slot="inspector"
+      aria-label="Inspector"
+      className={cn(
+        'flex min-h-0 flex-col overflow-y-auto border-l bg-card text-card-foreground',
+        slotClassName,
+      )}
+    >
+      <Tabs
         value={tab}
         onValueChange={(value) => {
           if (value === 'email') store.select(null);
         }}
+        className="gap-0"
       >
-        <Tabs.List className="meb-tabs">
-          <Tabs.Tab value="block" className="meb-tab" disabled={!selectedId}>
+        <TabsList
+          variant="line"
+          className="h-auto w-full shrink-0 justify-start gap-1 border-b px-3 pt-2 pb-0"
+        >
+          <TabsTrigger
+            value="block"
+            disabled={!selectedId}
+            className="h-auto flex-none px-2.5 pt-1.5 pb-2 group-data-horizontal/tabs:after:-bottom-px"
+          >
             Block
-          </Tabs.Tab>
-          <Tabs.Tab value="email" className="meb-tab">
+          </TabsTrigger>
+          <TabsTrigger
+            value="email"
+            className="h-auto flex-none px-2.5 pt-1.5 pb-2 group-data-horizontal/tabs:after:-bottom-px"
+          >
             Email
-          </Tabs.Tab>
-        </Tabs.List>
-        <fieldset className="meb-fieldset" disabled={hasProposal || readOnly}>
-          {hasProposal ? (
-            <p className="meb-notice">Accept or reject the proposed changes to keep editing.</p>
-          ) : null}
-          <Tabs.Panel value="block">
+          </TabsTrigger>
+        </TabsList>
+        {hasProposal ? (
+          <p
+            data-slot="inspector-notice"
+            className="mx-4 mt-3 rounded-md border border-editor-ai/30 bg-editor-ai-soft px-2.5 py-2 text-xs text-editor-ai"
+          >
+            Accept or reject the proposed changes to keep editing.
+          </p>
+        ) : null}
+        <fieldset
+          data-slot="inspector-fieldset"
+          className="m-0 min-w-0 border-0 p-0 disabled:[&_[data-slot=field-label]]:opacity-60"
+          disabled={hasProposal || readOnly}
+        >
+          <TabsContent value="block">
             {selectedId ? <BlockInspector id={selectedId} /> : null}
-          </Tabs.Panel>
-          <Tabs.Panel value="email">
+          </TabsContent>
+          <TabsContent value="email">
             <EmailInspector />
-          </Tabs.Panel>
+          </TabsContent>
         </fieldset>
-      </Tabs.Root>
+      </Tabs>
     </aside>
   );
 }

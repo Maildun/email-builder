@@ -136,7 +136,9 @@ describe('<EmailEditor>', () => {
         'Retitled',
       );
     });
-    expect(container.querySelector('[data-block-id="title"]')?.className).toContain('meb-changed');
+    expect(container.querySelector('[data-block-id="title"]')?.hasAttribute('data-changed')).toBe(
+      true,
+    );
     expect(screen.getByText('Retitled')).toBeTruthy();
     expect(onChange).not.toHaveBeenCalled();
 

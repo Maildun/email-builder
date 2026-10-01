@@ -1,9 +1,8 @@
-import { Tabs } from '@base-ui/react/tabs';
-import { Check, Copy } from 'lucide-react';
+import { Copy01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderEmail } from '../../render/html';
 import { useEditorState, useVisibleDocument } from '../context';
-import { Button, cx } from '../ui';
+import { Badge, Button, cn, Icon, Tabs, TabsList, TabsTrigger } from '../ui';
 
 /** The real rendered email in an isolated iframe, so media queries apply. */
 export function Preview() {
@@ -53,11 +52,22 @@ export function Preview() {
   }, [viewport]);
 
   return (
-    <div className="meb-preview-scroll">
-      <div className={cx('meb-preview-frame', viewport === 'mobile' && 'meb-preview-mobile')}>
+    <div
+      data-slot="preview"
+      className="min-h-0 flex-1 overflow-auto p-6 pb-[calc(24px+var(--meb-overlay-space,0px))]"
+    >
+      <div
+        data-slot="preview-frame"
+        data-viewport={viewport === 'mobile' ? 'mobile' : 'desktop'}
+        className={cn(
+          'mx-auto max-w-full overflow-hidden rounded-lg bg-white shadow-lg ring-1 ring-foreground/5 transition-[width] duration-200 ease-out',
+          viewport === 'mobile' && 'w-[375px] rounded-[36px] border-[10px] border-neutral-900',
+        )}
+      >
         <iframe
           ref={frame}
           title="Email preview"
+          className="block w-full border-0"
           sandbox="allow-same-origin allow-popups"
           srcDoc={html}
           style={{ height }}
@@ -71,7 +81,7 @@ function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <Button
-      size="sm"
+      size="xs"
       variant="outline"
       onClick={async () => {
         await navigator.clipboard?.writeText(text);
@@ -79,7 +89,8 @@ function CopyButton({ text }: { text: string }) {
         setTimeout(() => setCopied(false), 1500);
       }}
     >
-      {copied ? <Check size={14} /> : <Copy size={14} />} {copied ? 'Copied' : 'Copy'}
+      <Icon icon={copied ? Tick02Icon : Copy01Icon} data-icon="inline-start" />
+      {copied ? 'Copied' : 'Copy'}
     </Button>
   );
 }
@@ -93,36 +104,40 @@ export function CodeView() {
   const [tab, setTab] = useState<keyof typeof outputs>('html');
 
   return (
-    <div className="meb-code">
-      <Tabs.Root value={tab} onValueChange={(value) => setTab(value as keyof typeof outputs)}>
-        <div className="meb-row meb-between meb-code-bar">
-          <Tabs.List className="meb-tabs meb-tabs-inline">
-            <Tabs.Tab value="html" className="meb-tab">
-              HTML
-            </Tabs.Tab>
-            <Tabs.Tab value="text" className="meb-tab">
-              Plain text
-            </Tabs.Tab>
-            <Tabs.Tab value="json" className="meb-tab">
-              JSON
-            </Tabs.Tab>
-          </Tabs.List>
-          <div className="meb-row meb-gap-sm">
-            <span className="meb-muted meb-small">
+    <div
+      data-slot="code-view"
+      className="flex min-h-0 flex-1 flex-col p-4 pb-[calc(16px+var(--meb-overlay-space,0px))]"
+    >
+      <Tabs
+        value={tab}
+        onValueChange={(value) => setTab(value as keyof typeof outputs)}
+        className="min-h-0 flex-1 gap-2.5"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <TabsList className="group-data-horizontal/tabs:h-8">
+            <TabsTrigger value="html">HTML</TabsTrigger>
+            <TabsTrigger value="text">Plain text</TabsTrigger>
+            <TabsTrigger value="json">JSON</TabsTrigger>
+          </TabsList>
+          <div className="flex items-center gap-1.5">
+            <Badge variant="outline" className="font-normal text-muted-foreground tabular-nums">
               {Math.round(new Blob([outputs[tab]]).size / 1024)} KB
-            </span>
+            </Badge>
             <CopyButton text={outputs[tab]} />
           </div>
         </div>
         {rendered.warnings.length > 0 ? (
-          <div className="meb-notice">
+          <div
+            data-slot="code-warnings"
+            className="rounded-md bg-editor-ai-soft px-2.5 py-2 text-xs text-editor-ai"
+          >
             {rendered.warnings.map((warning) => warning.message).join(' ')}
           </div>
         ) : null}
-        <pre className="meb-pre">
+        <pre className="m-0 min-h-0 flex-1 overflow-auto rounded-lg border bg-card p-3.5 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap">
           <code>{outputs[tab]}</code>
         </pre>
-      </Tabs.Root>
+      </Tabs>
     </div>
   );
 }

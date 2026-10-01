@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import '@maildun/email-builder/editor.css';
+import '@maildun/email-builder/styles.css';
 import './playground.css';
 import { App } from './App';
 

@@ -1,11 +1,17 @@
-import { ArrowUp, Check, LoaderCircle, Sparkles, Square, X } from 'lucide-react';
+import {
+  ArrowUp02Icon,
+  Cancel01Icon,
+  SparklesIcon,
+  StopIcon,
+  Tick02Icon,
+} from '@hugeicons/core-free-icons';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { type AgentTool, createAgentTools } from '../../agent/tools';
 import type { Op } from '../../core/ops';
 import { BLOCK_DEFINITIONS } from '../../core/schema/blocks';
 import type { EmailDocument } from '../../core/schema/document';
-import { useEditorState, useEditorStore } from '../context';
-import { Button, cx } from '../ui';
+import { useEditorState, useEditorStore, useSlotClassName } from '../context';
+import { Badge, Button, cn, Icon, Spinner } from '../ui';
 
 export interface AgentRequest {
   prompt: string;
@@ -56,6 +62,7 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
   const panel = useRef<HTMLDivElement>(null);
+  const className = useSlotClassName('assistant');
 
   // A proposal can also end outside this panel (⌘Z, or the host calling
   // accept/reject); drop its summary so it doesn't linger as a status.
@@ -144,15 +151,29 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
   const changeCount = proposal?.changed.length ?? 0;
 
   return (
-    <div ref={panel} className="meb-agent" onClick={(event) => event.stopPropagation()}>
+    <div
+      ref={panel}
+      data-slot="assistant"
+      className={cn(
+        'pointer-events-none absolute inset-x-0 bottom-4 z-10 mx-auto flex w-[min(640px,calc(100%-32px))] flex-col gap-2 *:pointer-events-auto',
+        className,
+      )}
+      onClick={(event) => event.stopPropagation()}
+    >
       {proposal && !running ? (
-        <div className="meb-proposal" role="status">
-          <Sparkles size={16} />
-          <div className="meb-proposal-text">
-            <strong>
+        <div
+          data-slot="assistant-proposal"
+          className="flex items-center gap-2.5 rounded-xl border border-editor-ai/30 bg-popover py-2.5 pr-2.5 pl-3.5 text-popover-foreground shadow-lg"
+          role="status"
+        >
+          <Icon icon={SparklesIcon} className="size-4 shrink-0 text-editor-ai" />
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            <strong className="text-sm font-semibold">
               {changeCount} block{changeCount === 1 ? '' : 's'} changed
             </strong>
-            {proposal.summary ? <span>{proposal.summary}</span> : null}
+            {proposal.summary ? (
+              <span className="text-xs text-muted-foreground">{proposal.summary}</span>
+            ) : null}
           </div>
           <Button
             size="sm"
@@ -162,28 +183,45 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
               setStatus(null);
             }}
           >
-            <X size={14} /> Reject
+            <Icon icon={Cancel01Icon} data-icon="inline-start" /> Reject
           </Button>
           <Button
             size="sm"
-            variant="primary"
+            variant="default"
             onClick={() => {
               store.accept();
               setStatus(null);
             }}
           >
-            <Check size={14} /> Accept
+            <Icon icon={Tick02Icon} data-icon="inline-start" /> Accept
           </Button>
         </div>
       ) : null}
-      {!proposal && status && !running ? <p className="meb-agent-status">{status}</p> : null}
-      {error ? <p className="meb-error meb-agent-error">{error}</p> : null}
-      <div className={cx('meb-composer', running && 'meb-composer-running')}>
+      {!proposal && status && !running ? (
+        <p className="self-center rounded-full bg-popover px-3 py-1.5 text-xs text-muted-foreground shadow-md">
+          {status}
+        </p>
+      ) : null}
+      {error ? (
+        <p
+          role="alert"
+          className="rounded-lg bg-popover px-3 py-2 text-xs whitespace-pre-wrap text-destructive shadow-md"
+        >
+          {error}
+        </p>
+      ) : null}
+      <div
+        data-slot="assistant-composer"
+        data-running={running || undefined}
+        className="flex flex-wrap items-end gap-2 rounded-xl border bg-popover py-2 pr-2 pl-3.5 text-popover-foreground shadow-lg transition-colors focus-within:border-editor-ai/50 data-running:border-editor-ai/40"
+      >
         {selectedId && selectedType ? (
-          <span className="meb-chip">Selected: {BLOCK_DEFINITIONS[selectedType].label}</span>
+          <div className="basis-full">
+            <Badge variant="secondary">Selected: {BLOCK_DEFINITIONS[selectedType].label}</Badge>
+          </div>
         ) : null}
         <textarea
-          className="meb-composer-input"
+          className="field-sizing-content max-h-40 min-w-50 flex-1 resize-none border-0 bg-transparent py-1.5 text-sm leading-normal text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
           rows={1}
           value={prompt}
           placeholder={agent.placeholder ?? 'Ask AI to write, restyle or restructure this email…'}
@@ -193,42 +231,46 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
           onKeyDown={onKeyDown}
         />
         {running ? (
-          <div className="meb-row meb-gap-sm">
-            <span className="meb-agent-running">
-              <LoaderCircle size={14} className="meb-spin" /> {status}
+          <div className="flex items-center gap-1.5">
+            <span
+              aria-live="polite"
+              className="inline-flex items-center gap-1.5 text-xs text-editor-ai"
+            >
+              <Spinner aria-hidden className="size-3.5" /> {status}
             </span>
             <Button
-              size="icon"
+              size="icon-sm"
               variant="outline"
               aria-label="Stop"
               onClick={() => abort.current?.abort()}
             >
-              <Square size={12} />
+              <Icon icon={StopIcon} />
             </Button>
           </div>
         ) : (
           <Button
-            size="icon"
-            variant="primary"
+            size="icon-sm"
+            variant="default"
             aria-label="Send"
             disabled={!prompt.trim()}
             onClick={() => submit()}
           >
-            <ArrowUp size={16} />
+            <Icon icon={ArrowUp02Icon} />
           </Button>
         )}
       </div>
       {!prompt && !running && !proposal && agent.suggestions?.length ? (
-        <div className="meb-suggestions">
+        <div data-slot="assistant-suggestions" className="flex flex-wrap justify-center gap-1.5">
           {agent.suggestions.map((suggestion) => (
-            <button
+            <Button
               key={suggestion}
-              type="button"
-              className="meb-suggestion"
+              variant="outline"
+              size="xs"
+              className="rounded-full bg-popover px-2.5 hover:border-editor-ai/50 hover:text-editor-ai"
               onClick={() => submit(suggestion)}
             >
               {suggestion}
-            </button>
+            </Button>
           ))}
         </div>
       ) : null}

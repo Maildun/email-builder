@@ -1,0 +1,11 @@
+/*
+ * Source of dist/core.css, for apps on Tailwind CSS 4 with a shadcn/ui theme
+ * (tw-animate-css and shadcn/tailwind.css imported). The app compiles the
+ * editor's classes itself and the editor uses the app's theme:
+ *
+ *   @import 'tailwindcss';
+ *   @import '@maildun/email-builder/core.css';
+ *   @source '../node_modules/@maildun/email-builder/dist';
+ */
+@import './theme.css';
+@import './editor.css' layer(components);
