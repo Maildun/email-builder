@@ -1,5 +1,5 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
-import { DragDropVerticalIcon, LayoutTemplateIcon } from '@hugeicons/core-free-icons';
+import { DragDropVerticalIcon } from '@hugeicons/core-free-icons';
 import { type ReactNode, useMemo } from 'react';
 import { summarizeBlock } from '../../agent/outline';
 import type { Op } from '../../core/ops';
@@ -26,6 +26,7 @@ import type { BlockCategory } from '../messages';
 import { BLOCK_ICONS, blockIcon, blockLabel } from '../meta';
 import type { EditorStore } from '../store';
 import { cn, Icon, type IconSvgElement, Tabs, TabsContent, TabsList, TabsTrigger } from '../ui';
+import { SectionThumb } from './SectionThumb';
 
 const CATEGORIES: readonly BlockCategory[] = ['content', 'media', 'layout', 'advanced'];
 
@@ -176,7 +177,7 @@ function SectionItem({ name, surface, onInsert }: PaletteProps & { name: Section
   const store = useEditorStore();
   const blockType = buildSection(name).type;
   const data: DragData = { kind: 'section', section: name, blockType };
-  const { attributes, listeners, setNodeRef } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `${surface}:section|${name}`,
     data,
   });
@@ -186,7 +187,9 @@ function SectionItem({ name, surface, onInsert }: PaletteProps & { name: Section
       ref={setNodeRef}
       type="button"
       data-slot="section-item"
-      className="flex cursor-grab touch-none items-start gap-2.5 rounded-md border bg-card p-2.5 text-left text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+      data-dragging={isDragging || undefined}
+      className="group/section flex cursor-grab touch-none flex-col gap-1.5 rounded-md p-1 pb-1.5 text-left text-foreground outline-none transition-[background-color,opacity] hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 data-dragging:opacity-50"
+      title={section.description}
       onClick={() => {
         insert(
           store,
@@ -198,11 +201,8 @@ function SectionItem({ name, surface, onInsert }: PaletteProps & { name: Section
       {...attributes}
       {...listeners}
     >
-      <Icon icon={LayoutTemplateIcon} className="mt-px size-4 shrink-0 text-muted-foreground" />
-      <span className="flex min-w-0 flex-col gap-0.5">
-        <strong className="text-sm font-medium">{section.label}</strong>
-        <small className="text-xs text-muted-foreground">{section.description}</small>
-      </span>
+      <SectionThumb name={name} />
+      <span className="truncate px-0.5 text-xs font-medium">{section.label}</span>
     </button>
   );
 }
@@ -239,7 +239,7 @@ export function Palette({ surface = 'sidebar', onInsert }: PaletteProps) {
       })}
       {sections.length ? (
         <PaletteGroup label={text.sections}>
-          <div className="flex flex-col gap-1.5">
+          <div className="grid grid-cols-2 gap-1">
             {sections.map((name) => (
               <SectionItem key={name} name={name} surface={surface} onInsert={onInsert} />
             ))}
