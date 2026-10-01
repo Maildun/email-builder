@@ -410,4 +410,4 @@ The playground has a scripted demo agent. To use the Claude agent, set `ANTHROPI
 
 ## License
 
-MIT
+MIT. Parts of the UI and stylesheet come from shadcn/ui, Tailwind CSS and tw-animate-css (all MIT); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
