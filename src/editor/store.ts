@@ -82,11 +82,13 @@ export class EditorStore {
   };
 
   private set(partial: Partial<EditorState>): void {
+    const proposal = partial.proposal !== undefined ? partial.proposal : this.state.proposal;
     this.state = {
       ...this.state,
       ...partial,
-      canUndo: this.past.length > 0,
-      canRedo: this.future.length > 0,
+      // While a proposal is pending, undo discards it and redo is unavailable.
+      canUndo: this.past.length > 0 || proposal !== null,
+      canRedo: this.future.length > 0 && proposal === null,
     };
     for (const listener of this.listeners) listener();
   }
@@ -151,7 +153,12 @@ export class EditorStore {
     });
   }
 
+  /** Steps back in history. With a proposal pending, discards the proposal instead. */
   undo(): void {
+    if (this.state.proposal) {
+      this.reject();
+      return;
+    }
     const previous = this.past.pop();
     if (!previous) return;
     this.future.push(this.state.document);
@@ -161,6 +168,7 @@ export class EditorStore {
   }
 
   redo(): void {
+    if (this.state.proposal) return;
     const next = this.future.pop();
     if (!next) return;
     this.past.push(this.state.document);

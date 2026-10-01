@@ -4,6 +4,7 @@ import { BLOCK_DEFINITIONS, type Block } from '../../core/schema/blocks';
 import { type EmailDocument, ROOT_ID } from '../../core/schema/document';
 import { FONT_FAMILIES, type FontKey, type Padding } from '../../core/schema/primitives';
 import { ancestorIds } from '../../core/tree';
+import { duplicateBlock, removeBlock } from '../actions';
 import { useEditorOptions, useEditorState, useEditorStore, useVisibleDocument } from '../context';
 import { BLOCK_ICONS } from '../meta';
 import type { EditorStore } from '../store';
@@ -215,7 +216,7 @@ function BlockInspector({ id }: { id: string }) {
                 variant="ghost"
                 size="icon"
                 aria-label="Duplicate block"
-                onClick={() => store.apply({ op: 'duplicate', id })}
+                onClick={(event) => duplicateBlock(store, id, event.currentTarget)}
               >
                 <Copy size={15} />
               </Button>
@@ -225,7 +226,7 @@ function BlockInspector({ id }: { id: string }) {
                 variant="ghost"
                 size="icon"
                 aria-label="Delete block"
-                onClick={() => store.apply({ op: 'remove', id })}
+                onClick={(event) => removeBlock(store, id, event.currentTarget)}
               >
                 <Trash size={15} />
               </Button>

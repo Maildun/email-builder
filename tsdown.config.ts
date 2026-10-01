@@ -14,5 +14,7 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
+  // The editor uses hooks and the DOM; mark it as a client module for React Server Components.
+  banner: ({ fileName }) => (fileName === 'editor.js' ? "'use client';" : undefined),
   deps: { neverBundle: [/^react($|\/)/, /^react-dom($|\/)/, /^node:/] },
 });

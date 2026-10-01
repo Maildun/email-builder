@@ -1,13 +1,23 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import DOMPurify from 'dompurify';
 import { ArrowDown, ArrowUp, Copy, CornerLeftUp, GripVertical, Plus, Trash } from 'lucide-react';
-import { type CSSProperties, type MouseEvent, memo, useMemo } from 'react';
+import {
+  type CSSProperties,
+  type MouseEvent,
+  memo,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { BLOCK_DEFINITIONS, type Block, hasChildren } from '../../core/schema/blocks';
 import { type EmailDocument, ROOT_ID } from '../../core/schema/document';
 import { resolvePadding } from '../../core/schema/primitives';
 import { findParent } from '../../core/tree';
 import { boxDeclarations, columnWidths, renderBlock, typeDeclarations } from '../../render/blocks';
 import { createRenderContext, innerWidth, type RenderContext } from '../../render/context';
+import { duplicateBlock, removeBlock } from '../actions';
 import { useEditorOptions, useEditorState, useEditorStore, useVisibleDocument } from '../context';
 import { dropId, resolveDrop, useActiveDrag, useOverId } from '../dnd';
 import { BLOCK_ICONS } from '../meta';
@@ -15,6 +25,8 @@ import { Button, cx, Tip } from '../ui';
 import { InlineText } from './InlineText';
 
 const MOBILE_WIDTH = 375;
+/** Toolbar height plus a small gap. */
+const TOOLBAR_SPACE = 32;
 
 /** Converts `font-size: 16px` style declarations to a React style object. */
 export function toReactStyle(
@@ -26,6 +38,17 @@ export function toReactStyle(
     style[property.replace(/-([a-z])/g, (_, char: string) => char.toUpperCase())] = value;
   }
   return style as CSSProperties;
+}
+
+const subscribeNever = () => () => {};
+
+/** False while rendering on the server and during hydration, true afterwards. */
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeNever,
+    () => true,
+    () => false,
+  );
 }
 
 const LeafHtml = memo(function LeafHtml({ html }: { html: string }) {
@@ -91,8 +114,26 @@ function BlockToolbar({ id, block }: { id: string; block: Block }) {
   };
   const stop = (event: MouseEvent) => event.stopPropagation();
 
+  // The toolbar sits above the block so it never covers the block's content,
+  // and flips below it when there is no room at the top of the canvas.
+  const toolbar = useRef<HTMLDivElement>(null);
+  const [below, setBelow] = useState(false);
+  useLayoutEffect(() => {
+    const blockElement = toolbar.current?.parentElement;
+    const backdrop = blockElement?.closest('.meb-backdrop');
+    if (!blockElement || !backdrop) return;
+    const room = blockElement.getBoundingClientRect().top - backdrop.getBoundingClientRect().top;
+    setBelow(room < TOOLBAR_SPACE);
+  });
+
   return (
-    <div className="meb-block-toolbar" onClick={stop} onDoubleClick={stop}>
+    <div
+      ref={toolbar}
+      className="meb-block-toolbar"
+      data-placement={below ? 'bottom' : 'top'}
+      onClick={stop}
+      onDoubleClick={stop}
+    >
       <button
         ref={setNodeRef}
         type="button"
@@ -144,7 +185,7 @@ function BlockToolbar({ id, block }: { id: string; block: Block }) {
           size="icon"
           variant="ghost"
           aria-label="Duplicate"
-          onClick={() => store.apply({ op: 'duplicate', id })}
+          onClick={(event) => duplicateBlock(store, id, event.currentTarget)}
         >
           <Copy size={13} />
         </Button>
@@ -154,7 +195,7 @@ function BlockToolbar({ id, block }: { id: string; block: Block }) {
           size="icon"
           variant="ghost"
           aria-label="Delete"
-          onClick={() => store.apply({ op: 'remove', id })}
+          onClick={(event) => removeBlock(store, id, event.currentTarget)}
         >
           <Trash size={13} />
         </Button>
@@ -180,12 +221,16 @@ function BlockView({ id, ctx, available, mobile }: BlockViewProps) {
   const proposing = useEditorState((state) => state.proposal !== null);
   const drag = useActiveDrag();
   const overId = useOverId();
+  const hydrated = useHydrated();
 
   const leafHtml = useMemo(() => {
     if (!block || hasChildren(block)) return '';
-    const html = renderBlock(ctx, id, available);
-    return block.type === 'html' ? DOMPurify.sanitize(html) : html;
-  }, [ctx, id, block, available]);
+    // DOMPurify needs a DOM, so raw HTML blocks render empty on the server.
+    if (block.type === 'html') {
+      return hydrated ? DOMPurify.sanitize(renderBlock(ctx, id, available)) : '';
+    }
+    return renderBlock(ctx, id, available);
+  }, [ctx, id, block, available, hydrated]);
 
   if (!block) return null;
 
@@ -377,7 +422,14 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
       style={{ background: ctx.color(settings.backdropColor, '$background') }}
       onClick={() => store.select(null)}
     >
-      <div className="meb-backdrop" style={{ paddingTop: outer.top, paddingBottom: outer.bottom }}>
+      <div
+        className="meb-backdrop"
+        style={{
+          paddingTop: outer.top,
+          // Leave room for the floating assistant so the end of the email stays reachable.
+          paddingBottom: `calc(${outer.bottom}px + var(--meb-overlay-space, 0px))`,
+        }}
+      >
         <div
           className={cx(
             'meb-email',

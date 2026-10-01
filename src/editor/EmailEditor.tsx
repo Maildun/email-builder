@@ -13,6 +13,7 @@ import type { Op } from '../core/ops';
 import type { EmailDocument } from '../core/schema/document';
 import { findParent } from '../core/tree';
 import { type RenderResult, renderEmail } from '../render/html';
+import { duplicateBlock, removeBlock } from './actions';
 import { Canvas } from './canvas/Canvas';
 import {
   EditorProvider,
@@ -70,6 +71,20 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
 }
 
+const CONTROL_SELECTOR =
+  'button, a[href], [role="button"], [role="tab"], [role="switch"], [role="radio"], [role="checkbox"], [role="option"], [role="menuitem"]';
+
+/**
+ * A focused control that handles keys itself. `outsideToolbar` ignores the
+ * block toolbar, whose buttons act on the selected block anyway.
+ */
+function isControlTarget(target: EventTarget | null, outsideToolbar = false): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const control = target.closest(CONTROL_SELECTOR);
+  if (!control) return false;
+  return !(outsideToolbar && control.closest('.meb-block-toolbar'));
+}
+
 function useShortcuts(root: React.RefObject<HTMLDivElement | null>) {
   const store = useEditorStore();
   const { readOnly } = useEditorOptions();
@@ -98,13 +113,17 @@ function useShortcuts(root: React.RefObject<HTMLDivElement | null>) {
         return;
       }
       if (!id) return;
+      if (mod && event.key.toLowerCase() === 'd') {
+        event.preventDefault();
+        duplicateBlock(store, id, element);
+        return;
+      }
+      // Let focused buttons, tabs and switches handle their own keys. Enter
+      // always activates them; the block toolbar still allows Delete and moves.
+      if (isControlTarget(event.target, event.key !== 'Enter')) return;
       if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
-        store.apply({ op: 'remove', id });
-      } else if (mod && event.key.toLowerCase() === 'd') {
-        event.preventDefault();
-        const result = store.apply({ op: 'duplicate', id });
-        if (result.inserted[0]) store.select(result.inserted[0]);
+        removeBlock(store, id, element);
       } else if (event.key === 'Enter') {
         const block = state.document.blocks[id];
         if (block?.type === 'text' || block?.type === 'heading') {

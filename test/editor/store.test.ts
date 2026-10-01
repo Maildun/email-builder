@@ -76,6 +76,24 @@ describe('EditorStore', () => {
     expect(store.getState().document.blocks.c).toBeUndefined();
   });
 
+  it('undo discards a pending proposal without touching history', () => {
+    const store = new EditorStore(doc());
+    store.apply({ op: 'remove', id: 'b' });
+    store.undo();
+    expect(store.getState().canRedo).toBe(true);
+
+    store.propose([{ op: 'update', id: 'a', props: { markdown: 'AI copy' } }]);
+    expect(store.getState().canUndo).toBe(true);
+    expect(store.getState().canRedo).toBe(false);
+    store.redo();
+    expect(store.getState().document.root).toEqual(['a', 'b']);
+
+    store.undo();
+    expect(store.getState().proposal).toBeNull();
+    expect(store.getState().document.root).toEqual(['a', 'b']);
+    expect(store.getState().canRedo).toBe(true);
+  });
+
   it('discards rejected proposals', () => {
     const store = new EditorStore(doc());
     store.propose([{ op: 'remove', id: 'a' }]);

@@ -1011,7 +1011,7 @@
 
 .meb-backdrop {
   min-height: 100%;
-  padding: 32px 24px 160px;
+  padding: 32px 24px;
 }
 
 .meb-email {
@@ -1152,11 +1152,9 @@
   background: rgb(255 255 255 / 0.18);
 }
 
-.meb-block-column > .meb-block-toolbar,
-.meb-block-container .meb-block .meb-block-toolbar {
-  top: 2px;
-  left: 2px;
-  border-radius: 6px;
+.meb-block-toolbar[data-placement='bottom'] {
+  top: calc(100% + 2px);
+  border-radius: 0 6px 6px 6px;
 }
 
 .meb-columns-row {
@@ -1364,7 +1362,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 24px 24px 160px;
+  padding: 24px 24px calc(24px + var(--meb-overlay-space, 0px));
 }
 
 .meb-preview-frame {
@@ -1396,7 +1394,7 @@
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  padding: 16px 16px 140px;
+  padding: 16px 16px calc(16px + var(--meb-overlay-space, 0px));
 }
 
 .meb-code > div {

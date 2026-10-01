@@ -13,6 +13,7 @@ import {
   type ReactNode,
   useContext,
   useId,
+  useState,
 } from 'react';
 
 export function cx(...classes: Array<string | false | null | undefined>): string {
@@ -268,6 +269,27 @@ export function NumberInput({
   unit?: string;
   placeholder?: string;
 }) {
+  // What the user is typing. Intermediate values ("1" on the way to "14", or an
+  // empty field) stay local and are only committed once they are in range.
+  const [draft, setDraft] = useState<string | null>(null);
+  const inRange = (number: number) =>
+    (min === undefined || number >= min) && (max === undefined || number <= max);
+  const finish = () => {
+    if (draft === null) return;
+    setDraft(null);
+    if (draft.trim() === '') {
+      onChange(undefined);
+      return;
+    }
+    const parsed = Number(draft);
+    if (Number.isNaN(parsed)) return;
+    const clamped = Math.min(
+      max ?? Number.POSITIVE_INFINITY,
+      Math.max(min ?? Number.NEGATIVE_INFINITY, parsed),
+    );
+    if (clamped !== value) onChange(clamped);
+  };
+
   return (
     <div className="meb-number">
       <input
@@ -276,19 +298,25 @@ export function NumberInput({
         className="meb-input"
         type="number"
         inputMode="decimal"
-        value={value ?? ''}
+        value={draft ?? value ?? ''}
         min={min}
         max={max}
         step={step}
         placeholder={placeholder}
         onChange={(event) => {
           const raw = event.target.value;
-          if (raw === '') {
-            onChange(undefined);
-            return;
-          }
+          setDraft(raw);
+          if (raw.trim() === '') return;
           const parsed = Number(raw);
-          if (!Number.isNaN(parsed)) onChange(parsed);
+          if (!Number.isNaN(parsed) && inRange(parsed)) onChange(parsed);
+        }}
+        onBlur={finish}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') finish();
+          else if (event.key === 'Escape' && draft !== null) {
+            event.stopPropagation();
+            setDraft(null);
+          }
         }}
       />
       {unit ? <span className="meb-unit">{unit}</span> : null}

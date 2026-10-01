@@ -78,6 +78,47 @@ describe('<EmailEditor>', () => {
     expect(ref.current?.getDocument().blocks.title).toBeUndefined();
   });
 
+  it('lets focused controls handle Enter and Backspace themselves', () => {
+    const ref = createRef<EmailEditorHandle>();
+    const { container } = render(<EmailEditor ref={ref} defaultValue={doc()} />);
+    fireEvent.click(container.querySelector('[data-block-id="title"]') as Element);
+    const inspector = screen.getByRole('complementary', { name: 'Inspector' });
+    const level = within(inspector).getByRole('button', { name: 'H1' });
+    fireEvent.keyDown(level, { key: 'Enter' });
+    expect(ref.current?.store.getState().editingId).toBeNull();
+    fireEvent.keyDown(level, { key: 'Backspace' });
+    expect(ref.current?.getDocument().blocks.title).toBeDefined();
+  });
+
+  it('keeps focus in the editor after deleting from the block toolbar', () => {
+    const ref = createRef<EmailEditorHandle>();
+    const { container } = render(<EmailEditor ref={ref} defaultValue={doc()} />);
+    fireEvent.click(container.querySelector('[data-block-id="title"]') as Element);
+    const remove = within(container.querySelector('.meb-block-toolbar') as HTMLElement).getByRole(
+      'button',
+      { name: 'Delete' },
+    );
+    remove.focus();
+    fireEvent.click(remove);
+    expect(ref.current?.getDocument().blocks.title).toBeUndefined();
+    expect(document.activeElement).toBe(container.querySelector('.meb-shell'));
+  });
+
+  it('lets number fields pass through out-of-range values while typing', () => {
+    const ref = createRef<EmailEditorHandle>();
+    render(<EmailEditor ref={ref} defaultValue={doc()} />);
+    const size = screen.getByRole('spinbutton', { name: 'Base size' });
+    fireEvent.change(size, { target: { value: '' } });
+    fireEvent.change(size, { target: { value: '1' } });
+    expect((size as HTMLInputElement).value).toBe('1');
+    fireEvent.change(size, { target: { value: '14' } });
+    expect(ref.current?.getDocument().settings.fontSize).toBe(14);
+    fireEvent.change(size, { target: { value: '99' } });
+    fireEvent.blur(size);
+    expect(ref.current?.getDocument().settings.fontSize).toBe(24);
+    expect((size as HTMLInputElement).value).toBe('24');
+  });
+
   it('highlights proposed changes and applies them on accept', () => {
     const ref = createRef<EmailEditorHandle>();
     const onChange = vi.fn();

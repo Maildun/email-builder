@@ -1,5 +1,5 @@
 import { ArrowUp, Check, LoaderCircle, Sparkles, Square, X } from 'lucide-react';
-import { type KeyboardEvent, useRef, useState } from 'react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { type AgentTool, createAgentTools } from '../../agent/tools';
 import type { Op } from '../../core/ops';
 import { BLOCK_DEFINITIONS } from '../../core/schema/blocks';
@@ -40,6 +40,9 @@ export interface EditorAgent {
   suggestions?: string[];
 }
 
+/** Space kept between the end of the content and the floating panel. */
+const OVERLAY_GAP = 16;
+
 export function AgentPanel({ agent }: { agent: EditorAgent }) {
   const store = useEditorStore();
   const proposal = useEditorState((state) => state.proposal);
@@ -52,6 +55,34 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
+  const panel = useRef<HTMLDivElement>(null);
+
+  // A proposal can also end outside this panel (⌘Z, or the host calling
+  // accept/reject); drop its summary so it doesn't linger as a status.
+  const hadProposal = useRef(false);
+  useEffect(() => {
+    if (hadProposal.current && !proposal) setStatus(null);
+    hadProposal.current = proposal !== null;
+  }, [proposal]);
+
+  // The panel floats over the stage; publish its height so the canvas,
+  // preview and code views can keep their last content scrollable above it.
+  useEffect(() => {
+    const element = panel.current;
+    const stage = element?.parentElement;
+    if (!element || !stage || typeof ResizeObserver === 'undefined') return;
+    const update = () => {
+      const offset = stage.getBoundingClientRect().bottom - element.getBoundingClientRect().top;
+      stage.style.setProperty('--meb-overlay-space', `${Math.ceil(offset + OVERLAY_GAP)}px`);
+    };
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    update();
+    return () => {
+      observer.disconnect();
+      stage.style.removeProperty('--meb-overlay-space');
+    };
+  }, []);
 
   const submit = async (text = prompt) => {
     const trimmed = text.trim();
@@ -113,7 +144,7 @@ export function AgentPanel({ agent }: { agent: EditorAgent }) {
   const changeCount = proposal?.changed.length ?? 0;
 
   return (
-    <div className="meb-agent" onClick={(event) => event.stopPropagation()}>
+    <div ref={panel} className="meb-agent" onClick={(event) => event.stopPropagation()}>
       {proposal && !running ? (
         <div className="meb-proposal" role="status">
           <Sparkles size={16} />
