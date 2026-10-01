@@ -2,8 +2,9 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createDocument, type EmailDocument } from '../../src';
-import { EmailEditor, type EmailEditorHandle } from '../../src/editor';
+import { z } from 'zod';
+import { createDocument, defineBlock, type EmailDocument } from '../../src';
+import { EmailEditor, type EmailEditorHandle, EN_MESSAGES } from '../../src/editor';
 import { resolveDrop } from '../../src/editor/dnd';
 import { insertionPoint } from '../../src/editor/panels/Sidebar';
 
@@ -42,7 +43,7 @@ describe('<EmailEditor>', () => {
     const { container } = render(<EmailEditor defaultValue={doc()} />);
     fireEvent.click(container.querySelector('[data-block-id="cta"]') as Element);
     const inspector = screen.getByRole('complementary', { name: 'Inspector' });
-    expect(within(inspector).getByText('Button', { selector: 'h2' })).toBeTruthy();
+    expect(within(inspector).getByRole('heading', { name: 'Button', level: 2 })).toBeTruthy();
     expect(within(inspector).getByDisplayValue('Get started')).toBeTruthy();
   });
 
@@ -172,6 +173,179 @@ describe('<EmailEditor>', () => {
     expect(ref.current?.getDocument().blocks.title).toBeDefined();
   });
 
+  it('moves the selection with the arrow keys and announces it', () => {
+    const ref = createRef<EmailEditorHandle>();
+    const { container } = render(<EmailEditor ref={ref} defaultValue={doc()} />);
+    const canvas = screen.getByRole('region', { name: /email canvas/i });
+    fireEvent.keyDown(canvas, { key: 'ArrowDown' });
+    expect(ref.current?.store.getState().selectedId).toBe('title');
+    fireEvent.keyDown(canvas, { key: 'ArrowDown' });
+    expect(ref.current?.store.getState().selectedId).toBe('row');
+    fireEvent.keyDown(canvas, { key: 'ArrowRight' });
+    expect(ref.current?.store.getState().selectedId).toBe('left');
+    fireEvent.keyDown(canvas, { key: 'ArrowLeft' });
+    expect(ref.current?.store.getState().selectedId).toBe('row');
+    expect(screen.getByText('Columns selected')).toBeTruthy();
+    expect(container.querySelector('[data-block-id="row"]')?.getAttribute('aria-label')).toMatch(
+      /^Columns/,
+    );
+  });
+
+  it('offers Undo after deleting a block', () => {
+    const ref = createRef<EmailEditorHandle>();
+    const { container } = render(<EmailEditor ref={ref} defaultValue={doc()} />);
+    const title = container.querySelector('[data-block-id="title"]') as Element;
+    fireEvent.click(title);
+    fireEvent.keyDown(title, { key: 'Backspace' });
+    expect(screen.getByText('Heading deleted')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo: Heading deleted' }));
+    expect(ref.current?.getDocument().blocks.title).toBeDefined();
+  });
+
+  it('summarizes theme changes in the proposal and passes the conversation to the agent', async () => {
+    const requests: Array<{ prompt: string; history: unknown[] }> = [];
+    const ref = createRef<EmailEditorHandle>();
+    render(
+      <EmailEditor
+        ref={ref}
+        defaultValue={doc()}
+        agent={{
+          onRequest: async (request) => {
+            requests.push({ prompt: request.prompt, history: request.history });
+            return { ops: [{ op: 'updateTheme', colors: { primary: '#7c3aed' } }] };
+          },
+        }}
+      />,
+    );
+    const input = screen.getByRole('textbox', { name: 'Ask the assistant' });
+    fireEvent.change(input, { target: { value: 'make it purple' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(screen.getByText('Theme updated')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /reject/i }));
+
+    fireEvent.change(input, { target: { value: 'try green instead' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(requests[1]?.history).toEqual([{ prompt: 'make it purple', outcome: 'rejected' }]);
+  });
+
+  it('ignores tool calls that arrive after Stop', async () => {
+    let finish: () => void = () => {};
+    let late: (() => void) | undefined;
+    const ref = createRef<EmailEditorHandle>();
+    render(
+      <EmailEditor
+        ref={ref}
+        defaultValue={doc()}
+        agent={{
+          onRequest: (request) =>
+            new Promise((resolve) => {
+              late = () => {
+                request.propose([{ op: 'remove', id: 'title' }]);
+              };
+              finish = () => resolve(undefined);
+            }),
+        }}
+      />,
+    );
+    const input = screen.getByRole('textbox', { name: 'Ask the assistant' });
+    fireEvent.change(input, { target: { value: 'remove the heading' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    await act(async () => {
+      late?.();
+      finish();
+    });
+    expect(ref.current?.store.getState().proposal).toBeNull();
+    expect(screen.getByText('Stopped.')).toBeTruthy();
+  });
+
+  it('composes a custom layout from the parts', () => {
+    const ref = createRef<EmailEditorHandle>();
+    render(
+      <EmailEditor.Root ref={ref} defaultValue={doc()}>
+        <header>My header</header>
+        <EmailEditor.Stage />
+        <EmailEditor.Inspector />
+      </EmailEditor.Root>,
+    );
+    expect(screen.getByText('My header')).toBeTruthy();
+    expect(screen.getByRole('complementary', { name: 'Inspector' })).toBeTruthy();
+    expect(screen.queryByRole('complementary', { name: 'Blocks and layers' })).toBeNull();
+    expect(screen.getByRole('region', { name: /email canvas/i })).toBeTruthy();
+  });
+
+  it('limits the palette and views, and reports selection and save', () => {
+    const onSelectionChange = vi.fn();
+    const onSave = vi.fn();
+    const { container } = render(
+      <EmailEditor
+        defaultValue={doc()}
+        blockTypes={['text', 'image']}
+        sections={[]}
+        views={['design', 'preview']}
+        onSelectionChange={onSelectionChange}
+        onSave={onSave}
+      />,
+    );
+    const sidebar = screen.getByRole('complementary', { name: 'Blocks and layers' });
+    expect(within(sidebar).queryByRole('button', { name: /divider/i })).toBeNull();
+    expect(within(sidebar).getByRole('button', { name: /text/i })).toBeTruthy();
+    expect(within(sidebar).queryByText('Sections')).toBeNull();
+    expect(screen.queryByRole('button', { name: /code/i })).toBeNull();
+
+    fireEvent.click(container.querySelector('[data-block-id="cta"]') as Element);
+    expect(onSelectionChange).toHaveBeenLastCalledWith(
+      'cta',
+      expect.objectContaining({ type: 'button' }),
+    );
+    fireEvent.keyDown(container.querySelector('.meb-shell') as Element, {
+      key: 's',
+      metaKey: true,
+    });
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ root: ['title', 'row'] }));
+  });
+
+  it('loads another document without its undo history', () => {
+    const ref = createRef<EmailEditorHandle>();
+    render(<EmailEditor ref={ref} defaultValue={doc()} />);
+    act(() => {
+      ref.current?.apply({ op: 'remove', id: 'title' });
+    });
+    act(() => {
+      ref.current?.load(createDocument({ blocks: [{ id: 'only', type: 'text' }] }));
+    });
+    expect(ref.current?.store.getState().canUndo).toBe(false);
+    expect(ref.current?.getDocument().root).toEqual(['only']);
+  });
+
+  it('inserts and edits custom blocks', () => {
+    const card = defineBlock({
+      name: 'promo',
+      label: 'Promo',
+      description: 'A promo code.',
+      schema: z.object({ code: z.string().min(1) }),
+      defaults: { code: 'SPRING' },
+      fields: [{ key: 'code', label: 'Code', type: 'text' }],
+      render: (data, ctx) => `<p>Use ${ctx.escape(data.code)}</p>`,
+    });
+    const ref = createRef<EmailEditorHandle>();
+    const { container } = render(
+      <EmailEditor ref={ref} defaultValue={doc()} customBlocks={[card]} />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /promo/i }));
+    const block = container.querySelector('[data-block-type="custom"]');
+    expect(block?.textContent).toContain('Use SPRING');
+    fireEvent.change(screen.getByDisplayValue('SPRING'), { target: { value: 'SUMMER' } });
+    expect(block?.textContent).toContain('Use SUMMER');
+    expect(ref.current?.render().html).toContain('Use SUMMER');
+  });
+
   it('follows a controlled value', () => {
     const first = doc();
     const { container, rerender } = render(<EmailEditor value={first} />);
@@ -180,6 +354,33 @@ describe('<EmailEditor>', () => {
     });
     rerender(<EmailEditor value={next} />);
     expect(container.querySelector('[data-block-id="only"]')?.textContent).toContain('Replaced');
+  });
+
+  it('shows translated messages over the English defaults', () => {
+    const { container } = render(
+      <EmailEditor
+        defaultValue={doc()}
+        messages={{
+          topBar: { undo: 'Urungkan' },
+          blocks: { divider: { label: 'Pemisah' } },
+          toast: { deleted: (label) => `${label} dihapus` },
+        }}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Urungkan' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+    expect(screen.getByRole('button', { name: /Pemisah/ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Divider$/ })).toBeNull();
+    // Untranslated messages keep their English text, and the divider keeps its description.
+    expect(screen.getByRole('button', { name: 'Redo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Pemisah/ }).getAttribute('title')).toBe(
+      EN_MESSAGES.blocks.divider.description,
+    );
+
+    const title = container.querySelector('[data-block-id="title"]') as Element;
+    fireEvent.click(title);
+    fireEvent.keyDown(title, { key: 'Backspace' });
+    expect(screen.getByText('Heading dihapus')).toBeTruthy();
   });
 });
 

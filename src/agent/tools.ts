@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { CustomBlocks } from '../core/custom';
 import { formatIssues, type Issue } from '../core/issues';
 import { type LintOptions, lintDocument } from '../core/lint';
 import { type ApplyResult, applyOpsMaterialized, type Op } from '../core/ops';
@@ -47,6 +48,8 @@ export interface AgentToolsOptions {
    * Strict schemas cost ~7k extra tokens per request.
    */
   strictSchemas?: boolean;
+  /** Custom block types the agent may insert; their data is validated on every change. */
+  customBlocks?: CustomBlocks;
 }
 
 /** Loose block shape for tool schemas; full validation happens on apply. */
@@ -164,7 +167,9 @@ export function createAgentTools(
     ops: Op[],
     describe: (result: Extract<ApplyResult, { ok: true }>) => string,
   ): ToolResult => {
-    const result = applyOpsMaterialized(store.getDocument(), ops);
+    const result = applyOpsMaterialized(store.getDocument(), ops, {
+      ...(options.customBlocks ? { customBlocks: options.customBlocks } : {}),
+    });
     if (!result.ok) {
       return failure(result.issues);
     }
@@ -278,7 +283,9 @@ export function createAgentTools(
     check_email: () => {
       const document = store.getDocument();
       const warnings = lintDocument(document, options.lint);
-      const rendered = renderEmail(document);
+      const rendered = renderEmail(document, {
+        ...(options.customBlocks ? { customBlocks: options.customBlocks } : {}),
+      });
       const all = [
         ...warnings.map(
           (w) => `- [${w.severity}] ${w.blockId ? `${w.blockId}: ` : ''}${w.message} (${w.code})`,

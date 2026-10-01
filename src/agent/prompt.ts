@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { CustomBlocks } from '../core/custom';
 import { BLOCK_DEFINITIONS, BLOCK_TYPES } from '../core/schema/blocks';
 import { FONT_KEYS, THEME_COLOR_TOKENS } from '../core/schema/primitives';
 import { SECTION_NAMES, SECTIONS, type SectionDefinition } from '../core/sections';
@@ -66,9 +67,27 @@ function sectionCatalog(): string {
   }).join('\n');
 }
 
+/** Reference for the host's custom blocks: name, purpose and data schema. */
+export function customBlockCatalog(customBlocks: CustomBlocks): string {
+  return customBlocks
+    .map((definition) => {
+      const schema = z.toJSONSchema(definition.schema, { unrepresentable: 'any' });
+      delete (schema as { $schema?: string }).$schema;
+      return [
+        `### ${definition.name}`,
+        definition.description,
+        `data schema: ${JSON.stringify(schema)}`,
+        `example: ${JSON.stringify({ type: 'custom', props: { name: definition.name, data: definition.defaults } })}`,
+      ].join('\n');
+    })
+    .join('\n\n');
+}
+
 export interface SystemPromptOptions {
   /** Brand, audience or tone guidance prepended to the rules. */
   brief?: string;
+  /** Custom blocks the agent may use (pass the same list to the tools). */
+  customBlocks?: CustomBlocks;
   /** Merge tags the sending platform supports, e.g. `["first_name", "unsubscribe_url"]`. */
   mergeTags?: string[];
   /** Extra rules appended at the end. */
@@ -109,6 +128,11 @@ ${options.brief ? `\n## Brief\n${options.brief}\n` : ''}
 ## Blocks
 ${blockCatalog()}
 
+${
+  options.customBlocks?.length
+    ? `\n## Custom blocks\nThis app adds its own block types. Insert them as {type: "custom", props: {name, data}}; data must match the schema. Prefer them over html blocks when they fit.\n\n${customBlockCatalog(options.customBlocks)}\n`
+    : ''
+}
 ## Sections (insert_section)
 ${sectionCatalog()}
 ${options.extra ? `\n## Additional instructions\n${options.extra}\n` : ''}`;

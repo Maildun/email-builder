@@ -1,3 +1,4 @@
+import type { CustomBlocks } from '../core/custom';
 import type { Issue } from '../core/issues';
 import { applyOps, type Op } from '../core/ops';
 import type { EmailDocument } from '../core/schema/document';
@@ -9,13 +10,26 @@ export type EditorView = 'design' | 'preview' | 'code';
 export interface Proposal {
   /** The document as it would be after accepting. */
   document: EmailDocument;
-  /** Blocks that changed, for highlighting. */
+  /** Blocks that changed or were added, for highlighting. */
   changed: string[];
+  /** Blocks of the committed document that the proposal removes. */
+  removed: string[];
+  /** Whether the proposal changes the theme (colors, fonts). */
+  themeChanged: boolean;
+  /** Whether the proposal changes email settings (width, preheader, …). */
+  settingsChanged: boolean;
   ops: Op[];
   /** What the agent was asked, or any label. */
   label?: string;
   /** Agent summary shown next to accept/reject. */
   summary?: string;
+}
+
+/** A short message shown over the canvas, optionally with one action (e.g. Undo). */
+export interface Toast {
+  id: number;
+  message: string;
+  action?: { label: string; run: () => void };
 }
 
 export interface EditorState {
@@ -30,6 +44,7 @@ export interface EditorState {
   canRedo: boolean;
   /** Issues from the last rejected change, for display. */
   lastIssues: Issue[];
+  toast: Toast | null;
 }
 
 export interface ApplyOptions {
@@ -59,6 +74,8 @@ export class EditorStore {
   private lastMerge: { key: string; at: number } | null = null;
   /** Called with every committed document (not proposals). */
   onDocumentChange: ((document: EmailDocument) => void) | null = null;
+  /** Custom block definitions; their data is validated on every change. */
+  customBlocks: CustomBlocks = [];
 
   constructor(document: EmailDocument) {
     this.state = {
@@ -71,6 +88,7 @@ export class EditorStore {
       canUndo: false,
       canRedo: false,
       lastIssues: [],
+      toast: null,
     };
   }
 
@@ -117,6 +135,8 @@ export class EditorStore {
       editingId:
         this.state.editingId && document.blocks[this.state.editingId] ? this.state.editingId : null,
       lastIssues: [],
+      // A toast's action (e.g. Undo) refers to the change it announced; drop it once anything else happens.
+      toast: null,
     });
     this.onDocumentChange?.(document);
   }
@@ -126,7 +146,7 @@ export class EditorStore {
     ops: Op | Op[],
     options: ApplyOptions = {},
   ): { ok: boolean; inserted: string[]; issues: Issue[] } {
-    const result = applyOps(this.state.document, ops);
+    const result = applyOps(this.state.document, ops, { customBlocks: this.customBlocks });
     if (!result.ok) {
       this.set({ lastIssues: result.issues });
       return { ok: false, inserted: [], issues: result.issues };
@@ -153,6 +173,21 @@ export class EditorStore {
     });
   }
 
+  /** Opens another document: clears history, selection and any pending proposal. */
+  load(document: EmailDocument): void {
+    this.past = [];
+    this.future = [];
+    this.lastMerge = null;
+    this.set({
+      document,
+      selectedId: null,
+      editingId: null,
+      proposal: null,
+      lastIssues: [],
+      toast: null,
+    });
+  }
+
   /** Steps back in history. With a proposal pending, discards the proposal instead. */
   undo(): void {
     if (this.state.proposal) {
@@ -163,7 +198,12 @@ export class EditorStore {
     if (!previous) return;
     this.future.push(this.state.document);
     this.lastMerge = null;
-    this.set({ document: previous, editingId: null, selectedId: this.keepSelection(previous) });
+    this.set({
+      document: previous,
+      editingId: null,
+      selectedId: this.keepSelection(previous),
+      toast: null,
+    });
     this.onDocumentChange?.(previous);
   }
 
@@ -173,7 +213,12 @@ export class EditorStore {
     if (!next) return;
     this.past.push(this.state.document);
     this.lastMerge = null;
-    this.set({ document: next, editingId: null, selectedId: this.keepSelection(next) });
+    this.set({
+      document: next,
+      editingId: null,
+      selectedId: this.keepSelection(next),
+      toast: null,
+    });
     this.onDocumentChange?.(next);
   }
 
@@ -220,18 +265,23 @@ export class EditorStore {
     meta: { label?: string; summary?: string } = {},
   ): { ok: boolean; issues: Issue[] } {
     const base = this.state.proposal?.document ?? this.state.document;
-    const result = applyOps(base, ops);
+    const result = applyOps(base, ops, { customBlocks: this.customBlocks });
     if (!result.ok) {
       this.set({ lastIssues: result.issues });
       return { ok: false, issues: result.issues };
     }
     const previous = this.state.proposal;
+    const committed = this.state.document;
     const changed = new Set([...(previous?.changed ?? []), ...result.changed]);
     for (const id of result.removed) changed.delete(id);
+    const same = (a: unknown, b: unknown) => a === b || JSON.stringify(a) === JSON.stringify(b);
     this.set({
       proposal: {
         document: result.document,
         changed: [...changed],
+        removed: Object.keys(committed.blocks).filter((id) => !result.document.blocks[id]),
+        themeChanged: !same(committed.theme, result.document.theme),
+        settingsChanged: !same(committed.settings, result.document.settings),
         ops: [...(previous?.ops ?? []), ...ops],
         ...((meta.label ?? previous?.label) ? { label: meta.label ?? previous?.label } : {}),
         ...((meta.summary ?? previous?.summary)
@@ -259,6 +309,20 @@ export class EditorStore {
 
   reject(): void {
     if (this.state.proposal) this.set({ proposal: null });
+  }
+
+  private toastId = 0;
+
+  /** Shows a short message over the canvas, replacing the current one. */
+  showToast(message: string, action?: Toast['action']): void {
+    this.toastId += 1;
+    this.set({ toast: { id: this.toastId, message, ...(action ? { action } : {}) } });
+  }
+
+  dismissToast(id?: number): void {
+    if (this.state.toast && (id === undefined || this.state.toast.id === id)) {
+      this.set({ toast: null });
+    }
   }
 
   /** The document shown on screen: the proposal while one is pending. */

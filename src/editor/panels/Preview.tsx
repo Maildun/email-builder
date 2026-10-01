@@ -1,14 +1,15 @@
 import { Copy01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { renderEmail } from '../../render/html';
-import { useEditorState, useVisibleDocument } from '../context';
+import { useEditorOptions, useEditorState, useMessages, useVisibleDocument } from '../context';
 import { Badge, Button, cn, Icon, Tabs, TabsList, TabsTrigger } from '../ui';
 
 /** The real rendered email in an isolated iframe, so media queries apply. */
 export function Preview() {
   const document = useVisibleDocument();
   const viewport = useEditorState((state) => state.viewport);
-  const { html } = useMemo(() => renderEmail(document), [document]);
+  const { customBlocks, messages } = useEditorOptions();
+  const { html } = useMemo(() => renderEmail(document, { customBlocks }), [document, customBlocks]);
   const frame = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(600);
 
@@ -66,7 +67,7 @@ export function Preview() {
       >
         <iframe
           ref={frame}
-          title="Email preview"
+          title={messages.preview.frameTitle}
           className="block w-full border-0"
           sandbox="allow-same-origin allow-popups"
           srcDoc={html}
@@ -79,6 +80,7 @@ export function Preview() {
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
+  const strings = useMessages().code;
   return (
     <Button
       size="xs"
@@ -90,7 +92,7 @@ function CopyButton({ text }: { text: string }) {
       }}
     >
       <Icon icon={copied ? Tick02Icon : Copy01Icon} data-icon="inline-start" />
-      {copied ? 'Copied' : 'Copy'}
+      {copied ? strings.copied : strings.copy}
     </Button>
   );
 }
@@ -98,7 +100,9 @@ function CopyButton({ text }: { text: string }) {
 /** HTML, plain-text and JSON output. */
 export function CodeView() {
   const document = useVisibleDocument();
-  const rendered = useMemo(() => renderEmail(document), [document]);
+  const { customBlocks, messages } = useEditorOptions();
+  const text = messages.code;
+  const rendered = useMemo(() => renderEmail(document, { customBlocks }), [document, customBlocks]);
   const json = useMemo(() => JSON.stringify(document, null, 2), [document]);
   const outputs = { html: rendered.html, text: rendered.text, json };
   const [tab, setTab] = useState<keyof typeof outputs>('html');
@@ -115,13 +119,13 @@ export function CodeView() {
       >
         <div className="flex items-center justify-between gap-2">
           <TabsList className="group-data-horizontal/tabs:h-8">
-            <TabsTrigger value="html">HTML</TabsTrigger>
-            <TabsTrigger value="text">Plain text</TabsTrigger>
-            <TabsTrigger value="json">JSON</TabsTrigger>
+            <TabsTrigger value="html">{text.html}</TabsTrigger>
+            <TabsTrigger value="text">{text.text}</TabsTrigger>
+            <TabsTrigger value="json">{text.json}</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-1.5">
             <Badge variant="outline" className="font-normal text-muted-foreground tabular-nums">
-              {Math.round(new Blob([outputs[tab]]).size / 1024)} KB
+              {text.size(Math.round(new Blob([outputs[tab]]).size / 1024))}
             </Badge>
             <CopyButton text={outputs[tab]} />
           </div>

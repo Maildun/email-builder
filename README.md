@@ -164,7 +164,9 @@ session.ops;           // the operations, replayable as an editor proposal
 
 ### In the editor
 
-Pass an `agent` to get the assistant panel. Edits arrive as a **proposal**: changed blocks are highlighted, and the user accepts or rejects them as one undoable step.
+Pass an `agent` to get the assistant panel. Edits arrive as a **proposal**: changed blocks are highlighted, the panel summarizes what changed (blocks, removals, theme, settings) with a **Show** button that jumps to each change, and the user accepts or rejects everything as one undoable step.
+
+Each request includes `history`: the earlier prompts in this session and whether their proposals were accepted, so follow-ups like "make it shorter" have context. **Stop** (or Esc) aborts `signal` and ignores any tool calls that arrive afterwards.
 
 ```tsx
 <EmailEditor
@@ -200,8 +202,19 @@ Pass an `agent` to get the assistant panel. Edits arrive as a **proposal**: chan
 | `toolbar` | Extra controls in the top bar. |
 | `appearance` | `'inherit'` (default: dark when an ancestor has the `dark` class), `'light'`, `'dark'` or `'system'`. |
 | `classNames` | Extra classes per part: `root`, `topbar`, `sidebar`, `stage`, `canvas`, `inspector`, `assistant`, `block-toolbar`. |
+| `customBlocks` | Your own block types (see [Custom blocks](#custom-blocks)). |
+| `blockTypes` | Built-in block types offered in the palette, e.g. `['heading', 'text', 'button', 'image']` to leave out raw HTML. All by default. |
+| `sections` | Sections offered in the palette; `[]` hides them. All by default. |
+| `views` | Views in the top bar, e.g. `['design', 'preview']`. All by default. |
+| `panels` | `{ sidebar?: boolean; inspector?: boolean }` for the default layout. |
+| `onSelectionChange(id, block)` | The selected block changed. |
+| `onProposalChange(proposal)` | An agent proposal appeared, changed, or was resolved (`null`). |
+| `onSave(document)` | ⌘S / Ctrl+S inside the editor; the browser's save dialog is suppressed. |
+| `messages` | Translations for the editor's UI text (see below). |
 
-**Ref handle:** `ref` exposes `getDocument`, `apply`, `undo`, `redo`, `propose`, `accept`, `reject` and `render`.
+**Ref handle:** `ref` exposes `getDocument`, `apply` and `propose` (both return `{ ok, issues }`), `undo`, `redo`, `accept`, `reject`, `select`, `load` (open another document and clear its undo history) and `render`.
+
+A controlled `value` that is only a copy of the current document (for example after a JSON round trip) is ignored, so undo history and pending proposals survive.
 
 **Keyboard shortcuts:**
 
@@ -211,8 +224,83 @@ Pass an `agent` to get the assistant panel. Edits arrive as a **proposal**: chan
 | ⌫ | Delete the selected block |
 | ⌘D | Duplicate |
 | ⌥↑ / ⌥↓ | Move up / down |
+| ↑ / ↓ | Select the previous / next block |
+| ← / → | Select the parent / first child |
 | Enter | Edit text |
-| Esc | Stop editing / deselect |
+| Esc | Stop editing / deselect, or stop the assistant |
+| ⌘K | Open the assistant |
+
+**Translations:** every piece of UI text comes from `messages`. Pass only what you translate; the rest stays English. Messages with values are functions.
+
+```tsx
+<EmailEditor
+  messages={{
+    topBar: { design: 'Desain', preview: 'Pratinjau', undo: 'Urungkan' },
+    toast: { deleted: (label) => `${label} dihapus`, undo: 'Urungkan' },
+    blocks: { text: { label: 'Teks' }, divider: { label: 'Pemisah' } },
+    inspector: { fields: { Padding: 'Jarak dalam', Alignment: 'Perataan' } },
+  }}
+/>
+```
+
+`EN_MESSAGES` holds every key with its English text. `inspector.fields` translates inspector labels and options by their English text. Validation messages from the core stay English, since agents read them too.
+
+## Custom blocks
+
+Add your own block types, like a product card fed from your store. A custom block renders to email-safe HTML, validates its data with a [Zod](https://zod.dev) schema, gets inspector fields, and is documented for agents automatically.
+
+```ts
+import { defineBlock } from '@maildun/email-builder';
+import { z } from 'zod';
+
+export const productCard = defineBlock({
+  name: 'product-card', // stored in documents; don't rename it later
+  label: 'Product',
+  description: 'A product with its image, name, price and a buy button.',
+  category: 'content', // palette group (default "advanced")
+  schema: z.object({ name: z.string().min(1), price: z.string(), image: z.string().url(), href: z.string().url() }),
+  defaults: { name: 'Pour-over set', price: '$48', image: 'https://…', href: 'https://…' },
+  fields: [
+    { key: 'name', label: 'Name', type: 'text' },
+    { key: 'price', label: 'Price', type: 'text' },
+    { key: 'image', label: 'Image', type: 'image' },
+    { key: 'href', label: 'Link', type: 'url' },
+  ],
+  render: (data, ctx) => `<a href="${ctx.escape(data.href)}" style="color:${ctx.color('$primary')}">${ctx.escape(data.name)} · ${ctx.escape(data.price)}</a>`,
+  text: (data) => `${data.name} – ${data.price}: ${data.href}`,
+});
+```
+
+Pass the same list everywhere documents are edited or rendered:
+
+```ts
+<EmailEditor customBlocks={[productCard]} />
+renderEmail(design, { customBlocks: [productCard] });
+applyOps(design, ops, { customBlocks: [productCard] }); // validates data
+createAgentSession(design, { customBlocks: [productCard] });
+buildSystemPrompt({ customBlocks: [productCard] }); // documents name + data schema
+```
+
+- **Stored as** `{ type: "custom", props: { name, data } }`, so documents stay valid even where a definition is missing.
+- **`render`** returns the block's content as email HTML (tables and inline styles, no scripts). It goes inside the block's padded cell. Escape user content with `ctx.escape`, and use `ctx.color('$primary')`, `ctx.font()` and `ctx.width` to match the email.
+- **Field types:** `text`, `textarea`, `url`, `image`, `number`, `color`, `switch` and `select`. Without `fields`, the inspector shows a JSON editor.
+- **Problems don't break the email:** a missing definition, data that fails the schema, or a `render` that throws leaves the block out and adds a `renderEmail` warning (`unknown-custom-block`, `invalid-custom-block`, `custom-block-error`).
+
+## Custom layouts
+
+`<EmailEditor>` is a ready-made arrangement of parts. Compose your own with `EmailEditor.Root`, which takes every editor prop, and any of the parts:
+
+```tsx
+<EmailEditor.Root defaultValue={design} onChange={setDesign} agent={agent}>
+  <MyHeader /> {/* can use useEditorStore() / useEditorState() */}
+  <div className="grid min-h-0 flex-1 grid-cols-[1fr_320px]">
+    <EmailEditor.Stage /> {/* canvas, preview or code, plus the assistant and toasts */}
+    <EmailEditor.Inspector />
+  </div>
+</EmailEditor.Root>
+```
+
+Parts: `EmailEditor.TopBar`, `EmailEditor.Sidebar`, `EmailEditor.Stage`, `EmailEditor.Inspector` and `EmailEditor.Layout` (sidebar, stage and inspector). They're also exported as `EditorTopBar`, `EditorSidebar`, `EditorStage`, `EditorInspector`, `EditorLayout`, `EditorPalette` and `EditorRoot`.
 
 ## Styling
 
@@ -249,7 +337,14 @@ Tokens: `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `
 @source '../node_modules/@maildun/email-builder/dist';
 ```
 
-**Dark mode** follows a `dark` class on an ancestor (the shadcn convention). Use the `appearance` prop to force `light`, `dark` or follow the OS with `system`.
+**Dark mode** follows a `dark` class on an ancestor (the shadcn convention). Use the `appearance` prop to force `light`, `dark` or follow the OS with `system`. The email canvas always shows the email's own colors, because that's what recipients see.
+
+Browser dark-mode tools (Dark Reader, Chrome's auto dark mode) recolor every page, including the email preview and color swatches. If your app has its own dark mode, tell them so:
+
+```html
+<meta name="color-scheme" content="light dark" />
+<meta name="darkreader-lock" />
+```
 
 **Customizing parts.** Each part of the editor has a `data-slot` attribute and accepts extra classes through `classNames`:
 

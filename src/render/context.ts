@@ -1,6 +1,18 @@
 import { resolveColor } from '../core/colors';
+import { type CustomBlockDefinition, type CustomBlocks, customBlockMap } from '../core/custom';
 import type { EmailDocument, Theme } from '../core/schema/document';
 import { type Padding, resolveFontStack, resolvePadding } from '../core/schema/primitives';
+
+export interface RenderWarning {
+  code:
+    | 'gmail-clipping'
+    | 'unresolved-token'
+    | 'unknown-custom-block'
+    | 'invalid-custom-block'
+    | 'custom-block-error';
+  message: string;
+  blockId?: string;
+}
 
 export interface RenderContext {
   document: EmailDocument;
@@ -17,11 +29,15 @@ export interface RenderContext {
   lineHeight: number;
   /** When set, block wrappers carry `data-block-id` (used by the editor canvas). */
   annotate: boolean;
+  /** Custom block definitions by name. */
+  customBlocks: ReadonlyMap<string, CustomBlockDefinition>;
+  /** Problems found while rendering (collected, never thrown). */
+  warnings: RenderWarning[];
 }
 
 export function createRenderContext(
   document: EmailDocument,
-  options: { annotate?: boolean } = {},
+  options: { annotate?: boolean; customBlocks?: CustomBlocks } = {},
 ): RenderContext {
   const theme = document.theme;
   const color = (value: string | undefined, fallback?: string) =>
@@ -41,6 +57,8 @@ export function createRenderContext(
     fontSize: document.settings.fontSize,
     lineHeight: document.settings.lineHeight,
     annotate: options.annotate ?? false,
+    customBlocks: customBlockMap(options.customBlocks),
+    warnings: [],
   };
 }
 

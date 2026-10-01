@@ -9,6 +9,7 @@ import {
 } from '../src/agent';
 import type { EmailDocument } from '../src/core/schema/document';
 import { validateDocument } from '../src/core/validate';
+import { CUSTOM_BLOCKS } from './src/blocks';
 
 const MODEL = 'claude-opus-5-5';
 const MAX_TURNS = 16;
@@ -17,6 +18,7 @@ interface AgentRequestBody {
   prompt: string;
   document: EmailDocument;
   selectedId: string | null;
+  history?: Array<{ prompt: string; summary?: string; outcome: string }>;
   mergeTags?: string[];
 }
 
@@ -32,9 +34,13 @@ async function readJson(request: import('node:http').IncomingMessage): Promise<u
  */
 async function runAgent(body: AgentRequestBody) {
   const client = new Anthropic();
-  const session = createAgentSession(body.document, { lint: { requireUnsubscribe: true } });
+  const session = createAgentSession(body.document, {
+    lint: { requireUnsubscribe: true },
+    customBlocks: CUSTOM_BLOCKS,
+  });
   const tools = toAnthropicTools(session.tools);
   const system = buildSystemPrompt({
+    customBlocks: CUSTOM_BLOCKS,
     ...(body.mergeTags ? { mergeTags: body.mergeTags } : {}),
     brief:
       'You are working inside a visual editor; the user reviews your changes before they are applied.',
@@ -43,10 +49,18 @@ async function runAgent(body: AgentRequestBody) {
   const selection = body.selectedId
     ? `\nThe user has block "${body.selectedId}" selected; "this" or "it" most likely refers to it.`
     : '';
+  const earlier = body.history?.length
+    ? `Earlier requests in this session (oldest first):\n${body.history
+        .map(
+          (turn) =>
+            `- "${turn.prompt}" → ${turn.outcome}${turn.summary ? ` (${turn.summary})` : ''}`,
+        )
+        .join('\n')}\n\n`
+    : '';
   const messages: Anthropic.Beta.BetaMessageParam[] = [
     {
       role: 'user',
-      content: `Current email:\n${outlineDocument(body.document)}${selection}\n\nRequest: ${body.prompt}`,
+      content: `${earlier}Current email:\n${outlineDocument(body.document)}${selection}\n\nRequest: ${body.prompt}`,
     },
   ];
 

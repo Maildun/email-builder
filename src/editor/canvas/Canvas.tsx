@@ -12,15 +12,20 @@ import {
 import DOMPurify from 'dompurify';
 import {
   type CSSProperties,
+  lazy,
   type MouseEvent,
   memo,
+  Suspense,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
-import { BLOCK_DEFINITIONS, type Block, hasChildren } from '../../core/schema/blocks';
+import { summarizeBlock } from '../../agent/outline';
+import type { CustomBlockDefinition, CustomBlocks } from '../../core/custom';
+import { type Block, hasChildren } from '../../core/schema/blocks';
 import { type EmailDocument, ROOT_ID } from '../../core/schema/document';
 import { resolvePadding } from '../../core/schema/primitives';
 import { findParent } from '../../core/tree';
@@ -31,13 +36,22 @@ import {
   useEditorOptions,
   useEditorState,
   useEditorStore,
+  useMessages,
   useSlotClassName,
   useVisibleDocument,
 } from '../context';
-import { dropId, resolveDrop, useActiveDrag, useOverId } from '../dnd';
-import { BLOCK_ICONS } from '../meta';
+import { dropId, resolveDrop, useActiveDrag, useDropIndicator, useIsOver } from '../dnd';
+import type { EditorMessages } from '../messages';
+import { BLOCK_ICONS, blockIcon, blockLabel } from '../meta';
 import { Button, cn, Icon, Tip } from '../ui';
-import { InlineText } from './InlineText';
+
+/**
+ * The rich-text editor (Tiptap/ProseMirror) is the heaviest part of the
+ * editor and only needed once someone edits text, so it loads on demand.
+ */
+const InlineText = lazy(() =>
+  import('./InlineText').then((module) => ({ default: module.InlineText })),
+);
 
 const MOBILE_WIDTH = 375;
 /** Toolbar height plus a small gap. */
@@ -70,6 +84,69 @@ function useHydrated(): boolean {
     () => true,
     () => false,
   );
+}
+
+/**
+ * Render context built only from the theme and settings, cached by their
+ * identity. Edits share unchanged objects (see `applyOps`), so this stays the
+ * same object until the theme or settings change, and memoized blocks can
+ * skip re-rendering.
+ */
+const styleContexts = new WeakMap<object, WeakMap<object, WeakMap<CustomBlocks, RenderContext>>>();
+
+function cached<K extends object, V>(map: WeakMap<K, V>, key: K, create: () => V): V {
+  let value = map.get(key);
+  if (value === undefined) {
+    value = create();
+    map.set(key, value);
+  }
+  return value;
+}
+
+function styleContextOf(document: EmailDocument, customBlocks: CustomBlocks): RenderContext {
+  const bySettings = cached(styleContexts, document.theme, () => new WeakMap());
+  const byCustom = cached(bySettings, document.settings, () => new WeakMap());
+  return cached(byCustom, customBlocks, () =>
+    createRenderContext({ ...document, root: [], blocks: {} }, { customBlocks }),
+  );
+}
+
+/** A render context that can render `blocks` (a block and the children it reads). */
+function withBlocks(styles: RenderContext, blocks: EmailDocument['blocks']): RenderContext {
+  // Fresh warnings: the cached context is shared by every block.
+  return { ...styles, document: { ...styles.document, blocks }, warnings: [] };
+}
+
+/** "Heading: The October update", for screen readers. */
+function ariaLabelOf(
+  block: Block,
+  custom: ReadonlyMap<string, CustomBlockDefinition>,
+  messages: EditorMessages,
+): string {
+  const summary = summarizeBlock(block).replace(/^"|"$/g, '');
+  const label = blockLabel(block, custom, messages);
+  return summary && block.type !== 'custom'
+    ? messages.canvas.blockAriaLabel(label, summary.slice(0, 80))
+    : label;
+}
+
+/** Shown on the canvas when a custom block has nothing to render. */
+function CustomPlaceholder({ name, known }: { name: string; known: boolean }) {
+  const text = useMessages().canvas;
+  return (
+    <div
+      data-slot="custom-placeholder"
+      className="m-3 flex items-center gap-2 rounded-md border border-current/30 border-dashed px-3 py-4 font-sans text-current/60 text-xs"
+    >
+      <Icon icon={BLOCK_ICONS.custom} className="size-4 shrink-0" />
+      {known ? text.customInvalid(name) : text.customUnknown(name)}
+    </div>
+  );
+}
+
+/** The visible version (proposal or committed) of one block. */
+function useBlock(id: string): Block | undefined {
+  return useEditorState((state) => (state.proposal?.document ?? state.document).blocks[id]);
 }
 
 const LeafHtml = memo(function LeafHtml({ html }: { html: string }) {
@@ -105,8 +182,7 @@ function InsideZone({ id }: { id: string }) {
 }
 
 function EmptySlot({ parentId, label }: { parentId: string; label: string }) {
-  const overId = useOverId();
-  const over = overId === dropId('canvas', 'inside', parentId);
+  const over = useIsOver(dropId('canvas', 'inside', parentId));
   return (
     <div
       data-slot="empty-slot"
@@ -120,6 +196,8 @@ function EmptySlot({ parentId, label }: { parentId: string; label: string }) {
 
 function BlockToolbar({ id, block }: { id: string; block: Block }) {
   const store = useEditorStore();
+  const { customBlockMap: custom, messages } = useEditorOptions();
+  const text = messages.blockToolbar;
   const document = useEditorState((state) => state.document);
   const parent = findParent(document, id);
   const siblings = parent
@@ -170,69 +248,69 @@ function BlockToolbar({ id, block }: { id: string; block: Block }) {
         variant="ghost"
         size="xs"
         className={cn(TOOLBAR_BUTTON, 'cursor-grab touch-none gap-1 pr-1.5 pl-0.5 font-semibold')}
-        aria-label="Drag to move"
+        aria-label={messages.common.dragToMove}
         {...attributes}
         {...listeners}
       >
         <Icon icon={DragDropVerticalIcon} data-icon="inline-start" />
-        <Icon icon={BLOCK_ICONS[block.type]} data-icon="inline-start" />
-        <span>{BLOCK_DEFINITIONS[block.type].label}</span>
+        <Icon icon={blockIcon(block, custom)} data-icon="inline-start" />
+        <span className="max-w-40 truncate">{blockLabel(block, custom, messages)}</span>
       </Button>
       {parent && parent.parentId !== ROOT_ID ? (
-        <Tip label="Select parent">
+        <Tip label={text.selectParent}>
           <Button
             size="icon-xs"
             variant="ghost"
             className={TOOLBAR_BUTTON}
-            aria-label="Select parent"
+            aria-label={text.selectParent}
             onClick={() => store.selectParent()}
           >
             <Icon icon={CornerLeftUpIcon} />
           </Button>
         </Tip>
       ) : null}
-      <Tip label="Move up">
+      <Tip label={text.moveUp}>
         <Button
           size="icon-xs"
           variant="ghost"
           className={TOOLBAR_BUTTON}
-          aria-label="Move up"
+          aria-label={text.moveUp}
           disabled={!parent || parent.index === 0}
           onClick={() => move(-1)}
         >
           <Icon icon={ArrowUp02Icon} />
         </Button>
       </Tip>
-      <Tip label="Move down">
+      <Tip label={text.moveDown}>
         <Button
           size="icon-xs"
           variant="ghost"
           className={TOOLBAR_BUTTON}
-          aria-label="Move down"
+          aria-label={text.moveDown}
           disabled={!parent || parent.index >= siblings.length - 1}
           onClick={() => move(1)}
         >
           <Icon icon={ArrowDown02Icon} />
         </Button>
       </Tip>
-      <Tip label="Duplicate">
+      <Tip label={text.duplicate}>
         <Button
           size="icon-xs"
           variant="ghost"
           className={TOOLBAR_BUTTON}
-          aria-label="Duplicate"
+          aria-label={text.duplicate}
           onClick={(event) => duplicateBlock(store, id, event.currentTarget)}
         >
           <Icon icon={Copy01Icon} />
         </Button>
       </Tip>
-      <Tip label="Delete">
+      <Tip label={text.delete}>
         <Button
           size="icon-xs"
           variant="ghost"
           className={TOOLBAR_BUTTON}
-          aria-label="Delete"
-          onClick={(event) => removeBlock(store, id, event.currentTarget)}
+          aria-label={text.delete}
+          onClick={(event) => removeBlock(store, id, messages, event.currentTarget)}
         >
           <Icon icon={Delete02Icon} />
         </Button>
@@ -243,44 +321,47 @@ function BlockToolbar({ id, block }: { id: string; block: Block }) {
 
 interface BlockViewProps {
   id: string;
-  ctx: RenderContext;
+  /** Theme and settings; see `styleContextOf`. */
+  styles: RenderContext;
   available: number;
   mobile: boolean;
 }
 
-function BlockView({ id, ctx, available, mobile }: BlockViewProps) {
+/**
+ * One block on the canvas. Memoized and subscribed to its own block only, so
+ * typing in one block re-renders that block, not the whole email.
+ */
+const BlockView = memo(function BlockView({ id, styles, available, mobile }: BlockViewProps) {
   const store = useEditorStore();
-  const { readOnly } = useEditorOptions();
-  const block = ctx.document.blocks[id];
+  const { readOnly, customBlockMap, messages } = useEditorOptions();
+  const block = useBlock(id);
   const selected = useEditorState((state) => state.selectedId === id);
   const editing = useEditorState((state) => state.editingId === id);
   const changed = useEditorState((state) => state.proposal?.changed.includes(id) ?? false);
   const proposing = useEditorState((state) => state.proposal !== null);
   const drag = useActiveDrag();
-  const overId = useOverId();
+  const indicator = useDropIndicator('canvas', id);
   const hydrated = useHydrated();
+  const element = useRef<HTMLDivElement>(null);
+
+  // Keep the selection in view, whether it came from Layers, the keyboard or an agent.
+  useEffect(() => {
+    if (selected && !drag) element.current?.scrollIntoView({ block: 'nearest' });
+  }, [selected, drag]);
 
   const leafHtml = useMemo(() => {
     if (!block || hasChildren(block)) return '';
+    const html = renderBlock(withBlocks(styles, { [id]: block }), id, available);
     // DOMPurify needs a DOM, so raw HTML blocks render empty on the server.
-    if (block.type === 'html') {
-      return hydrated ? DOMPurify.sanitize(renderBlock(ctx, id, available)) : '';
-    }
-    return renderBlock(ctx, id, available);
-  }, [ctx, id, block, available, hydrated]);
+    if (block.type === 'html') return hydrated ? DOMPurify.sanitize(html) : '';
+    return html;
+  }, [styles, id, block, available, hydrated]);
 
   if (!block) return null;
 
+  const ctx = styles;
   const interactive = !readOnly && !proposing;
   const isContainer = hasChildren(block);
-  const indicator =
-    overId === dropId('canvas', 'before', id)
-      ? 'before'
-      : overId === dropId('canvas', 'after', id)
-        ? 'after'
-        : overId === dropId('canvas', 'inside', id)
-          ? 'inside'
-          : null;
   const dragged = drag?.kind === 'move' && drag.id === id;
 
   const onClick = (event: MouseEvent) => {
@@ -312,35 +393,48 @@ function BlockView({ id, ctx, available, mobile }: BlockViewProps) {
           })
         : toReactStyle(typeDeclarations(ctx, block.style));
     content = (
-      <InlineText
-        value={block.type === 'heading' ? (block.props.text ?? '') : (block.props.markdown ?? '')}
-        singleLine={block.type === 'heading'}
-        style={{ ...box, ...type, ['--meb-link' as string]: ctx.linkColor }}
-        onChange={(markdown) =>
-          store.apply(
-            {
-              op: 'update',
-              id,
-              props: block.type === 'heading' ? { text: markdown } : { markdown },
-            },
-            { mergeKey: `${id}.inline` },
-          )
-        }
-        onDone={() => store.stopEditing()}
-      />
+      <Suspense fallback={<LeafHtml html={leafHtml} />}>
+        <InlineText
+          value={block.type === 'heading' ? (block.props.text ?? '') : (block.props.markdown ?? '')}
+          singleLine={block.type === 'heading'}
+          style={{ ...box, ...type, ['--meb-link' as string]: ctx.linkColor }}
+          onChange={(markdown) =>
+            store.apply(
+              {
+                op: 'update',
+                id,
+                props: block.type === 'heading' ? { text: markdown } : { markdown },
+              },
+              { mergeKey: `${id}.inline` },
+            )
+          }
+          onDone={() => store.stopEditing()}
+        />
+      </Suspense>
     );
   } else if (isContainer) {
     content = (
-      <ContainerView id={id} block={block} ctx={ctx} available={available} mobile={mobile} />
+      <ContainerView id={id} block={block} styles={styles} available={available} mobile={mobile} />
     );
   } else {
-    content = <LeafHtml html={leafHtml} />;
+    content =
+      block.type === 'custom' && !leafHtml ? (
+        <CustomPlaceholder name={block.props.name} known={customBlockMap.has(block.props.name)} />
+      ) : (
+        <LeafHtml html={leafHtml} />
+      );
   }
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: a block is a labelled group on the canvas, not a form fieldset.
     <div
-      className="meb-block"
+      ref={element}
+      className="meb-block outline-none"
       data-block-id={id}
+      tabIndex={interactive ? (selected ? 0 : -1) : undefined}
+      role="group"
+      aria-roledescription={messages.canvas.blockRole}
+      aria-label={ariaLabelOf(block, customBlockMap, messages)}
       data-block-type={block.type}
       data-selected={selected || undefined}
       data-editing={editing || undefined}
@@ -361,68 +455,130 @@ function BlockView({ id, ctx, available, mobile }: BlockViewProps) {
       ) : null}
     </div>
   );
+});
+
+/** Column widths depend on the columns' own props; re-render when those change. */
+function useColumnWidths(
+  styles: RenderContext,
+  block: Extract<Block, { type: 'columns' }>,
+  available: number,
+): number[] {
+  const key = useEditorState((state) => {
+    const blocks = (state.proposal?.document ?? state.document).blocks;
+    return block.children
+      .map((childId) => {
+        const child = blocks[childId];
+        return child?.type === 'column' ? (child.props.width ?? '') : '';
+      })
+      .join(',');
+  });
+  return useMemo(() => {
+    const widths = key.split(',').map((width) => (width === '' ? undefined : Number(width)));
+    const columns = Object.fromEntries(
+      block.children.map((childId, index) => [
+        childId,
+        {
+          type: 'column',
+          children: [],
+          props: widths[index] === undefined ? {} : { width: widths[index] },
+        } satisfies Block,
+      ]),
+    );
+    return columnWidths(withBlocks(styles, columns), block, available);
+  }, [styles, block, available, key]);
 }
 
 function ContainerView({
   id,
   block,
-  ctx,
+  styles,
   available,
   mobile,
 }: BlockViewProps & { block: Extract<Block, { children: string[] }> }) {
   const width = innerWidth(available, block.style?.padding, block.style?.border);
-  const boxStyle = toReactStyle(boxDeclarations(ctx, block.style));
-  const { readOnly } = useEditorOptions();
+  const boxStyle = toReactStyle(boxDeclarations(styles, block.style));
+  const { readOnly, messages } = useEditorOptions();
 
   if (block.type === 'columns') {
-    const widths = columnWidths(ctx, block, available);
-    const gap = block.props.gap ?? 0;
-    const stack = mobile && (block.props.stackOnMobile ?? true);
-    const align = { top: 'flex-start', middle: 'center', bottom: 'flex-end' }[
-      block.props.verticalAlign ?? 'top'
-    ];
     return (
-      <div style={boxStyle}>
-        <div
-          className="flex"
-          style={{
-            gap: stack ? 16 : gap,
-            flexDirection: stack ? 'column' : 'row',
-            alignItems: stack ? 'stretch' : align,
-          }}
-        >
-          {block.children.map((childId, index) => (
-            <div
-              key={childId}
-              className="min-w-0"
-              style={
-                stack ? undefined : { flex: `0 0 ${widths[index] ?? 0}px`, maxWidth: widths[index] }
-              }
-            >
-              <BlockView
-                id={childId}
-                ctx={ctx}
-                available={stack ? width : (widths[index] ?? 0)}
-                mobile={mobile}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
+      <ColumnsView
+        block={block}
+        styles={styles}
+        available={available}
+        mobile={mobile}
+        width={width}
+        boxStyle={boxStyle}
+      />
     );
   }
 
   return (
     <div style={{ ...boxStyle, minHeight: block.children.length === 0 ? 48 : undefined }}>
       {block.children.map((childId) => (
-        <BlockView key={childId} id={childId} ctx={ctx} available={width} mobile={mobile} />
+        <BlockView key={childId} id={childId} styles={styles} available={width} mobile={mobile} />
       ))}
       {block.children.length === 0 && !readOnly ? (
         <EmptySlot
           parentId={id}
-          label={block.type === 'column' ? 'Drop blocks here' : 'Empty container'}
+          label={
+            block.type === 'column'
+              ? messages.canvas.dropBlocksHere
+              : messages.canvas.emptyContainer
+          }
         />
       ) : null}
+    </div>
+  );
+}
+
+function ColumnsView({
+  block,
+  styles,
+  available,
+  mobile,
+  width,
+  boxStyle,
+}: {
+  block: Extract<Block, { type: 'columns' }>;
+  styles: RenderContext;
+  available: number;
+  mobile: boolean;
+  width: number;
+  boxStyle: CSSProperties;
+}) {
+  const widths = useColumnWidths(styles, block, available);
+  const gap = block.props.gap ?? 0;
+  const stack = mobile && (block.props.stackOnMobile ?? true);
+  const align = { top: 'flex-start', middle: 'center', bottom: 'flex-end' }[
+    block.props.verticalAlign ?? 'top'
+  ];
+  return (
+    <div style={boxStyle}>
+      <div
+        className="flex"
+        style={{
+          gap: stack ? 16 : gap,
+          flexDirection: stack ? 'column' : 'row',
+          alignItems: stack ? 'stretch' : align,
+        }}
+      >
+        {block.children.map((childId, index) => (
+          <div
+            key={childId}
+            className="min-w-0"
+            style={
+              stack ? undefined : { flex: `0 0 ${widths[index] ?? 0}px`, maxWidth: widths[index] }
+            }
+          >
+            <BlockView
+              id={childId}
+              styles={styles}
+              available={stack ? width : (widths[index] ?? 0)}
+              mobile={mobile}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -437,34 +593,47 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
   const store = useEditorStore();
   const document: EmailDocument = useVisibleDocument();
   const viewport = useEditorState((state) => state.viewport);
-  const { readOnly } = useEditorOptions();
+  const { readOnly, customBlocks, messages } = useEditorOptions();
+  const text = messages.canvas;
   const drag = useActiveDrag();
-  const overId = useOverId();
-  const ctx = useMemo(() => createRenderContext(document), [document]);
+  const ctx = styleContextOf(document, customBlocks);
   const mobile = viewport === 'mobile';
   const width = mobile ? MOBILE_WIDTH : document.settings.width;
   const { settings } = document;
   const outer = resolvePadding(settings.padding);
   const canvasBorder = ctx.color(settings.borderColor);
-  const rootOver = overId === dropId('canvas', 'inside', ROOT_ID);
+  const rootOver = useIsOver(dropId('canvas', 'inside', ROOT_ID));
   const slotClassName = useSlotClassName('canvas');
   const validRootDrop = drag
     ? resolveDrop(store.getState().document, drag, 'inside', ROOT_ID) !== null
     : false;
 
   return (
-    <div
+    <section
       data-slot="canvas"
-      className={cn('meb-canvas-scroll min-h-0 flex-1 overflow-auto', slotClassName)}
-      style={{ background: ctx.color(settings.backdropColor, '$background') }}
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas is a keyboard stop; arrow keys then move between blocks.
+      tabIndex={0}
+      aria-label={text.label}
+      className={cn(
+        'meb-canvas-scroll min-h-0 flex-1 overflow-auto bg-editor-stage px-6 pt-6 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset',
+        slotClassName,
+      )}
+      // Leave room for the floating assistant so the end of the email stays reachable.
+      style={{ paddingBottom: 'calc(24px + var(--meb-overlay-space, 0px))' }}
       onClick={() => store.select(null)}
     >
+      {/*
+        The email's backdrop (what recipients see around the content) is a
+        framed card on the stage, like the Preview, so the stage can follow
+        the editor's theme while the email keeps its own colors.
+      */}
       <div
-        className="meb-backdrop min-h-full px-6 py-8"
+        className="meb-backdrop mx-auto rounded-lg px-6 shadow-sm ring-1 ring-foreground/5 transition-[max-width] duration-200"
         style={{
+          background: ctx.color(settings.backdropColor, '$background'),
+          maxWidth: width + 48,
           paddingTop: outer.top,
-          // Leave room for the floating assistant so the end of the email stays reachable.
-          paddingBottom: `calc(${outer.bottom}px + var(--meb-overlay-space, 0px))`,
+          paddingBottom: outer.bottom,
         }}
       >
         <div
@@ -483,21 +652,20 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
           }}
         >
           {document.root.map((id) => (
-            <BlockView key={id} id={id} ctx={ctx} available={width} mobile={mobile} />
+            <BlockView key={id} id={id} styles={ctx} available={width} mobile={mobile} />
           ))}
           {document.root.length === 0 && !readOnly ? (
             <div
               data-slot="empty-email"
+              // Inside the email, which keeps its own (usually light) colors: derive from its text color.
               className="flex flex-col items-center gap-4 px-6 py-16 text-center font-sans text-sm"
             >
               <div className="flex max-w-sm flex-col items-center gap-2">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-foreground">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-current/8">
                   <Icon icon={SquareDashedIcon} className="size-5" />
                 </div>
-                <p className="font-medium">Your email is empty.</p>
-                <p className="text-pretty text-muted-foreground">
-                  Drag blocks or sections here, click one in the sidebar, or ask the assistant.
-                </p>
+                <p className="font-medium">{text.emptyTitle}</p>
+                <p className="text-pretty text-current/60">{text.emptyDescription}</p>
               </div>
               {onAddFirst ? (
                 <Button
@@ -507,7 +675,7 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
                     onAddFirst();
                   }}
                 >
-                  <Icon icon={Add01Icon} data-icon="inline-start" /> Add a text block
+                  <Icon icon={Add01Icon} data-icon="inline-start" /> {text.addFirst}
                 </Button>
               ) : null}
             </div>
@@ -515,6 +683,6 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
           {drag ? <RootDropZone /> : null}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

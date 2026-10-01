@@ -8,6 +8,7 @@ import {
   type EmailEditorHandle,
 } from '@maildun/email-builder/editor';
 import { useMemo, useRef, useState } from 'react';
+import { CUSTOM_BLOCKS } from './blocks';
 
 const MERGE_TAGS = [
   { key: 'first_name', label: 'First name' },
@@ -107,6 +108,7 @@ const claudeAgent: EditorAgent = {
         prompt: request.prompt,
         document: request.document,
         selectedId: request.selectedId,
+        history: request.history,
         mergeTags: MERGE_TAGS.map((tag) => tag.key),
       }),
     });
@@ -120,6 +122,7 @@ export function App() {
   const editor = useRef<EmailEditorHandle>(null);
   const [template, setTemplate] = useState<TemplateName>('newsletter');
   const [agentMode, setAgentMode] = useState<'demo' | 'claude'>('demo');
+  const [theme, setTheme] = useState<'system' | 'light' | 'dark'>('system');
   const [document, setDocument] = useState<EmailDocument>(() => TEMPLATES.newsletter.create());
   const [version, setVersion] = useState(0);
   const agent = useMemo(() => (agentMode === 'claude' ? claudeAgent : demoAgent), [agentMode]);
@@ -174,6 +177,17 @@ export function App() {
             <option value="claude">Claude (needs API key)</option>
           </select>
         </label>
+        <label>
+          Theme
+          <select
+            value={theme}
+            onChange={(event) => setTheme(event.target.value as 'system' | 'light' | 'dark')}
+          >
+            <option value="system">System</option>
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
         <button type="button" onClick={importJson}>
           Import JSON
         </button>
@@ -195,6 +209,8 @@ export function App() {
           value={document}
           onChange={setDocument}
           mergeTags={MERGE_TAGS}
+          customBlocks={CUSTOM_BLOCKS}
+          appearance={theme}
           agent={agent}
           onPickImage={async () => ({
             url: `https://picsum.photos/seed/${Math.random().toString(36).slice(2, 8)}/1200/600`,

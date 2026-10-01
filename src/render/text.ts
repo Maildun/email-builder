@@ -1,10 +1,15 @@
+import { type CustomBlocks, customBlockMap } from '../core/custom';
 import { hasChildren } from '../core/schema/blocks';
 import type { EmailDocument } from '../core/schema/document';
 import { inlineMarkdownToPlainText, markdownToPlainText } from './markdown';
 
 /** Plain-text alternative of the email for the text/plain MIME part. */
-export function renderPlainText(document: EmailDocument): string {
+export function renderPlainText(
+  document: EmailDocument,
+  options: { customBlocks?: CustomBlocks } = {},
+): string {
   const parts: string[] = [];
+  const customBlocks = customBlockMap(options.customBlocks);
 
   const visit = (ids: string[]) => {
     for (const id of ids) {
@@ -39,6 +44,18 @@ export function renderPlainText(document: EmailDocument): string {
         case 'html': {
           const text = htmlToText(block.props.html ?? '');
           if (text) parts.push(text);
+          break;
+        }
+        case 'custom': {
+          const definition = customBlocks.get(block.props.name);
+          const data = definition?.schema.safeParse(block.props.data ?? {});
+          if (!definition?.text || !data?.success) break;
+          try {
+            const text = definition.text(data.data).trim();
+            if (text) parts.push(text);
+          } catch {
+            // The HTML render reports the error; the text part just skips the block.
+          }
           break;
         }
         default:

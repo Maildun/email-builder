@@ -1,3 +1,7 @@
+:root {
+  color-scheme: light dark;
+}
+
 html,
 body,
 #root {
@@ -6,7 +10,7 @@ body,
 }
 
 body {
-  background: #f4f4f5;
+  background: light-dark(#f4f4f5, #0a0a0a);
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -56,4 +60,19 @@ body {
 .app-editor {
   flex: 1;
   min-height: 0;
+}
+
+.app-header button {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid #3f3f46;
+  border-radius: 6px;
+  background: #27272a;
+  color: #fafafa;
+  font: inherit;
+  cursor: pointer;
+}
+
+.app-header button:hover {
+  background: #3f3f46;
 }

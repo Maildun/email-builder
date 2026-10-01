@@ -1,3 +1,6 @@
+import { customBlockMap } from '../core/custom';
+import type { EditorMessages } from './messages';
+import { blockLabel } from './meta';
 import type { EditorStore } from './store';
 
 /**
@@ -8,9 +11,24 @@ function keepFocus(from: Element | null | undefined): void {
   from?.closest<HTMLElement>('.meb-shell')?.focus({ preventScroll: true });
 }
 
-export function removeBlock(store: EditorStore, id: string, from?: Element | null): void {
+/**
+ * Removes a block and offers Undo in a toast. The store has no access to the
+ * editor's UI text, so callers pass the messages (from `useMessages()`).
+ */
+export function removeBlock(
+  store: EditorStore,
+  id: string,
+  messages: EditorMessages,
+  from?: Element | null,
+): void {
   keepFocus(from);
-  store.apply({ op: 'remove', id });
+  const block = store.getState().document.blocks[id];
+  if (!block || !store.apply({ op: 'remove', id }).ok) return;
+  const label = blockLabel(block, customBlockMap(store.customBlocks), messages);
+  store.showToast(messages.toast.deleted(label), {
+    label: messages.toast.undo,
+    run: () => store.undo(),
+  });
 }
 
 /** Duplicates a block and selects the copy. */

@@ -94,6 +94,33 @@ describe('EditorStore', () => {
     expect(store.getState().canRedo).toBe(true);
   });
 
+  it('describes what a proposal removes and whether it changes the theme or settings', () => {
+    const store = new EditorStore(doc());
+    store.propose([
+      { op: 'remove', id: 'b' },
+      { op: 'updateTheme', colors: { primary: '#7c3aed' } },
+    ]);
+    const proposal = store.getState().proposal;
+    expect(proposal?.removed).toEqual(['b']);
+    expect(proposal?.changed).toEqual([]);
+    expect(proposal?.themeChanged).toBe(true);
+    expect(proposal?.settingsChanged).toBe(false);
+
+    const store2 = new EditorStore(doc());
+    store2.propose([{ op: 'updateSettings', settings: { preheader: 'Hi' } }]);
+    expect(store2.getState().proposal?.settingsChanged).toBe(true);
+    expect(store2.getState().proposal?.themeChanged).toBe(false);
+  });
+
+  it('drops a toast once anything else changes, so its Undo stays accurate', () => {
+    const store = new EditorStore(doc());
+    store.apply({ op: 'remove', id: 'a' });
+    store.showToast('Text deleted', { label: 'Undo', run: () => store.undo() });
+    expect(store.getState().toast?.message).toBe('Text deleted');
+    store.apply({ op: 'remove', id: 'b' });
+    expect(store.getState().toast).toBeNull();
+  });
+
   it('discards rejected proposals', () => {
     const store = new EditorStore(doc());
     store.propose([{ op: 'remove', id: 'a' }]);

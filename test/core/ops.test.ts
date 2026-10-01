@@ -73,6 +73,22 @@ describe('applyOps', () => {
       ],
     });
 
+  it('keeps unchanged parts of the document referentially equal', () => {
+    const before = base();
+    const after = ok(applyOps(before, { op: 'update', id: 'a', props: { markdown: 'Changed' } }));
+    expect(after.blocks.a).not.toBe(before.blocks.a);
+    expect(after.blocks.box).toBe(before.blocks.box);
+    expect(after.blocks.b).toBe(before.blocks.b);
+    expect(after.root).toBe(before.root);
+    expect(after.theme).toBe(before.theme);
+    expect(after.settings).toBe(before.settings);
+
+    const moved = ok(applyOps(after, { op: 'move', id: 'a', parentId: 'box', index: 0 }));
+    expect(moved.blocks.box).not.toBe(after.blocks.box);
+    expect(moved.root).not.toBe(after.root);
+    expect(moved.blocks.b).toBe(after.blocks.b);
+  });
+
   it('inserts at an index and reports inserted ids', () => {
     const result = applyOps(base(), {
       op: 'insert',

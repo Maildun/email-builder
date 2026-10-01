@@ -1,6 +1,6 @@
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { DragDropVerticalIcon, LayoutTemplateIcon } from '@hugeicons/core-free-icons';
-import type { ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { summarizeBlock } from '../../agent/outline';
 import type { Op } from '../../core/ops';
 import {
@@ -9,21 +9,25 @@ import {
   type BlockType,
   hasChildren,
 } from '../../core/schema/blocks';
-import { type EmailDocument, ROOT_ID } from '../../core/schema/document';
-import { buildSection, SECTION_NAMES, SECTIONS, type SectionName } from '../../core/sections';
+import { type BlockInput, type EmailDocument, ROOT_ID } from '../../core/schema/document';
+import { buildSection, SECTION_NAMES, type SectionName } from '../../core/sections';
 import { findParent, walk } from '../../core/tree';
-import { useEditorState, useEditorStore, useSlotClassName, useVisibleDocument } from '../context';
-import { type DragData, dropId, useActiveDrag, useOverId } from '../dnd';
-import { BLOCK_ICONS } from '../meta';
+import {
+  type EditorOptions,
+  useEditorOptions,
+  useEditorState,
+  useEditorStore,
+  useMessages,
+  useSlotClassName,
+  useVisibleDocument,
+} from '../context';
+import { type DragData, dropId, useActiveDrag, useDropIndicator } from '../dnd';
+import type { BlockCategory } from '../messages';
+import { BLOCK_ICONS, blockIcon, blockLabel } from '../meta';
 import type { EditorStore } from '../store';
-import { cn, Icon, Tabs, TabsContent, TabsList, TabsTrigger } from '../ui';
+import { cn, Icon, type IconSvgElement, Tabs, TabsContent, TabsList, TabsTrigger } from '../ui';
 
-const CATEGORIES = [
-  { id: 'content', label: 'Content' },
-  { id: 'media', label: 'Media' },
-  { id: 'layout', label: 'Layout' },
-  { id: 'advanced', label: 'Advanced' },
-] as const;
+const CATEGORIES: readonly BlockCategory[] = ['content', 'media', 'layout', 'advanced'];
 
 /** Where a click-inserted block goes: into the selected container, after the selected block, or at the end. */
 export function insertionPoint(
@@ -59,11 +63,80 @@ function insert(
   if (result.ok && result.inserted[0]) store.select(result.inserted[0]);
 }
 
-function PaletteItem({ type }: { type: BlockType }) {
+interface PaletteProps {
+  /** Distinguishes several palettes on screen (drag ids must be unique). */
+  surface?: string;
+  /** Called after a click inserts a block, e.g. to close a popover. */
+  onInsert?: () => void;
+}
+
+type Align = 'left' | 'center' | 'right';
+
+const TEXT_TYPES = new Set<BlockType>(['text', 'heading']);
+
+/** New text follows the alignment of the text it is inserted after (e.g. a centered hero). */
+function inheritedStyle(store: EditorStore, type: BlockType): { align: Align } | undefined {
+  if (!TEXT_TYPES.has(type)) return undefined;
+  const { document, selectedId } = store.getState();
+  const selected = selectedId ? document.blocks[selectedId] : undefined;
+  if (!selected || !TEXT_TYPES.has(selected.type)) return undefined;
+  const align = (selected.style as { align?: Align } | undefined)?.align;
+  return align ? { align } : undefined;
+}
+
+/** Something the palette can insert: a built-in block type or a custom block. */
+interface PaletteEntry {
+  id: string;
+  label: string;
+  description: string;
+  icon: IconSvgElement;
+  blockType: BlockType;
+  input: BlockInput;
+  category: BlockCategory;
+}
+
+function paletteEntries(options: EditorOptions): PaletteEntry[] {
+  const builtIn = BLOCK_TYPES.filter(
+    (type) =>
+      type !== 'column' &&
+      type !== 'custom' &&
+      (!options.blockTypes || options.blockTypes.includes(type)),
+  ).map(
+    (type): PaletteEntry => ({
+      id: type,
+      label: options.messages.blocks[type].label,
+      description: options.messages.blocks[type].description,
+      icon: BLOCK_ICONS[type],
+      blockType: type,
+      input: { type } as BlockInput,
+      category: BLOCK_DEFINITIONS[type].category,
+    }),
+  );
+  const custom = options.customBlocks.map(
+    (definition): PaletteEntry => ({
+      id: `custom:${definition.name}`,
+      label: definition.label,
+      description: definition.description,
+      icon: (definition.icon as IconSvgElement | undefined) ?? BLOCK_ICONS.custom,
+      blockType: 'custom',
+      input: { type: 'custom', props: { name: definition.name, data: definition.defaults } },
+      category: definition.category ?? 'advanced',
+    }),
+  );
+  return [...builtIn, ...custom];
+}
+
+function PaletteItem({ entry, surface, onInsert }: PaletteProps & { entry: PaletteEntry }) {
   const store = useEditorStore();
-  const data: DragData = { kind: 'new', blockType: type };
+  const data: DragData = {
+    kind: 'new',
+    blockType: entry.blockType,
+    input: entry.input,
+    label: entry.label,
+    icon: entry.icon,
+  };
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `new|${type}`,
+    id: `${surface}:new|${entry.id}`,
     data,
   });
   return (
@@ -73,41 +146,55 @@ function PaletteItem({ type }: { type: BlockType }) {
       data-slot="palette-item"
       data-dragging={isDragging || undefined}
       className="group/tile flex h-16 cursor-grab touch-none flex-col items-center justify-center gap-1.5 rounded-md border bg-card px-1 py-1.5 text-[11px] font-medium text-foreground outline-none transition-[background-color,border-color,opacity] hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 data-dragging:opacity-50"
-      title={BLOCK_DEFINITIONS[type].description}
-      onClick={() =>
-        insert(store, (target) => ({ op: 'insert', ...target, blocks: [{ type }] }), type)
-      }
+      title={entry.description}
+      onClick={() => {
+        const style = inheritedStyle(store, entry.blockType);
+        insert(
+          store,
+          (target) => ({
+            op: 'insert',
+            ...target,
+            blocks: [{ ...entry.input, ...(style ? { style } : {}) } as BlockInput],
+          }),
+          entry.blockType,
+        );
+        onInsert?.();
+      }}
       {...attributes}
       {...listeners}
     >
       <Icon
-        icon={BLOCK_ICONS[type]}
+        icon={entry.icon}
         className="size-4.5 text-muted-foreground group-hover/tile:text-foreground"
       />
-      <span className="max-w-full truncate">{BLOCK_DEFINITIONS[type].label}</span>
+      <span className="max-w-full truncate">{entry.label}</span>
     </button>
   );
 }
 
-function SectionItem({ name }: { name: SectionName }) {
+function SectionItem({ name, surface, onInsert }: PaletteProps & { name: SectionName }) {
   const store = useEditorStore();
   const blockType = buildSection(name).type;
   const data: DragData = { kind: 'section', section: name, blockType };
-  const { attributes, listeners, setNodeRef } = useDraggable({ id: `section|${name}`, data });
-  const section = SECTIONS[name];
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: `${surface}:section|${name}`,
+    data,
+  });
+  const section = useMessages().sections[name];
   return (
     <button
       ref={setNodeRef}
       type="button"
       data-slot="section-item"
       className="flex cursor-grab touch-none items-start gap-2.5 rounded-md border bg-card p-2.5 text-left text-foreground outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-      onClick={() =>
+      onClick={() => {
         insert(
           store,
           (target) => ({ op: 'insert', ...target, blocks: [buildSection(name)] }),
           blockType,
-        )
-      }
+        );
+        onInsert?.();
+      }}
       {...attributes}
       {...listeners}
     >
@@ -129,30 +216,36 @@ function PaletteGroup({ label, children }: { label: string; children: ReactNode 
   );
 }
 
-function Palette() {
+/** Blocks and sections to add. Click inserts after the selection; drag drops anywhere. */
+export function Palette({ surface = 'sidebar', onInsert }: PaletteProps) {
+  const options = useEditorOptions();
+  const entries = useMemo(() => paletteEntries(options), [options]);
+  const sections = options.sections ?? SECTION_NAMES;
+  const text = options.messages.palette;
   return (
     <div data-slot="palette" className="px-3 pt-1 pb-4">
       {CATEGORIES.map((category) => {
-        const types = BLOCK_TYPES.filter(
-          (type) => type !== 'column' && BLOCK_DEFINITIONS[type].category === category.id,
-        );
+        const inCategory = entries.filter((entry) => entry.category === category);
+        if (!inCategory.length) return null;
         return (
-          <PaletteGroup key={category.id} label={category.label}>
+          <PaletteGroup key={category} label={text.categories[category]}>
             <div className="grid grid-cols-3 gap-1.5">
-              {types.map((type) => (
-                <PaletteItem key={type} type={type} />
+              {inCategory.map((entry) => (
+                <PaletteItem key={entry.id} entry={entry} surface={surface} onInsert={onInsert} />
               ))}
             </div>
           </PaletteGroup>
         );
       })}
-      <PaletteGroup label="Sections">
-        <div className="flex flex-col gap-1.5">
-          {SECTION_NAMES.map((name) => (
-            <SectionItem key={name} name={name} />
-          ))}
-        </div>
-      </PaletteGroup>
+      {sections.length ? (
+        <PaletteGroup label={text.sections}>
+          <div className="flex flex-col gap-1.5">
+            {sections.map((name) => (
+              <SectionItem key={name} name={name} surface={surface} onInsert={onInsert} />
+            ))}
+          </div>
+        </PaletteGroup>
+      ) : null}
     </div>
   );
 }
@@ -179,8 +272,9 @@ function LayerRow({ id, depth, document }: { id: string; depth: number; document
   const store = useEditorStore();
   const selected = useEditorState((state) => state.selectedId === id);
   const changed = useEditorState((state) => state.proposal?.changed.includes(id) ?? false);
-  const drag = useActiveDrag();
-  const overId = useOverId();
+  const dragging = useActiveDrag() !== null;
+  const indicator = useDropIndicator('layer', id) ?? undefined;
+  const { customBlockMap: custom, messages } = useEditorOptions();
   const block = document.blocks[id];
   const { attributes, listeners, setNodeRef } = useDraggable({
     id: `layer-move|${id}`,
@@ -188,9 +282,6 @@ function LayerRow({ id, depth, document }: { id: string; depth: number; document
   });
   if (!block) return null;
   const summary = summarizeBlock(block);
-  const indicator = ['before', 'after', 'inside'].find(
-    (position) => overId === dropId('layer', position as 'before', id),
-  );
 
   return (
     <li
@@ -205,7 +296,7 @@ function LayerRow({ id, depth, document }: { id: string; depth: number; document
         ref={setNodeRef}
         type="button"
         className="flex cursor-grab touch-none rounded-sm p-0.5 text-muted-foreground opacity-0 outline-none group-hover/layer:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring/50"
-        aria-label="Drag to move"
+        aria-label={messages.common.dragToMove}
         {...attributes}
         {...listeners}
       >
@@ -217,15 +308,15 @@ function LayerRow({ id, depth, document }: { id: string; depth: number; document
         className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-sm text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         onClick={() => store.select(id)}
       >
-        <Icon icon={BLOCK_ICONS[block.type]} className="size-3.5 shrink-0 text-muted-foreground" />
+        <Icon icon={blockIcon(block, custom)} className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="shrink-0 font-medium group-data-changed/layer:text-editor-ai">
-          {BLOCK_DEFINITIONS[block.type].label}
+          {blockLabel(block, custom, messages)}
         </span>
         {summary ? (
           <span className="truncate text-muted-foreground">{summary.replace(/^"|"$/g, '')}</span>
         ) : null}
       </button>
-      {drag ? (
+      {dragging ? (
         <>
           <LayerZone id={id} position="before" />
           <LayerZone id={id} position="after" />
@@ -238,13 +329,14 @@ function LayerRow({ id, depth, document }: { id: string; depth: number; document
 
 function Layers() {
   const document = useVisibleDocument();
+  const text = useMessages().layers;
   const rows: Array<{ id: string; depth: number }> = [];
   walk(document, (id, _block, depth) => rows.push({ id, depth }));
   if (rows.length === 0) {
-    return <p className="p-4 text-sm text-muted-foreground">No blocks yet.</p>;
+    return <p className="p-4 text-sm text-muted-foreground">{text.empty}</p>;
   }
   return (
-    <ul data-slot="layers" aria-label="Layers" className="flex flex-col px-1 pt-1.5 pb-3">
+    <ul data-slot="layers" aria-label={text.label} className="flex flex-col px-1 pt-1.5 pb-3">
       {rows.map((row) => (
         <LayerRow key={row.id} id={row.id} depth={row.depth} document={document} />
       ))}
@@ -254,10 +346,11 @@ function Layers() {
 
 export function Sidebar() {
   const className = useSlotClassName('sidebar');
+  const text = useMessages().sidebar;
   return (
     <aside
       data-slot="sidebar"
-      aria-label="Blocks and layers"
+      aria-label={text.label}
       className={cn('hidden min-h-0 flex-col border-r bg-card @3xl/editor:flex', className)}
     >
       <Tabs defaultValue="add" className="min-h-0 flex-1 gap-0">
@@ -266,10 +359,10 @@ export function Sidebar() {
           className="w-full flex-none justify-start border-b px-2 pt-1 group-data-horizontal/tabs:h-10"
         >
           <TabsTrigger value="add" className="flex-none px-2.5">
-            Add
+            {text.addTab}
           </TabsTrigger>
           <TabsTrigger value="layers" className="flex-none px-2.5">
-            Layers
+            {text.layersTab}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="add" className="min-h-0 overflow-y-auto">

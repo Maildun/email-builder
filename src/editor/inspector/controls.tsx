@@ -11,7 +11,7 @@ import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { resolveColor } from '../../core/colors';
 import type { Theme } from '../../core/schema/document';
 import { type Padding, resolvePadding, THEME_COLOR_TOKENS } from '../../core/schema/primitives';
-import { useEditorOptions } from '../context';
+import { useEditorOptions, useMessages } from '../context';
 import { Button, cn, Icon, Input, NumberInput, Popover, Spinner, Textarea, Tip } from '../ui';
 import { FieldDescription, Field as FieldRoot, FieldTitle } from '../ui/field';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../ui/input-group';
@@ -136,7 +136,8 @@ export function TextInput({
 
 /** Menu of merge tags that inserts `{{ key }}` via `onInsert`. */
 export function MergeTagMenu({ onInsert }: { onInsert: (tag: string) => void }) {
-  const { mergeTags } = useEditorOptions();
+  const { mergeTags, messages } = useEditorOptions();
+  const text = messages.inspector;
   const [open, setOpen] = useState(false);
   if (mergeTags.length === 0) return null;
   return (
@@ -146,13 +147,13 @@ export function MergeTagMenu({ onInsert }: { onInsert: (tag: string) => void }) 
       align="end"
       className="w-auto min-w-56 p-2"
       trigger={
-        <InputGroupButton size="icon-xs" aria-label="Insert merge tag">
+        <InputGroupButton size="icon-xs" aria-label={text.insertMergeTag}>
           <Icon icon={BracesIcon} />
         </InputGroupButton>
       }
     >
       <div data-slot="merge-tag-menu" className="flex max-h-75 flex-col overflow-y-auto">
-        <p className={cn(MENU_TITLE, 'px-2 pt-1 pb-1.5')}>Insert merge tag</p>
+        <p className={cn(MENU_TITLE, 'px-2 pt-1 pb-1.5')}>{text.insertMergeTag}</p>
         {mergeTags.map((tag) => (
           <button
             key={tag.key}
@@ -176,13 +177,14 @@ export function UrlInput({
   id,
   value,
   onCommit,
-  placeholder = 'https://',
+  placeholder,
 }: {
   id: string;
   value: string | undefined;
   onCommit: Commit<string | undefined>;
   placeholder?: string;
 }) {
+  const text = useMessages().inspector;
   const { draft, error, change } = useDraft(value ?? '', (next) =>
     onCommit(next.trim() === '' ? undefined : next.trim()),
   );
@@ -197,7 +199,7 @@ export function UrlInput({
           id={id}
           className="h-8 text-sm"
           value={draft}
-          placeholder={placeholder}
+          placeholder={placeholder ?? text.urlPlaceholder}
           spellCheck={false}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? errorId : undefined}
@@ -223,7 +225,8 @@ export function ImageInput({
   onCommit: Commit<string | undefined>;
   onAlt?: (alt: string) => void;
 }) {
-  const { onUploadImage, onPickImage } = useEditorOptions();
+  const { onUploadImage, onPickImage, messages } = useEditorOptions();
+  const text = messages.inspector;
   const fileInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -238,7 +241,7 @@ export function ImageInput({
         if (result.alt && onAlt) onAlt(result.alt);
       }
     } catch (error) {
-      setFailure((error as Error).message || 'Upload failed.');
+      setFailure((error as Error).message || text.uploadFailed);
     } finally {
       setBusy(false);
     }
@@ -246,12 +249,12 @@ export function ImageInput({
 
   return (
     <>
-      <UrlInput id={id} value={value} onCommit={onCommit} placeholder="https://…/image.png" />
+      <UrlInput id={id} value={value} onCommit={onCommit} placeholder={text.imagePlaceholder} />
       {onUploadImage || onPickImage ? (
         <div data-slot="image-input-actions" className="flex items-center gap-1.5">
           {onPickImage ? (
             <Button size="sm" variant="outline" disabled={busy} onClick={() => run(onPickImage)}>
-              <Icon icon={Image02Icon} data-icon="inline-start" /> Choose
+              <Icon icon={Image02Icon} data-icon="inline-start" /> {text.choose}
             </Button>
           ) : null}
           {onUploadImage ? (
@@ -263,11 +266,15 @@ export function ImageInput({
                 onClick={() => fileInput.current?.click()}
               >
                 {busy ? (
-                  <Spinner data-icon="inline-start" aria-hidden />
+                  <Spinner
+                    data-icon="inline-start"
+                    aria-hidden
+                    aria-label={messages.common.loading}
+                  />
                 ) : (
                   <Icon icon={ImageUploadIcon} data-icon="inline-start" />
                 )}{' '}
-                {busy ? 'Uploading…' : 'Upload'}
+                {busy ? text.uploading : text.upload}
               </Button>
               <input
                 ref={fileInput}
@@ -316,7 +323,7 @@ export function ColorInput({
   theme,
   onCommit,
   allowClear,
-  placeholder = 'Default',
+  placeholder,
 }: {
   id: string;
   value: string | undefined;
@@ -325,6 +332,7 @@ export function ColorInput({
   allowClear?: boolean;
   placeholder?: string;
 }) {
+  const text = useMessages().inspector;
   const resolved = resolveColor(value, theme);
   const { draft, error, change } = useDraft(value ?? '', (next) =>
     onCommit(next === '' ? undefined : next),
@@ -356,13 +364,13 @@ export function ColorInput({
               style={resolved && resolved !== 'transparent' ? { background: resolved } : undefined}
             />
             <span className={cn('truncate', !value && 'text-muted-foreground')}>
-              {label ?? placeholder}
+              {label ?? placeholder ?? text.colorDefault}
             </span>
           </Button>
         }
       >
         <div className="flex flex-col gap-1.5">
-          <p className={MENU_TITLE}>Theme</p>
+          <p className={MENU_TITLE}>{text.themeSwatches}</p>
           <div className="grid grid-cols-[repeat(8,22px)] gap-1.5">
             {THEME_COLOR_TOKENS.map((token) => {
               const active = value === `$${token}`;
@@ -370,7 +378,7 @@ export function ColorInput({
                 <Tip key={token} label={`$${token}`}>
                   <button
                     type="button"
-                    aria-label={`Theme ${token}`}
+                    aria-label={text.themeSwatch(token)}
                     aria-pressed={active}
                     data-active={active || undefined}
                     className={SWATCH_BUTTON}
@@ -383,7 +391,7 @@ export function ColorInput({
           </div>
         </div>
         <div className="flex flex-col gap-1.5">
-          <p className={MENU_TITLE}>Colors</p>
+          <p className={MENU_TITLE}>{text.colorSwatches}</p>
           <div className="grid grid-cols-[repeat(8,22px)] gap-1.5">
             {SWATCHES.map((swatch) => {
               const active = value?.toLowerCase() === swatch;
@@ -406,25 +414,25 @@ export function ColorInput({
           <input
             type="color"
             className="size-8 shrink-0 cursor-pointer rounded-md border border-input bg-background p-0.5"
-            aria-label="Pick a color"
+            aria-label={text.pickColor}
             value={resolved && /^#[0-9a-f]{6}$/i.test(resolved) ? resolved : '#000000'}
             onChange={(event) => change(event.target.value)}
           />
           <Input
             className="h-8 font-mono text-xs"
-            aria-label="Color value"
+            aria-label={text.colorValue}
             value={draft}
-            placeholder="#1f6feb or $primary"
+            placeholder={text.colorPlaceholder}
             spellCheck={false}
             aria-invalid={error ? true : undefined}
             onChange={(event) => change(event.target.value)}
           />
           {allowClear ? (
-            <Tip label="Use default">
+            <Tip label={text.useDefault}>
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Use default color"
+                aria-label={text.useDefaultColor}
                 onClick={() => change('')}
               >
                 <Icon icon={Cancel01Icon} />
@@ -445,6 +453,7 @@ export function PaddingInput({
   value: Padding | undefined;
   onCommit: Commit<Padding | undefined>;
 }) {
+  const text = useMessages().inspector;
   const padding = resolvePadding(value);
   const uniform =
     typeof value === 'number' ||
@@ -459,7 +468,7 @@ export function PaddingInput({
       {linked ? (
         <div className="min-w-0 flex-1">
           <NumberInput
-            ariaLabel="Padding all sides"
+            ariaLabel={text.paddingAll}
             value={padding.top}
             min={0}
             max={200}
@@ -474,10 +483,10 @@ export function PaddingInput({
               key={side}
               className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground"
             >
-              <span aria-hidden>{side[0]?.toUpperCase()}</span>
+              <span aria-hidden>{text.paddingSideShort(side)}</span>
               <div className="min-w-0 flex-1">
                 <NumberInput
-                  ariaLabel={`Padding ${side}`}
+                  ariaLabel={text.paddingSide(side)}
                   value={padding[side]}
                   min={0}
                   max={200}
@@ -488,11 +497,11 @@ export function PaddingInput({
           ))}
         </div>
       )}
-      <Tip label={linked ? 'Set sides separately' : 'Same on all sides'}>
+      <Tip label={linked ? text.separateSides : text.sameSides}>
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label={linked ? 'Set sides separately' : 'Same on all sides'}
+          aria-label={linked ? text.separateSides : text.sameSides}
           onClick={() => setLinked(!linked)}
         >
           <Icon icon={linked ? SquareDashedIcon : SquareIcon} />

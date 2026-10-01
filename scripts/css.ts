@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import tailwind from '@tailwindcss/postcss';
-import postcss, { type AtRule, type Plugin, type Rule } from 'postcss';
+import postcss, { type AtRule, type Node, type Plugin, type Rule } from 'postcss';
 
 const stylesDir = join(import.meta.dirname, '../src/editor/styles');
 export const STANDALONE_ENTRY = join(stylesDir, 'standalone.css');
@@ -10,8 +10,9 @@ const SCOPE = '.meb-root';
 const ROOT_SELECTORS = new Set([':root', ':host', 'html', 'body']);
 
 function insideAtRule(rule: Rule, test: (atRule: AtRule) => boolean): boolean {
-  for (let node = rule.parent; node; node = node.parent) {
+  for (let node: Node | undefined = rule.parent as Node | undefined; node; ) {
     if (node.type === 'atrule' && test(node as AtRule)) return true;
+    node = node.parent as Node | undefined;
   }
   return false;
 }
