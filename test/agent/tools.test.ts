@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDocument, renderEmail, validateDocument } from '../../src';
+import { applyOps, createDocument, renderEmail, validateDocument } from '../../src';
 import {
   buildSystemPrompt,
   createAgentSession,
@@ -52,6 +52,18 @@ describe('agent tools', () => {
     expect(renderEmail(document).html).toContain('#e11d48');
     expect(session.ops.length).toBe(7);
     expect(session.changed.has('picks')).toBe(true);
+  });
+
+  it('records ops that replay to the identical document', () => {
+    const start = createDocument({ blocks: [{ id: 'intro', type: 'text' }] });
+    const session = createAgentSession(start);
+    runTool(session.tools, 'insert_section', { name: 'hero' });
+    const inserted = runTool(session.tools, 'insert_blocks', { blocks: [{ type: 'button' }] });
+    const newId = (inserted.data as { inserted: string[] }).inserted[0] as string;
+    runTool(session.tools, 'update_block', { id: newId, props: { text: 'Go' } });
+    runTool(session.tools, 'duplicate_block', { id: 'intro' });
+    const replay = applyOps(start, session.ops);
+    expect(replay.ok && replay.document).toEqual(session.getDocument());
   });
 
   it('explains rejected input and leaves the document untouched', () => {

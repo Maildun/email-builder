@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { emptyDocument } from './defaults';
+import { createUniqueId } from './ids';
 import { aliasHint, type Issue, issuesFromZod, joinPath } from './issues';
 import { type Block, BlockSchema, canContain, hasChildren } from './schema/blocks';
 import {
@@ -518,4 +519,100 @@ export function createDocument(
     );
   }
   return result.document;
+}
+
+function assignIds(input: BlockInput, taken: Set<string>): BlockInput {
+  const id = input.id ?? createUniqueId(taken);
+  taken.add(id);
+  const children = input.children?.map((child) => assignIds(child, taken));
+  return { ...input, id, ...(children ? { children } : {}) } as BlockInput;
+}
+
+/**
+ * Returns an equivalent op in which every block it creates has an explicit
+ * id, so replaying it (e.g. as an editor proposal) yields identical ids.
+ * `duplicate` becomes an `insert` of the copied subtree.
+ */
+export function materializeOp(document: EmailDocument, op: Op): Op {
+  const taken = new Set([ROOT_ID, ...Object.keys(document.blocks)]);
+  const blocksOf = (value: unknown): value is { blocks: unknown[] } =>
+    typeof value === 'object' &&
+    value !== null &&
+    Array.isArray((value as { blocks?: unknown }).blocks);
+  switch (op.op) {
+    case 'insert':
+      return { ...op, blocks: op.blocks.map((block) => assignIds(block, taken)) };
+    case 'replace':
+      return {
+        ...op,
+        block: assignIds({ ...op.block, id: op.block.id ?? op.id } as BlockInput, taken),
+      };
+    case 'duplicate': {
+      const parent = findParent(document, op.id);
+      if (!document.blocks[op.id] || !parent) return op;
+      return {
+        op: 'insert',
+        parentId: parent.parentId,
+        index: parent.index + 1,
+        blocks: [assignIds(toBlockInput(document, op.id, false), taken)],
+      };
+    }
+    case 'replaceDocument': {
+      if (!blocksOf(op.document) || 'version' in (op.document as object)) return op;
+      const fresh = new Set([ROOT_ID]);
+      return {
+        ...op,
+        document: {
+          ...op.document,
+          blocks: op.document.blocks.map((block) =>
+            typeof block === 'object' && block !== null && 'type' in block
+              ? assignIds(block as BlockInput, fresh)
+              : block,
+          ),
+        },
+      };
+    }
+    default:
+      return op;
+  }
+}
+
+/**
+ * Applies ops one at a time, materializing ids first. The returned `ops`
+ * replay to exactly the same document.
+ */
+export function applyOpsMaterialized(
+  document: EmailDocument,
+  ops: Op[],
+): (Extract<ApplyResult, { ok: true }> & { ops: Op[] }) | Extract<ApplyResult, { ok: false }> {
+  let current = document;
+  const materialized: Op[] = [];
+  const changed = new Set<string>();
+  const inserted = new Set<string>();
+  const removed = new Set<string>();
+  for (const [index, raw] of ops.entries()) {
+    const parsed = OpSchema.safeParse(raw);
+    const op = parsed.success ? materializeOp(current, parsed.data as Op) : raw;
+    const result = applyOps(current, op);
+    if (!result.ok) {
+      return { ok: false, issues: result.issues.map((issue) => ({ ...issue, opIndex: index })) };
+    }
+    materialized.push(op);
+    current = result.document;
+    for (const id of result.changed) changed.add(id);
+    for (const id of result.inserted) inserted.add(id);
+    for (const id of result.removed) {
+      removed.add(id);
+      changed.delete(id);
+      inserted.delete(id);
+    }
+  }
+  return {
+    ok: true,
+    document: current,
+    changed: [...changed],
+    inserted: [...inserted],
+    removed: [...removed],
+    ops: materialized,
+  };
 }

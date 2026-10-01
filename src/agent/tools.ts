@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { formatIssues, type Issue } from '../core/issues';
 import { type LintOptions, lintDocument } from '../core/lint';
-import { type ApplyResult, applyOps, type Op } from '../core/ops';
+import { type ApplyResult, applyOpsMaterialized, type Op } from '../core/ops';
 import { BLOCK_TYPES } from '../core/schema/blocks';
 import {
   type BlockInput,
@@ -164,11 +164,11 @@ export function createAgentTools(
     ops: Op[],
     describe: (result: Extract<ApplyResult, { ok: true }>) => string,
   ): ToolResult => {
-    const result = applyOps(store.getDocument(), ops);
+    const result = applyOpsMaterialized(store.getDocument(), ops);
     if (!result.ok) {
       return failure(result.issues);
     }
-    store.setDocument(result.document, { ops, changed: result.changed });
+    store.setDocument(result.document, { ops: result.ops, changed: result.changed });
     return {
       ok: true,
       content: describe(result),
