@@ -93,7 +93,8 @@ export function App() {
   };
 
   return (
-    <div className="app">
+    // The page follows the Theme menu too, so the header matches the editor.
+    <div className="app" style={{ colorScheme: theme === 'system' ? 'light dark' : theme }}>
       <header className="app-header">
         <strong>@maildun/email-builder</strong>
         <span className="spacer" />

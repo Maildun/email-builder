@@ -26,9 +26,9 @@ body {
   gap: 12px;
   height: 48px;
   padding: 0 16px;
-  border-bottom: 1px solid #27272a;
-  background: #18181b;
-  color: #fafafa;
+  border-bottom: 1px solid light-dark(#e4e4e7, #27272a);
+  background: light-dark(#ffffff, #18181b);
+  color: light-dark(#18181b, #fafafa);
   font-size: 13px;
 }
 
@@ -41,20 +41,60 @@ body {
 }
 
 .app-header select {
+  appearance: none;
   height: 28px;
-  padding: 0 8px;
-  border: 1px solid #3f3f46;
+  min-width: 120px;
+  padding: 0 28px 0 10px;
+  border: 1px solid light-dark(#e4e4e7, #3f3f46);
   border-radius: 6px;
-  background: #27272a;
-  color: #fafafa;
+  background: light-dark(#ffffff, #27272a);
+  box-shadow: 0 1px 2px light-dark(rgb(0 0 0 / 0.04), rgb(0 0 0 / 0.3));
+  color: light-dark(#18181b, #fafafa);
   font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color 120ms,
+    border-color 120ms,
+    box-shadow 120ms;
+}
+
+.app-header select:hover {
+  border-color: light-dark(#d4d4d8, #52525b);
+  background: light-dark(#fafafa, #303033);
+}
+
+.app-header select:focus-visible {
+  outline: none;
+  border-color: light-dark(#a1a1aa, #71717a);
+  box-shadow: 0 0 0 3px light-dark(rgb(161 161 170 / 0.35), rgb(113 113 122 / 0.45));
 }
 
 .app-header label {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 6px;
-  color: #a1a1aa;
+  gap: 8px;
+  color: light-dark(#71717a, #a1a1aa);
+}
+
+/* Chevron in the text color, so it follows light and dark mode. */
+.app-header label::after {
+  content: '';
+  position: absolute;
+  right: 9px;
+  width: 12px;
+  height: 12px;
+  background: light-dark(#71717a, #a1a1aa);
+  mask:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  pointer-events: none;
+}
+
+.app-header select option {
+  background: light-dark(#ffffff, #27272a);
+  color: light-dark(#18181b, #fafafa);
 }
 
 .app-editor {
@@ -65,14 +105,14 @@ body {
 .app-header button {
   height: 28px;
   padding: 0 10px;
-  border: 1px solid #3f3f46;
+  border: 1px solid light-dark(#e4e4e7, #3f3f46);
   border-radius: 6px;
-  background: #27272a;
-  color: #fafafa;
+  background: light-dark(#ffffff, #27272a);
+  color: inherit;
   font: inherit;
   cursor: pointer;
 }
 
 .app-header button:hover {
-  background: #3f3f46;
+  background: light-dark(#f4f4f5, #3f3f46);
 }
