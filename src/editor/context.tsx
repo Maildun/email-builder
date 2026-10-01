@@ -4,7 +4,6 @@ import type { BlockType } from '../core/schema/blocks';
 import type { SectionName } from '../core/sections';
 import { DEFAULT_ASSETS_URL } from '../core/social';
 import { type EditorMessages, EN_MESSAGES } from './messages';
-import type { EditorAgent } from './panels/AgentPanel';
 import type { EditorState, EditorStore, EditorView } from './store';
 
 export interface MergeTag {
@@ -26,7 +25,7 @@ export type EditorSlot =
   | 'stage'
   | 'canvas'
   | 'inspector'
-  | 'assistant'
+  | 'proposal'
   | 'block-toolbar';
 
 export type EditorClassNames = Partial<Record<EditorSlot, string>>;
@@ -35,8 +34,6 @@ export interface EditorOptions {
   readOnly: boolean;
   mergeTags: MergeTag[];
   classNames?: EditorClassNames;
-  /** Enables the assistant. */
-  agent?: EditorAgent;
   /** Host-defined block types, and the same list by name. */
   customBlocks: CustomBlocks;
   customBlockMap: ReadonlyMap<string, CustomBlockDefinition>;

@@ -632,7 +632,7 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
         'meb-canvas-scroll min-h-0 flex-1 overflow-auto bg-editor-stage px-6 pt-6 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset',
         slotClassName,
       )}
-      // Leave room for the floating assistant so the end of the email stays reachable.
+      // Leave room for the floating review bar so the end of the email stays reachable.
       style={{ paddingBottom: 'calc(24px + var(--meb-overlay-space, 0px))' }}
       onClick={() => store.select(null)}
     >

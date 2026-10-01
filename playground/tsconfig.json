@@ -9,5 +9,5 @@
       "@maildun/email-builder/compat": ["../src/compat/index.ts"]
     }
   },
-  "include": ["src", "vite.config.ts", "agent-middleware.ts"]
+  "include": ["src", "vite.config.ts"]
 }

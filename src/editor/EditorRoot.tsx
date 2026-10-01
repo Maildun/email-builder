@@ -10,6 +10,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
+import { type AgentTool, type AgentToolsOptions, createAgentTools } from '../agent/tools';
 import type { CustomBlocks } from '../core/custom';
 import { customBlockMap } from '../core/custom';
 import { emptyDocument } from '../core/defaults';
@@ -36,7 +37,6 @@ import {
 import { EditorDnd } from './dnd';
 import { type DeepPartial, type EditorMessages, resolveMessages } from './messages';
 import { blockLabel } from './meta';
-import type { EditorAgent } from './panels/AgentPanel';
 import { ToolbarContext } from './panels/TopBar';
 import { EditorStore, type EditorView, type Proposal } from './store';
 import { cn, PortalContext, TooltipProvider } from './ui';
@@ -46,7 +46,7 @@ export interface EditorRootProps {
   value?: EmailDocument;
   /** Initial document when uncontrolled. */
   defaultValue?: EmailDocument;
-  /** Called with every committed change (not with pending agent proposals). */
+  /** Called with every committed change (not with pending proposals). */
   onChange?: (document: EmailDocument) => void;
   readOnly?: boolean;
   /** Merge tags offered in link fields and the text toolbar. */
@@ -55,8 +55,6 @@ export interface EditorRootProps {
   onUploadImage?: (file: File) => Promise<ImageResult>;
   /** Open your media library and resolve with the chosen image. Enables the Choose button. */
   onPickImage?: () => Promise<ImageResult | null>;
-  /** Enables the assistant panel. */
-  agent?: EditorAgent;
   /** Block types defined by your app (see `defineBlock`). */
   customBlocks?: CustomBlocks;
   /**
@@ -81,7 +79,7 @@ export interface EditorRootProps {
   classNames?: EditorClassNames;
   /** Called when the selected block changes. */
   onSelectionChange?: (id: string | null, block: Block | null) => void;
-  /** Called when an agent proposal appears, changes, or is accepted/rejected (null). */
+  /** Called when a proposal appears, changes, or is accepted/rejected (null). */
   onProposalChange?: (proposal: Proposal | null) => void;
   /** Called on ⌘S / Ctrl+S inside the editor (the browser's save dialog is suppressed). */
   onSave?: (document: EmailDocument) => void;
@@ -105,9 +103,21 @@ export interface EmailEditorHandle {
   apply: (ops: Op | Op[]) => { ok: boolean; issues: Issue[] };
   undo: () => void;
   redo: () => void;
+  /**
+   * Stages changes for review: the canvas highlights them and a bar offers
+   * Accept / Reject. Calls add up into one proposal until it is resolved.
+   */
   propose: (ops: Op[], summary?: string) => { ok: boolean; issues: Issue[] };
+  /** Shows a message with the pending proposal, e.g. your agent's summary. */
+  setProposalSummary: (summary: string) => void;
   accept: () => void;
   reject: () => void;
+  /**
+   * The agent tools (see `@maildun/email-builder/agent`) bound to this editor:
+   * each successful call adds to the proposal, live on the canvas, for the
+   * user to review. Pass them to your own LLM loop.
+   */
+  tools: (options?: Omit<AgentToolsOptions, 'customBlocks'>) => AgentTool[];
   /** Opens another document, clearing undo history, selection and any proposal. */
   load: (document: EmailDocument) => void;
   select: (id: string | null) => void;
@@ -378,7 +388,6 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
     mergeTags: mergeTagsProp = NO_MERGE_TAGS,
     onUploadImage,
     onPickImage,
-    agent,
     customBlocks: customBlocksProp = NO_CUSTOM_BLOCKS,
     assetsUrl = DEFAULT_OPTIONS.assetsUrl,
     blockTypes: blockTypesProp,
@@ -446,6 +455,17 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
       undo: () => store.undo(),
       redo: () => store.redo(),
       propose: (ops, summary) => store.propose(ops, summary ? { summary } : {}),
+      setProposalSummary: (summary) => store.setProposalSummary(summary),
+      tools: (options = {}) =>
+        createAgentTools(
+          {
+            getDocument: () => store.visibleDocument(),
+            setDocument: (_document, change) => {
+              store.propose(change.ops);
+            },
+          },
+          { ...options, customBlocks: store.customBlocks },
+        ),
       accept: () => store.accept(),
       reject: () => store.reject(),
       load: (document) => store.load(document),
@@ -467,9 +487,6 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
   const views = useShallowStable(viewsProp) ?? DEFAULT_OPTIONS.views;
   const uploadImage = useLatestCallback(onUploadImage);
   const pickImage = useLatestCallback(onPickImage);
-  const onAgentRequest = useLatestCallback(agent?.onRequest);
-  const agentSuggestions = useStructural(agent?.suggestions);
-  const agentPlaceholder = agent?.placeholder;
   const messages = useResolvedMessages(messagesProp);
 
   useLayoutEffect(() => {
@@ -496,15 +513,6 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
       ...(pickImage ? { onPickImage: pickImage } : {}),
       ...(blockTypes ? { blockTypes } : {}),
       ...(sections ? { sections } : {}),
-      ...(onAgentRequest
-        ? {
-            agent: {
-              onRequest: onAgentRequest,
-              ...(agentSuggestions ? { suggestions: agentSuggestions } : {}),
-              ...(agentPlaceholder !== undefined ? { placeholder: agentPlaceholder } : {}),
-            },
-          }
-        : {}),
     }),
     [
       readOnly,
@@ -518,9 +526,6 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
       pickImage,
       blockTypes,
       sections,
-      onAgentRequest,
-      agentSuggestions,
-      agentPlaceholder,
     ],
   );
 

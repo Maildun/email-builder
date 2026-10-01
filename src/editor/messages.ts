@@ -159,15 +159,8 @@ export interface EditorMessages {
      */
     fields: Record<string, string>;
   };
-  assistant: {
-    thinking: string;
-    noChanges: string;
-    stopped: string;
-    stoppedEarly: string;
-    failed: string;
-    applyFailed: string;
-    /** `more` is the number of further issues. */
-    applyFailedDetail: (message: string, more: number) => string;
+  /** The review bar for pending changes (`editor.propose()`). */
+  proposal: {
     blocksChanged: (count: number) => string;
     blocksRemoved: (count: number) => string;
     themeUpdated: string;
@@ -178,15 +171,6 @@ export interface EditorMessages {
     show: string;
     reject: string;
     accept: string;
-    tryAgain: string;
-    askAi: string;
-    selected: (label: string) => string;
-    placeholder: string;
-    inputLabel: string;
-    stop: string;
-    stopTip: string;
-    collapse: string;
-    send: string;
   };
   toast: {
     deleted: (label: string) => string;
@@ -278,8 +262,7 @@ export const EN_MESSAGES: EditorMessages = {
     label: 'Email canvas. Use the arrow keys to move between blocks.',
     blockRole: 'block',
     emptyTitle: 'Your email is empty.',
-    emptyDescription:
-      'Drag blocks or sections here, click one in the sidebar, or ask the assistant.',
+    emptyDescription: 'Drag blocks or sections here, or click one in the sidebar.',
     addFirst: 'Add a text block',
     dropBlocksHere: 'Drop blocks here',
     emptyContainer: 'Empty container',
@@ -366,15 +349,7 @@ export const EN_MESSAGES: EditorMessages = {
     sameSides: 'Same on all sides',
     fields: {},
   },
-  assistant: {
-    thinking: 'Thinking…',
-    noChanges: 'No changes proposed.',
-    stopped: 'Stopped.',
-    stoppedEarly: 'Stopped early. Review what was done so far.',
-    failed: 'The assistant failed.',
-    applyFailed: 'The assistant made a change that could not be applied.',
-    applyFailedDetail: (message, more) =>
-      `The assistant made a change that could not be applied: ${message}${more > 0 ? ` (and ${more} more)` : ''}`,
+  proposal: {
     blocksChanged: (count) => `${plural(count, 'block')} changed`,
     blocksRemoved: (count) => `${count} removed`,
     themeUpdated: 'Theme updated',
@@ -385,15 +360,6 @@ export const EN_MESSAGES: EditorMessages = {
     show: 'Show',
     reject: 'Reject',
     accept: 'Accept',
-    tryAgain: 'Try again',
-    askAi: 'Ask AI',
-    selected: (label) => `Selected: ${label}`,
-    placeholder: 'Ask AI to write, restyle or restructure this email…',
-    inputLabel: 'Ask the assistant',
-    stop: 'Stop',
-    stopTip: 'Stop (Esc)',
-    collapse: 'Collapse the assistant',
-    send: 'Send',
   },
   toast: {
     deleted: (label) => `${label} deleted`,

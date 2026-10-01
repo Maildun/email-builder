@@ -1,18 +1,17 @@
 import { Canvas } from '../canvas/Canvas';
-import { useEditorOptions, useEditorState, useEditorStore, useSlotClassName } from '../context';
+import { useEditorState, useEditorStore, useSlotClassName } from '../context';
 import { cn } from '../ui';
-import { AgentPanel } from './AgentPanel';
 import { CodeView, Preview } from './Preview';
+import { EditorProposalBar } from './ProposalBar';
 import { EditorToast } from './Toast';
 
 /**
  * The middle of the editor: the canvas, preview or code (whichever view is
- * active), plus the floating assistant and toasts.
+ * active), plus the review bar for pending changes and toasts.
  */
 export function EditorStage({ className }: { className?: string }) {
   const store = useEditorStore();
   const view = useEditorState((state) => state.view);
-  const { readOnly, agent } = useEditorOptions();
   const slotClassName = useSlotClassName('stage');
 
   return (
@@ -36,7 +35,7 @@ export function EditorStage({ className }: { className?: string }) {
       ) : (
         <CodeView />
       )}
-      {agent && !readOnly ? <AgentPanel agent={agent} /> : null}
+      <EditorProposalBar />
       <EditorToast />
     </main>
   );

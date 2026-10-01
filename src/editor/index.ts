@@ -24,7 +24,7 @@ export {
   type PaddingSide,
   resolveMessages,
 } from './messages';
-export type { AgentRequest, AgentResponse, AgentTurn, EditorAgent } from './panels/AgentPanel';
+export { describeProposal, EditorProposalBar } from './panels/ProposalBar';
 export { Palette as EditorPalette, Sidebar as EditorSidebar } from './panels/Sidebar';
 export { EditorStage } from './panels/Stage';
 export { EditorTopBar } from './panels/TopBar';

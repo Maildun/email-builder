@@ -135,7 +135,7 @@ const DESCRIPTIONS: Record<keyof ReturnType<typeof inputSchemas>, string> = {
   remove_block: 'Deletes a block and everything inside it.',
   duplicate_block: 'Copies a block (with its children) right after itself.',
   replace_block: 'Replaces a block, keeping its position, with new block content.',
-  insert_section: 'Inserts a ready-made section (header, hero, article, features, cta, footer).',
+  insert_section: 'Inserts a ready-made section (see the section list in the system prompt).',
   update_settings: 'Changes email settings such as preheader, width or colors.',
   update_theme: 'Changes theme colors and fonts; every block using $tokens follows.',
   replace_document: 'Replaces the whole email with new blocks. Use only to start from scratch.',

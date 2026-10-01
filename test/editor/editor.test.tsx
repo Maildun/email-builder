@@ -4,6 +4,7 @@ import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { createDocument, defineBlock, type EmailDocument } from '../../src';
+import { runTool } from '../../src/agent';
 import { EmailEditor, type EmailEditorHandle, EN_MESSAGES } from '../../src/editor';
 import { resolveDrop } from '../../src/editor/dnd';
 import { insertionPoint } from '../../src/editor/panels/Sidebar';
@@ -124,12 +125,7 @@ describe('<EmailEditor>', () => {
     const ref = createRef<EmailEditorHandle>();
     const onChange = vi.fn();
     const { container } = render(
-      <EmailEditor
-        ref={ref}
-        defaultValue={doc()}
-        onChange={onChange}
-        agent={{ onRequest: async () => undefined }}
-      />,
+      <EmailEditor ref={ref} defaultValue={doc()} onChange={onChange} />,
     );
     act(() => {
       ref.current?.propose(
@@ -150,27 +146,31 @@ describe('<EmailEditor>', () => {
     });
   });
 
-  it('runs the agent and turns its ops into a proposal', async () => {
+  it('turns calls to the editor tools into a live proposal', () => {
     const ref = createRef<EmailEditorHandle>();
-    render(
-      <EmailEditor
-        ref={ref}
-        defaultValue={doc()}
-        agent={{
-          onRequest: async (request) => {
-            expect(request.prompt).toBe('remove the heading');
-            return { ops: [{ op: 'remove', id: 'title' }], summary: 'Removed the heading.' };
-          },
-        }}
-      />,
-    );
-    const input = screen.getByRole('textbox', { name: 'Ask the assistant' });
-    fireEvent.change(input, { target: { value: 'remove the heading' } });
-    await act(async () => {
-      fireEvent.keyDown(input, { key: 'Enter' });
+    const { container } = render(<EmailEditor ref={ref} defaultValue={doc()} />);
+    const tools = ref.current?.tools() ?? [];
+    act(() => {
+      const result = runTool(tools, 'update_block', { id: 'title', props: { text: 'From my AI' } });
+      expect(result.ok).toBe(true);
+      ref.current?.setProposalSummary('Rewrote the heading.');
     });
-    expect(ref.current?.store.getState().proposal?.summary).toBe('Removed the heading.');
-    expect(ref.current?.getDocument().blocks.title).toBeDefined();
+    expect(ref.current?.store.getState().proposal?.document.blocks.title?.props).toMatchObject({
+      text: 'From my AI',
+    });
+    // Nothing is committed until the user accepts.
+    expect(ref.current?.getDocument().blocks.title?.props).not.toMatchObject({
+      text: 'From my AI',
+    });
+    expect(container.querySelector('[data-block-id="title"]')?.hasAttribute('data-changed')).toBe(
+      true,
+    );
+    expect(screen.getByText('Rewrote the heading.')).toBeTruthy();
+    // Tools see the proposal, so follow-up calls build on it.
+    act(() => {
+      runTool(tools, 'remove_block', { id: 'row' });
+    });
+    expect(screen.getByText(/\d+ removed/)).toBeTruthy();
   });
 
   it('moves the selection with the arrow keys and announces it', () => {
@@ -202,67 +202,17 @@ describe('<EmailEditor>', () => {
     expect(ref.current?.getDocument().blocks.title).toBeDefined();
   });
 
-  it('summarizes theme changes in the proposal and passes the conversation to the agent', async () => {
-    const requests: Array<{ prompt: string; history: unknown[] }> = [];
+  it('summarizes theme changes in the review bar and discards them on reject', () => {
     const ref = createRef<EmailEditorHandle>();
-    render(
-      <EmailEditor
-        ref={ref}
-        defaultValue={doc()}
-        agent={{
-          onRequest: async (request) => {
-            requests.push({ prompt: request.prompt, history: request.history });
-            return { ops: [{ op: 'updateTheme', colors: { primary: '#7c3aed' } }] };
-          },
-        }}
-      />,
-    );
-    const input = screen.getByRole('textbox', { name: 'Ask the assistant' });
-    fireEvent.change(input, { target: { value: 'make it purple' } });
-    await act(async () => {
-      fireEvent.keyDown(input, { key: 'Enter' });
+    render(<EmailEditor ref={ref} defaultValue={doc()} />);
+    act(() => {
+      ref.current?.propose([{ op: 'updateTheme', colors: { primary: '#7c3aed' } }]);
     });
     expect(screen.getByText('Theme updated')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /reject/i }));
-
-    fireEvent.change(input, { target: { value: 'try green instead' } });
-    await act(async () => {
-      fireEvent.keyDown(input, { key: 'Enter' });
-    });
-    expect(requests[1]?.history).toEqual([{ prompt: 'make it purple', outcome: 'rejected' }]);
-  });
-
-  it('ignores tool calls that arrive after Stop', async () => {
-    let finish: () => void = () => {};
-    let late: (() => void) | undefined;
-    const ref = createRef<EmailEditorHandle>();
-    render(
-      <EmailEditor
-        ref={ref}
-        defaultValue={doc()}
-        agent={{
-          onRequest: (request) =>
-            new Promise((resolve) => {
-              late = () => {
-                request.propose([{ op: 'remove', id: 'title' }]);
-              };
-              finish = () => resolve(undefined);
-            }),
-        }}
-      />,
-    );
-    const input = screen.getByRole('textbox', { name: 'Ask the assistant' });
-    fireEvent.change(input, { target: { value: 'remove the heading' } });
-    await act(async () => {
-      fireEvent.keyDown(input, { key: 'Enter' });
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
-    await act(async () => {
-      late?.();
-      finish();
-    });
     expect(ref.current?.store.getState().proposal).toBeNull();
-    expect(screen.getByText('Stopped.')).toBeTruthy();
+    expect(ref.current?.getDocument().theme.colors.primary).not.toBe('#7c3aed');
+    expect(screen.queryByRole('button', { name: /accept/i })).toBeNull();
   });
 
   it('composes a custom layout from the parts', () => {

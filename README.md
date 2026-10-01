@@ -5,7 +5,8 @@ An agentic-first email builder for React and TypeScript.
 - **A typed document model** with an operations API (`insert`, `update`, `move`, `remove`, …) that both people and LLM agents use. Every change is validated, atomic and undoable.
 - **A dependency-light renderer** that turns a document into Outlook-, Gmail- and mobile-safe HTML plus a plain-text version. It is pure TypeScript with no React and no DOM, so it runs in Node, Bun, browsers, edge functions, or from the command line.
 - **Agent tools** for any LLM provider: tool definitions, a system prompt generated from the block schemas, and error messages written so a model can fix its own mistakes.
-- **A modern React editor**: drag and drop, inline rich text, live mobile preview, undo/redo, and an assistant panel where agent edits show up as a proposal you accept or reject.
+- **A modern React editor**: drag and drop, inline rich text, live mobile preview, undo/redo, and a review flow where edits from your AI show up as a proposal you accept or reject.
+- **An MCP server** (`email-builder mcp`) so Claude, Cursor and other AI clients can design emails directly.
 - **EmailBuilder.js import**: existing `@usewaypoint/email-builder` documents convert with one call.
 
 ```bash
@@ -43,6 +44,7 @@ const { html, text, warnings } = renderEmail(design);
 ```bash
 npx email-builder render design.json   # prints {"html", "text", "warnings"}
 npx email-builder validate design.json # prints {"ok", "issues", "warnings"}
+npx email-builder mcp --dir ./emails   # MCP server for AI clients (see MCP)
 ```
 
 ## Entry points
@@ -168,29 +170,42 @@ session.ops;           // the operations, replayable as an editor proposal
 
 ### In the editor
 
-Pass an `agent` to get the assistant panel. Edits arrive as a **proposal**: changed blocks are highlighted, the panel summarizes what changed (blocks, removals, theme, settings) with a **Show** button that jumps to each change, and the user accepts or rejects everything as one undoable step.
+The editor has no built-in chat: bring your own AI experience (a side panel, a command menu, a button) and let the editor handle **review**. Changes you `propose` are highlighted on the canvas, and a review bar summarizes them (blocks, removals, theme, settings) with **Show** to step through each change and **Accept** / **Reject** as one undoable step. `onChange` only fires once the user accepts.
 
-Each request includes `history`: the earlier prompts in this session and whether their proposals were accepted, so follow-ups like "make it shorter" have context. **Stop** (or Esc) aborts `signal` and ignores any tool calls that arrive afterwards.
+`editor.tools()` returns the agent tools bound to the editor: every successful call adds to the proposal, live, so you can run your LLM loop in the browser (or relay tool calls from your server) and the user watches the email change.
 
 ```tsx
-<EmailEditor
-  value={design}
-  onChange={setDesign}
-  agent={{
-    suggestions: ['Add a footer', 'Make it shorter'],
-    // Option A: run the model on your server and return its ops.
-    onRequest: async ({ prompt, document, selectedId, signal }) => {
-      const response = await fetch('/api/email-agent', {
-        method: 'POST',
-        body: JSON.stringify({ prompt, document, selectedId }),
-        signal,
-      });
-      return response.json(); // { ops, summary }
-    },
-    // Option B: run an LLM loop in the browser with `request.tools`;
-    // each tool call updates the proposal live.
-  }}
-/>
+const editor = useRef<EmailEditorHandle>(null);
+
+// Run your model with the editor's tools…
+const tools = editor.current.tools();
+for (const call of toolCallsFromYourModel) runTool(tools, call.name, call.input);
+editor.current.setProposalSummary('Added a spring sale hero.');
+
+// …or propose operations your server produced.
+editor.current.propose(ops, 'Added a spring sale hero.');
+
+<EmailEditor ref={editor} value={design} onChange={setDesign} />;
+```
+
+### MCP
+
+`email-builder mcp` runs a [Model Context Protocol](https://modelcontextprotocol.io) server, so AI clients such as Claude Desktop, Claude Code or Cursor can design emails in a folder of JSON files. It offers the same editing tools plus `list_emails`, `create_email`, `open_email` and `render_email` (which writes the HTML and plain-text versions next to the JSON file). The system prompt is sent as the server's instructions. The files open in the editor as they are.
+
+```jsonc
+// Claude Desktop: claude_desktop_config.json
+{
+  "mcpServers": {
+    "email-builder": {
+      "command": "npx",
+      "args": ["-y", "@maildun/email-builder", "mcp", "--dir", "/path/to/emails"]
+    }
+  }
+}
+```
+
+```bash
+claude mcp add email-builder -- npx -y @maildun/email-builder mcp --dir ./emails
 ```
 
 ## Editor props
@@ -201,11 +216,10 @@ Each request includes `history`: the earlier prompts in this session and whether
 | `mergeTags` | `{ key, label }[]` offered in link fields and the text toolbar. |
 | `onUploadImage(file)` | Resolve with `{ url, alt? }`. Enables **Upload**. |
 | `onPickImage()` | Open your media library and resolve with `{ url, alt? }`. Enables **Choose**. |
-| `agent` | Enables the assistant panel (see above). |
 | `readOnly` | Hides editing chrome. |
 | `toolbar` | Extra controls in the top bar. |
 | `appearance` | `'inherit'` (default: dark when an ancestor has the `dark` class), `'light'`, `'dark'` or `'system'`. |
-| `classNames` | Extra classes per part: `root`, `topbar`, `sidebar`, `stage`, `canvas`, `inspector`, `assistant`, `block-toolbar`. |
+| `classNames` | Extra classes per part: `root`, `topbar`, `sidebar`, `stage`, `canvas`, `inspector`, `proposal`, `block-toolbar`. |
 | `customBlocks` | Your own block types (see [Custom blocks](#custom-blocks)). |
 | `assetsUrl` | Where the social icons are hosted, if not jsDelivr (see [Social icons](#the-document)). |
 | `blockTypes` | Built-in block types offered in the palette, e.g. `['heading', 'text', 'button', 'image']` to leave out raw HTML. All by default. |
@@ -213,7 +227,7 @@ Each request includes `history`: the earlier prompts in this session and whether
 | `views` | Views in the top bar, e.g. `['design', 'preview']`. All by default. |
 | `panels` | `{ sidebar?: boolean; inspector?: boolean }` for the default layout. Panels left on can still be hidden from the top bar. |
 | `onSelectionChange(id, block)` | The selected block changed. |
-| `onProposalChange(proposal)` | An agent proposal appeared, changed, or was resolved (`null`). |
+| `onProposalChange(proposal)` | A proposal appeared, changed, or was resolved (`null`). |
 | `onSave(document)` | ⌘S / Ctrl+S inside the editor; the browser's save dialog is suppressed. |
 | `messages` | Translations for the editor's UI text (see below). |
 
@@ -233,8 +247,7 @@ A controlled `value` that is only a copy of the current document (for example af
 | ↑ / ↓ | Select the previous / next block |
 | ← / → | Select the parent / first child |
 | Enter | Edit text |
-| Esc | Stop editing / deselect, or stop the assistant |
-| ⌘K | Open the assistant |
+| Esc | Stop editing / deselect |
 
 **Translations:** every piece of UI text comes from `messages`. Pass only what you translate; the rest stays English. Messages with values are functions.
 
@@ -297,10 +310,10 @@ buildSystemPrompt({ customBlocks: [productCard] }); // documents name + data sch
 `<EmailEditor>` is a ready-made arrangement of parts. Compose your own with `EmailEditor.Root`, which takes every editor prop, and any of the parts:
 
 ```tsx
-<EmailEditor.Root defaultValue={design} onChange={setDesign} agent={agent}>
+<EmailEditor.Root defaultValue={design} onChange={setDesign}>
   <MyHeader /> {/* can use useEditorStore() / useEditorState() */}
   <div className="grid min-h-0 flex-1 grid-cols-[1fr_320px]">
-    <EmailEditor.Stage /> {/* canvas, preview or code, plus the assistant and toasts */}
+    <EmailEditor.Stage /> {/* canvas, preview or code, plus the review bar and toasts */}
     <EmailEditor.Inspector />
   </div>
 </EmailEditor.Root>
@@ -412,7 +425,7 @@ bun run dev
 
 Then open http://localhost:5173.
 
-The playground has a scripted demo agent. To use the Claude agent, set `ANTHROPIC_API_KEY` first.
+**Propose a change** in the playground's header shows the review flow: it calls `editor.tools()` the way your AI would.
 
 ## License
 

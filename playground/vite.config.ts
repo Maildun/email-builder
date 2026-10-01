@@ -2,12 +2,11 @@ import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 import { standalonePlugins } from '../scripts/css';
-import { agentMiddleware } from './agent-middleware';
 
 const src = (path: string) => fileURLToPath(new URL(`../src/${path}`, import.meta.url));
 
 export default defineConfig({
-  plugins: [react(), agentMiddleware()],
+  plugins: [react()],
   // The social icons, served at /social/… (see ASSETS_URL in App.tsx).
   publicDir: fileURLToPath(new URL('../assets', import.meta.url)),
   // Same pipeline as dist/styles.css, so the playground shows what standalone users get.
