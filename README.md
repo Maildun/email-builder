@@ -240,11 +240,13 @@ bun run lint        # biome
 bun run build       # tsdown → dist/
 ```
 
-To run the playground:
+To run the playground (from the repository root):
 
 ```bash
-cd playground && bun install && bun run dev
+bun run dev
 ```
+
+Then open http://localhost:5173.
 
 The playground has a scripted demo agent. To use the Claude agent, set `ANTHROPIC_API_KEY` first.
 

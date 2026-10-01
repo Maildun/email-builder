@@ -54,7 +54,7 @@
   },
   "scripts": {
     "build": "tsdown && cp src/editor/styles.css dist/editor.css",
-    "dev": "bun --cwd playground run dev",
+    "dev": "cd playground && bun install --silent && bun run dev",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "format": "biome check --write .",
