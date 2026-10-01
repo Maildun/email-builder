@@ -235,7 +235,7 @@ function BlockToolbar({ id, block }: { id: string; block: Block }) {
       ref={toolbar}
       data-slot="block-toolbar"
       className={cn(
-        'meb-block-toolbar absolute -top-[30px] left-[-2px] z-5 flex h-7 items-center gap-px rounded-md rounded-bl-none bg-editor-selection px-0.5 font-sans text-white text-xs leading-none shadow-md',
+        'meb-block-toolbar absolute -top-[30px] left-[-2px] z-5 flex h-7 items-center gap-px rounded-md rounded-bl-none bg-editor-selection-solid px-0.5 font-sans text-white text-xs leading-none shadow-md',
         'data-[placement=bottom]:top-[calc(100%+2px)] data-[placement=bottom]:rounded-bl-md data-[placement=bottom]:rounded-tl-none',
         useSlotClassName('block-toolbar'),
       )}

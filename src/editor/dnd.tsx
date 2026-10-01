@@ -275,7 +275,7 @@ export function EditorDnd({ children }: { children: ReactNode }) {
         {dragging && icon ? (
           <div
             data-slot="drag-chip"
-            className="inline-flex h-7 cursor-grabbing items-center gap-1.5 whitespace-nowrap rounded-md bg-editor-selection px-2 font-medium font-sans text-white text-xs shadow-md"
+            className="inline-flex h-7 cursor-grabbing items-center gap-1.5 whitespace-nowrap rounded-md bg-editor-selection-solid px-2 font-medium font-sans text-white text-xs shadow-md"
           >
             <Icon icon={icon} className="size-3.5" /> {label}
           </div>

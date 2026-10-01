@@ -326,7 +326,7 @@ Theme it with `--meb-*` variables (shadcn's token names with a `meb-` prefix), o
 }
 ```
 
-Tokens: `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `muted`, `accent` (each with a `-foreground` pair), `destructive`, `border`, `input`, `ring`, `radius`, `font`, plus the editor's own `selection`, `selection-soft`, `ai`, `ai-soft` and `stage`.
+Tokens: `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `muted`, `accent` (each with a `-foreground` pair), `destructive`, `border`, `input`, `ring`, `radius`, `font`, plus the editor's own `selection`, `selection-soft`, `selection-solid` (behind white text; defaults to `selection`, or a deeper blue), `ai`, `ai-soft` and `stage`.
 
 **Tailwind CSS 4 + shadcn/ui apps: `core.css`.** Your app compiles the editor's classes, so the editor uses your theme (colors, radius, fonts, dark mode) and your Tailwind build. It expects the standard shadcn setup (`tw-animate-css` and `shadcn/tailwind.css` imported):
 
