@@ -337,7 +337,14 @@ Tokens: `background`, `foreground`, `card`, `popover`, `primary`, `secondary`, `
 @source '../node_modules/@maildun/email-builder/dist';
 ```
 
-**Dark mode** follows a `dark` class on an ancestor (the shadcn convention). Use the `appearance` prop to force `light`, `dark` or follow the OS with `system`.
+**Dark mode** follows a `dark` class on an ancestor (the shadcn convention). Use the `appearance` prop to force `light`, `dark` or follow the OS with `system`. The email canvas always shows the email's own colors, because that's what recipients see.
+
+Browser dark-mode tools (Dark Reader, Chrome's auto dark mode) recolor every page, including the email preview and color swatches. If your app has its own dark mode, tell them so:
+
+```html
+<meta name="color-scheme" content="light dark" />
+<meta name="darkreader-lock" />
+```
 
 **Customizing parts.** Each part of the editor has a `data-slot` attribute and accepts extra classes through `classNames`:
 

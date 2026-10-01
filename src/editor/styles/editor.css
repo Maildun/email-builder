@@ -13,6 +13,8 @@
   --editor-ai-soft: var(--meb-ai-soft, oklch(0.541 0.281 293.009 / 0.08));
   --editor-stage: var(--meb-stage, color-mix(in oklch, var(--muted) 60%, var(--background)));
 
+  /* Native controls and scrollbars follow the editor's theme. */
+  color-scheme: light;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -30,6 +32,7 @@
 
 .meb-root.dark,
 .dark .meb-root:not(.meb-light) {
+  color-scheme: dark;
   --editor-selection: var(--meb-selection, oklch(0.623 0.214 259.815));
   --editor-selection-soft: var(--meb-selection-soft, oklch(0.623 0.214 259.815 / 0.14));
   --editor-ai: var(--meb-ai, oklch(0.702 0.183 293.541));
@@ -39,6 +42,8 @@
 /* ---------- Canvas ---------- */
 
 .meb-email {
+  /* Emails are designed on a light surface; dark mode is the email client's job. */
+  color-scheme: light;
   position: relative;
   margin: 0 auto;
   box-shadow:

@@ -615,18 +615,25 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
       tabIndex={0}
       aria-label={text.label}
       className={cn(
-        'meb-canvas-scroll min-h-0 flex-1 overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset',
+        'meb-canvas-scroll min-h-0 flex-1 overflow-auto bg-editor-stage px-6 pt-6 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset',
         slotClassName,
       )}
-      style={{ background: ctx.color(settings.backdropColor, '$background') }}
+      // Leave room for the floating assistant so the end of the email stays reachable.
+      style={{ paddingBottom: 'calc(24px + var(--meb-overlay-space, 0px))' }}
       onClick={() => store.select(null)}
     >
+      {/*
+        The email's backdrop (what recipients see around the content) is a
+        framed card on the stage, like the Preview, so the stage can follow
+        the editor's theme while the email keeps its own colors.
+      */}
       <div
-        className="meb-backdrop min-h-full px-6 py-8"
+        className="meb-backdrop mx-auto rounded-lg px-6 shadow-sm ring-1 ring-foreground/5 transition-[max-width] duration-200"
         style={{
+          background: ctx.color(settings.backdropColor, '$background'),
+          maxWidth: width + 48,
           paddingTop: outer.top,
-          // Leave room for the floating assistant so the end of the email stays reachable.
-          paddingBottom: `calc(${outer.bottom}px + var(--meb-overlay-space, 0px))`,
+          paddingBottom: outer.bottom,
         }}
       >
         <div
@@ -650,14 +657,15 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
           {document.root.length === 0 && !readOnly ? (
             <div
               data-slot="empty-email"
+              // Inside the email, which keeps its own (usually light) colors: derive from its text color.
               className="flex flex-col items-center gap-4 px-6 py-16 text-center font-sans text-sm"
             >
               <div className="flex max-w-sm flex-col items-center gap-2">
-                <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-foreground">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-current/8">
                   <Icon icon={SquareDashedIcon} className="size-5" />
                 </div>
                 <p className="font-medium">{text.emptyTitle}</p>
-                <p className="text-pretty text-muted-foreground">{text.emptyDescription}</p>
+                <p className="text-pretty text-current/60">{text.emptyDescription}</p>
               </div>
               {onAddFirst ? (
                 <Button
