@@ -6,3 +6,4 @@ dist
 .env.local
 coverage
 playground/dist
+.claude/
