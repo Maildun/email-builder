@@ -14,6 +14,5 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: true,
-  external: [/^react($|\/)/, /^react-dom($|\/)/],
-  copy: [{ from: 'src/editor/styles.css', to: 'dist/editor.css' }],
+  deps: { neverBundle: [/^react($|\/)/, /^react-dom($|\/)/, /^node:/] },
 });
