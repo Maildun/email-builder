@@ -1,4 +1,5 @@
 import {
+  Add01Icon,
   ComputerIcon,
   PencilEdit02Icon,
   Redo02Icon,
@@ -9,18 +10,23 @@ import {
 } from '@hugeicons/core-free-icons';
 import {
   type CSSProperties,
+  createContext,
   forwardRef,
+  memo,
   type ReactNode,
+  useContext,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
 import { emptyDocument } from '../core/defaults';
 import type { Op } from '../core/ops';
+import { BLOCK_DEFINITIONS } from '../core/schema/blocks';
 import type { EmailDocument } from '../core/schema/document';
-import { findParent } from '../core/tree';
+import { findParent, walk } from '../core/tree';
 import { type RenderResult, renderEmail } from '../render/html';
 import { duplicateBlock, removeBlock } from './actions';
 import { Canvas } from './canvas/Canvas';
@@ -38,9 +44,20 @@ import { EditorDnd } from './dnd';
 import { Inspector } from './inspector/Inspector';
 import { AgentPanel, type EditorAgent } from './panels/AgentPanel';
 import { CodeView, Preview } from './panels/Preview';
-import { Sidebar } from './panels/Sidebar';
+import { Palette, Sidebar } from './panels/Sidebar';
+import { EditorToast } from './panels/Toast';
 import { EditorStore, type EditorView } from './store';
-import { Button, cn, Icon, PortalContext, Segmented, Separator, Tip, TooltipProvider } from './ui';
+import {
+  Button,
+  cn,
+  Icon,
+  Popover,
+  PortalContext,
+  Segmented,
+  Separator,
+  Tip,
+  TooltipProvider,
+} from './ui';
 
 export interface EmailEditorProps {
   /** Controlled document. Pair with `onChange`. */
@@ -103,6 +120,38 @@ function isControlTarget(target: EventTarget | null, outsideToolbar = false): bo
   return !(outsideToolbar && control.closest('.meb-block-toolbar'));
 }
 
+const ARROWS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
+
+/**
+ * The block to select for an arrow key: ↑/↓ step through blocks in reading
+ * order, ← selects the parent and → the first child.
+ */
+function neighbour(document: EmailDocument, id: string | null, key: string): string | null {
+  if (key === 'ArrowLeft' || key === 'ArrowRight') {
+    if (!id) return null;
+    if (key === 'ArrowLeft') {
+      const parent = findParent(document, id);
+      return parent && parent.parentId !== 'root' ? parent.parentId : null;
+    }
+    const block = document.blocks[id];
+    return block && 'children' in block ? (block.children[0] ?? null) : null;
+  }
+  const order: string[] = [];
+  walk(document, (blockId) => order.push(blockId));
+  if (!id) return key === 'ArrowDown' ? (order[0] ?? null) : (order.at(-1) ?? null);
+  const index = order.indexOf(id) + (key === 'ArrowDown' ? 1 : -1);
+  return order[index] ?? null;
+}
+
+/** Moves keyboard focus to a block on the canvas once it has rendered as selected. */
+function focusBlock(root: HTMLElement, id: string): void {
+  requestAnimationFrame(() => {
+    root
+      .querySelector<HTMLElement>(`.meb-canvas-scroll [data-block-id="${CSS.escape(id)}"]`)
+      ?.focus({ preventScroll: true });
+  });
+}
+
 function useShortcuts(root: React.RefObject<HTMLDivElement | null>) {
   const store = useEditorStore();
   const { readOnly } = useEditorOptions();
@@ -128,6 +177,16 @@ function useShortcuts(root: React.RefObject<HTMLDivElement | null>) {
       if (event.key === 'Escape') {
         if (state.editingId) store.stopEditing();
         else store.select(null);
+        return;
+      }
+      if (ARROWS.has(event.key) && !event.altKey && !event.shiftKey && !mod) {
+        if (isControlTarget(event.target, true)) return;
+        const next = neighbour(state.document, id, event.key);
+        if (next) {
+          event.preventDefault();
+          store.select(next);
+          focusBlock(element, next);
+        }
         return;
       }
       if (!id) return;
@@ -166,7 +225,24 @@ function useShortcuts(root: React.RefObject<HTMLDivElement | null>) {
   }, [root, store, readOnly]);
 }
 
-function TopBar({ toolbar }: { toolbar?: ReactNode }) {
+/** Announces selection changes to screen readers ("Heading selected"). */
+function SelectionAnnouncer() {
+  const message = useEditorState((state) => {
+    const block = state.selectedId ? state.document.blocks[state.selectedId] : undefined;
+    return block ? `${BLOCK_DEFINITIONS[block.type].label} selected` : '';
+  });
+  return (
+    <div role="status" aria-live="polite" className="sr-only">
+      {message}
+    </div>
+  );
+}
+
+/** The host's extra top-bar controls, in their own context so only the top bar re-renders. */
+const ToolbarContext = createContext<ReactNode>(null);
+
+function TopBar() {
+  const toolbar = useContext(ToolbarContext);
   const store = useEditorStore();
   const view = useEditorState((state) => state.view);
   const viewport = useEditorState((state) => state.viewport);
@@ -174,6 +250,7 @@ function TopBar({ toolbar }: { toolbar?: ReactNode }) {
   const canRedo = useEditorState((state) => state.canRedo);
   const { readOnly } = useEditorOptions();
   const className = useSlotClassName('topbar');
+  const [adding, setAdding] = useState(false);
 
   return (
     <header
@@ -216,6 +293,24 @@ function TopBar({ toolbar }: { toolbar?: ReactNode }) {
         ]}
       />
       <div className="flex items-center gap-1">
+        {readOnly || view !== 'design' ? null : (
+          // The sidebar hides on narrow editors; this keeps adding blocks one click away.
+          <div className="@3xl/editor:hidden">
+            <Popover
+              open={adding}
+              onOpenChange={setAdding}
+              align="end"
+              className="max-h-[min(70vh,560px)] w-72 overflow-y-auto p-0"
+              trigger={
+                <Button size="sm" variant="outline">
+                  <Icon icon={Add01Icon} data-icon="inline-start" /> Add
+                </Button>
+              }
+            >
+              <Palette surface="popover" onInsert={() => setAdding(false)} />
+            </Popover>
+          </div>
+        )}
         {readOnly ? null : (
           <>
             <Tip label="Undo (⌘Z)">
@@ -262,7 +357,7 @@ function TopBar({ toolbar }: { toolbar?: ReactNode }) {
   );
 }
 
-function Layout({ agent, toolbar }: { agent?: EditorAgent | undefined; toolbar?: ReactNode }) {
+const Layout = memo(function Layout({ agent }: { agent?: EditorAgent | undefined }) {
   const store = useEditorStore();
   const view = useEditorState((state) => state.view);
   const { readOnly } = useEditorOptions();
@@ -293,8 +388,9 @@ function Layout({ agent, toolbar }: { agent?: EditorAgent | undefined; toolbar?:
           className="meb-shell @container/editor flex min-h-0 flex-1 flex-col outline-none"
           tabIndex={-1}
         >
-          <TopBar toolbar={toolbar} />
           <EditorDnd>
+            <TopBar />
+            <SelectionAnnouncer />
             <div
               className={cn(
                 'grid min-h-0 flex-1',
@@ -324,6 +420,7 @@ function Layout({ agent, toolbar }: { agent?: EditorAgent | undefined; toolbar?:
                   <CodeView />
                 )}
                 {agent && !readOnly ? <AgentPanel agent={agent} /> : null}
+                <EditorToast />
               </main>
               {panels ? <Inspector /> : null}
             </div>
@@ -333,7 +430,7 @@ function Layout({ agent, toolbar }: { agent?: EditorAgent | undefined; toolbar?:
       </TooltipProvider>
     </PortalContext.Provider>
   );
-}
+});
 
 const darkQuery = '(prefers-color-scheme: dark)';
 
@@ -353,6 +450,34 @@ function useSystemDark(enabled: boolean): boolean {
 }
 
 /**
+ * Keeps the previous value while the new one is structurally equal, so props
+ * written inline by the host (`mergeTags={[…]}`) don't re-render the editor.
+ */
+function useStructural<T>(value: T): T {
+  const ref = useRef(value);
+  if (value !== ref.current && JSON.stringify(value) !== JSON.stringify(ref.current)) {
+    ref.current = value;
+  }
+  return ref.current;
+}
+
+/** A stable wrapper that always calls the latest `callback`; undefined when there is none. */
+function useLatestCallback<Args extends unknown[], Result>(
+  callback: ((...args: Args) => Result) | undefined,
+): ((...args: Args) => Result) | undefined {
+  const ref = useRef(callback);
+  ref.current = callback;
+  const present = callback !== undefined;
+  return useMemo(
+    () =>
+      present ? (...args: Args) => (ref.current as (...args: Args) => Result)(...args) : undefined,
+    [present],
+  );
+}
+
+const NO_MERGE_TAGS: MergeTag[] = [];
+
+/**
  * The visual email editor. Works controlled (`value` + `onChange`) or
  * uncontrolled (`defaultValue`), and exposes an imperative handle via `ref`.
  */
@@ -362,7 +487,7 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(funct
     defaultValue,
     onChange,
     readOnly = false,
-    mergeTags = [],
+    mergeTags: mergeTagsProp = NO_MERGE_TAGS,
     onUploadImage,
     onPickImage,
     agent,
@@ -407,13 +532,35 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(funct
     [store],
   );
 
-  const options = {
-    readOnly,
-    mergeTags,
-    ...(classNames ? { classNames } : {}),
-    ...(onUploadImage ? { onUploadImage } : {}),
-    ...(onPickImage ? { onPickImage } : {}),
-  };
+  const mergeTags = useStructural(mergeTagsProp);
+  const slotClassNames = useStructural(classNames);
+  const uploadImage = useLatestCallback(onUploadImage);
+  const pickImage = useLatestCallback(onPickImage);
+  const options = useMemo(
+    () => ({
+      readOnly,
+      mergeTags,
+      ...(slotClassNames ? { classNames: slotClassNames } : {}),
+      ...(uploadImage ? { onUploadImage: uploadImage } : {}),
+      ...(pickImage ? { onPickImage: pickImage } : {}),
+    }),
+    [readOnly, mergeTags, slotClassNames, uploadImage, pickImage],
+  );
+
+  const onAgentRequest = useLatestCallback(agent?.onRequest);
+  const agentSuggestions = useStructural(agent?.suggestions);
+  const agentPlaceholder = agent?.placeholder;
+  const stableAgent = useMemo<EditorAgent | undefined>(
+    () =>
+      onAgentRequest
+        ? {
+            onRequest: onAgentRequest,
+            ...(agentSuggestions ? { suggestions: agentSuggestions } : {}),
+            ...(agentPlaceholder !== undefined ? { placeholder: agentPlaceholder } : {}),
+          }
+        : undefined,
+    [onAgentRequest, agentSuggestions, agentPlaceholder],
+  );
   const systemDark = useSystemDark(appearance === 'system');
   const dark = appearance === 'dark' || systemDark;
 
@@ -430,7 +577,9 @@ export const EmailEditor = forwardRef<EmailEditorHandle, EmailEditorProps>(funct
       style={style}
     >
       <EditorProvider store={store} options={options}>
-        <Layout agent={agent} toolbar={toolbar} />
+        <ToolbarContext.Provider value={toolbar}>
+          <Layout agent={stableAgent} />
+        </ToolbarContext.Provider>
       </EditorProvider>
     </div>
   );

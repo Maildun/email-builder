@@ -172,6 +172,98 @@ describe('<EmailEditor>', () => {
     expect(ref.current?.getDocument().blocks.title).toBeDefined();
   });
 
+  it('moves the selection with the arrow keys and announces it', () => {
+    const ref = createRef<EmailEditorHandle>();
+    const { container } = render(<EmailEditor ref={ref} defaultValue={doc()} />);
+    const canvas = screen.getByRole('region', { name: /email canvas/i });
+    fireEvent.keyDown(canvas, { key: 'ArrowDown' });
+    expect(ref.current?.store.getState().selectedId).toBe('title');
+    fireEvent.keyDown(canvas, { key: 'ArrowDown' });
+    expect(ref.current?.store.getState().selectedId).toBe('row');
+    fireEvent.keyDown(canvas, { key: 'ArrowRight' });
+    expect(ref.current?.store.getState().selectedId).toBe('left');
+    fireEvent.keyDown(canvas, { key: 'ArrowLeft' });
+    expect(ref.current?.store.getState().selectedId).toBe('row');
+    expect(screen.getByText('Columns selected')).toBeTruthy();
+    expect(container.querySelector('[data-block-id="row"]')?.getAttribute('aria-label')).toMatch(
+      /^Columns/,
+    );
+  });
+
+  it('offers Undo after deleting a block', () => {
+    const ref = createRef<EmailEditorHandle>();
+    const { container } = render(<EmailEditor ref={ref} defaultValue={doc()} />);
+    const title = container.querySelector('[data-block-id="title"]') as Element;
+    fireEvent.click(title);
+    fireEvent.keyDown(title, { key: 'Backspace' });
+    expect(screen.getByText('Heading deleted')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo: Heading deleted' }));
+    expect(ref.current?.getDocument().blocks.title).toBeDefined();
+  });
+
+  it('summarizes theme changes in the proposal and passes the conversation to the agent', async () => {
+    const requests: Array<{ prompt: string; history: unknown[] }> = [];
+    const ref = createRef<EmailEditorHandle>();
+    render(
+      <EmailEditor
+        ref={ref}
+        defaultValue={doc()}
+        agent={{
+          onRequest: async (request) => {
+            requests.push({ prompt: request.prompt, history: request.history });
+            return { ops: [{ op: 'updateTheme', colors: { primary: '#7c3aed' } }] };
+          },
+        }}
+      />,
+    );
+    const input = screen.getByRole('textbox', { name: 'Ask the assistant' });
+    fireEvent.change(input, { target: { value: 'make it purple' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(screen.getByText('Theme updated')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /reject/i }));
+
+    fireEvent.change(input, { target: { value: 'try green instead' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    expect(requests[1]?.history).toEqual([{ prompt: 'make it purple', outcome: 'rejected' }]);
+  });
+
+  it('ignores tool calls that arrive after Stop', async () => {
+    let finish: () => void = () => {};
+    let late: (() => void) | undefined;
+    const ref = createRef<EmailEditorHandle>();
+    render(
+      <EmailEditor
+        ref={ref}
+        defaultValue={doc()}
+        agent={{
+          onRequest: (request) =>
+            new Promise((resolve) => {
+              late = () => {
+                request.propose([{ op: 'remove', id: 'title' }]);
+              };
+              finish = () => resolve(undefined);
+            }),
+        }}
+      />,
+    );
+    const input = screen.getByRole('textbox', { name: 'Ask the assistant' });
+    fireEvent.change(input, { target: { value: 'remove the heading' } });
+    await act(async () => {
+      fireEvent.keyDown(input, { key: 'Enter' });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Stop' }));
+    await act(async () => {
+      late?.();
+      finish();
+    });
+    expect(ref.current?.store.getState().proposal).toBeNull();
+    expect(screen.getByText('Stopped.')).toBeTruthy();
+  });
+
   it('follows a controlled value', () => {
     const first = doc();
     const { container, rerender } = render(<EmailEditor value={first} />);

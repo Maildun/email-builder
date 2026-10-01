@@ -8,7 +8,7 @@ export {
   useVisibleDocument,
 } from './context';
 export { EmailEditor, type EmailEditorHandle, type EmailEditorProps } from './EmailEditor';
-export type { AgentRequest, AgentResponse, EditorAgent } from './panels/AgentPanel';
+export type { AgentRequest, AgentResponse, AgentTurn, EditorAgent } from './panels/AgentPanel';
 export {
   type ApplyOptions,
   type EditorState,

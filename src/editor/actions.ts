@@ -1,3 +1,4 @@
+import { BLOCK_DEFINITIONS } from '../core/schema/blocks';
 import type { EditorStore } from './store';
 
 /**
@@ -10,7 +11,12 @@ function keepFocus(from: Element | null | undefined): void {
 
 export function removeBlock(store: EditorStore, id: string, from?: Element | null): void {
   keepFocus(from);
-  store.apply({ op: 'remove', id });
+  const block = store.getState().document.blocks[id];
+  if (!block || !store.apply({ op: 'remove', id }).ok) return;
+  store.showToast(`${BLOCK_DEFINITIONS[block.type].label} deleted`, {
+    label: 'Undo',
+    run: () => store.undo(),
+  });
 }
 
 /** Duplicates a block and selects the copy. */

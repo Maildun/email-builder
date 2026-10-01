@@ -190,10 +190,43 @@ export function applyOps(document: EmailDocument, ops: Op | Op[]): ApplyResult {
   }
   return {
     ok: true,
-    document: validation.document,
+    document: shareUnchanged(document, validation.document),
     changed: [...draft.changed],
     inserted: [...draft.inserted],
     removed: [...draft.removed],
+  };
+}
+
+/** Structural equality for JSON-like values (documents contain nothing else). */
+function jsonEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every((key) =>
+    jsonEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key]),
+  );
+}
+
+/**
+ * Reuses the previous objects for every part of the document that didn't
+ * change, so an edit to one block keeps every other block (and the theme and
+ * settings) referentially equal. UIs can then skip re-rendering them.
+ */
+function shareUnchanged(previous: EmailDocument, next: EmailDocument): EmailDocument {
+  const blocks: EmailDocument['blocks'] = {};
+  for (const [id, block] of Object.entries(next.blocks)) {
+    const before = previous.blocks[id];
+    blocks[id] = before && jsonEqual(before, block) ? before : block;
+  }
+  return {
+    ...next,
+    root: jsonEqual(previous.root, next.root) ? previous.root : next.root,
+    theme: jsonEqual(previous.theme, next.theme) ? previous.theme : next.theme,
+    settings: jsonEqual(previous.settings, next.settings) ? previous.settings : next.settings,
+    blocks,
   };
 }
 

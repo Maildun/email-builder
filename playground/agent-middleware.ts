@@ -17,6 +17,7 @@ interface AgentRequestBody {
   prompt: string;
   document: EmailDocument;
   selectedId: string | null;
+  history?: Array<{ prompt: string; summary?: string; outcome: string }>;
   mergeTags?: string[];
 }
 
@@ -43,10 +44,18 @@ async function runAgent(body: AgentRequestBody) {
   const selection = body.selectedId
     ? `\nThe user has block "${body.selectedId}" selected; "this" or "it" most likely refers to it.`
     : '';
+  const earlier = body.history?.length
+    ? `Earlier requests in this session (oldest first):\n${body.history
+        .map(
+          (turn) =>
+            `- "${turn.prompt}" → ${turn.outcome}${turn.summary ? ` (${turn.summary})` : ''}`,
+        )
+        .join('\n')}\n\n`
+    : '';
   const messages: Anthropic.Beta.BetaMessageParam[] = [
     {
       role: 'user',
-      content: `Current email:\n${outlineDocument(body.document)}${selection}\n\nRequest: ${body.prompt}`,
+      content: `${earlier}Current email:\n${outlineDocument(body.document)}${selection}\n\nRequest: ${body.prompt}`,
     },
   ];
 

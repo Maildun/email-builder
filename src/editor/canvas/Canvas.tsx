@@ -14,12 +14,14 @@ import {
   type CSSProperties,
   type MouseEvent,
   memo,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from 'react';
+import { summarizeBlock } from '../../agent/outline';
 import { BLOCK_DEFINITIONS, type Block, hasChildren } from '../../core/schema/blocks';
 import { type EmailDocument, ROOT_ID } from '../../core/schema/document';
 import { resolvePadding } from '../../core/schema/primitives';
@@ -34,7 +36,7 @@ import {
   useSlotClassName,
   useVisibleDocument,
 } from '../context';
-import { dropId, resolveDrop, useActiveDrag, useOverId } from '../dnd';
+import { dropId, resolveDrop, useActiveDrag, useDropIndicator, useIsOver } from '../dnd';
 import { BLOCK_ICONS } from '../meta';
 import { Button, cn, Icon, Tip } from '../ui';
 import { InlineText } from './InlineText';
@@ -72,6 +74,45 @@ function useHydrated(): boolean {
   );
 }
 
+/**
+ * Render context built only from the theme and settings, cached by their
+ * identity. Edits share unchanged objects (see `applyOps`), so this stays the
+ * same object until the theme or settings change, and memoized blocks can
+ * skip re-rendering.
+ */
+const styleContexts = new WeakMap<object, WeakMap<object, RenderContext>>();
+
+function styleContextOf(document: EmailDocument): RenderContext {
+  let bySettings = styleContexts.get(document.theme);
+  if (!bySettings) {
+    bySettings = new WeakMap();
+    styleContexts.set(document.theme, bySettings);
+  }
+  let ctx = bySettings.get(document.settings);
+  if (!ctx) {
+    ctx = createRenderContext({ ...document, root: [], blocks: {} });
+    bySettings.set(document.settings, ctx);
+  }
+  return ctx;
+}
+
+/** A render context that can render `blocks` (a block and the children it reads). */
+function withBlocks(styles: RenderContext, blocks: EmailDocument['blocks']): RenderContext {
+  return { ...styles, document: { ...styles.document, blocks } };
+}
+
+/** "Heading: The October update", for screen readers. */
+function blockLabel(block: Block): string {
+  const summary = summarizeBlock(block).replace(/^"|"$/g, '');
+  const label = BLOCK_DEFINITIONS[block.type].label;
+  return summary ? `${label}: ${summary.slice(0, 80)}` : label;
+}
+
+/** The visible version (proposal or committed) of one block. */
+function useBlock(id: string): Block | undefined {
+  return useEditorState((state) => (state.proposal?.document ?? state.document).blocks[id]);
+}
+
 const LeafHtml = memo(function LeafHtml({ html }: { html: string }) {
   return <div className="meb-leaf" dangerouslySetInnerHTML={{ __html: html }} />;
 });
@@ -105,8 +146,7 @@ function InsideZone({ id }: { id: string }) {
 }
 
 function EmptySlot({ parentId, label }: { parentId: string; label: string }) {
-  const overId = useOverId();
-  const over = overId === dropId('canvas', 'inside', parentId);
+  const over = useIsOver(dropId('canvas', 'inside', parentId));
   return (
     <div
       data-slot="empty-slot"
@@ -243,44 +283,47 @@ function BlockToolbar({ id, block }: { id: string; block: Block }) {
 
 interface BlockViewProps {
   id: string;
-  ctx: RenderContext;
+  /** Theme and settings; see `styleContextOf`. */
+  styles: RenderContext;
   available: number;
   mobile: boolean;
 }
 
-function BlockView({ id, ctx, available, mobile }: BlockViewProps) {
+/**
+ * One block on the canvas. Memoized and subscribed to its own block only, so
+ * typing in one block re-renders that block, not the whole email.
+ */
+const BlockView = memo(function BlockView({ id, styles, available, mobile }: BlockViewProps) {
   const store = useEditorStore();
   const { readOnly } = useEditorOptions();
-  const block = ctx.document.blocks[id];
+  const block = useBlock(id);
   const selected = useEditorState((state) => state.selectedId === id);
   const editing = useEditorState((state) => state.editingId === id);
   const changed = useEditorState((state) => state.proposal?.changed.includes(id) ?? false);
   const proposing = useEditorState((state) => state.proposal !== null);
   const drag = useActiveDrag();
-  const overId = useOverId();
+  const indicator = useDropIndicator('canvas', id);
   const hydrated = useHydrated();
+  const element = useRef<HTMLDivElement>(null);
+
+  // Keep the selection in view, whether it came from Layers, the keyboard or an agent.
+  useEffect(() => {
+    if (selected && !drag) element.current?.scrollIntoView({ block: 'nearest' });
+  }, [selected, drag]);
 
   const leafHtml = useMemo(() => {
     if (!block || hasChildren(block)) return '';
+    const html = renderBlock(withBlocks(styles, { [id]: block }), id, available);
     // DOMPurify needs a DOM, so raw HTML blocks render empty on the server.
-    if (block.type === 'html') {
-      return hydrated ? DOMPurify.sanitize(renderBlock(ctx, id, available)) : '';
-    }
-    return renderBlock(ctx, id, available);
-  }, [ctx, id, block, available, hydrated]);
+    if (block.type === 'html') return hydrated ? DOMPurify.sanitize(html) : '';
+    return html;
+  }, [styles, id, block, available, hydrated]);
 
   if (!block) return null;
 
+  const ctx = styles;
   const interactive = !readOnly && !proposing;
   const isContainer = hasChildren(block);
-  const indicator =
-    overId === dropId('canvas', 'before', id)
-      ? 'before'
-      : overId === dropId('canvas', 'after', id)
-        ? 'after'
-        : overId === dropId('canvas', 'inside', id)
-          ? 'inside'
-          : null;
   const dragged = drag?.kind === 'move' && drag.id === id;
 
   const onClick = (event: MouseEvent) => {
@@ -331,16 +374,22 @@ function BlockView({ id, ctx, available, mobile }: BlockViewProps) {
     );
   } else if (isContainer) {
     content = (
-      <ContainerView id={id} block={block} ctx={ctx} available={available} mobile={mobile} />
+      <ContainerView id={id} block={block} styles={styles} available={available} mobile={mobile} />
     );
   } else {
     content = <LeafHtml html={leafHtml} />;
   }
 
   return (
+    // biome-ignore lint/a11y/useSemanticElements: a block is a labelled group on the canvas, not a form fieldset.
     <div
-      className="meb-block"
+      ref={element}
+      className="meb-block outline-none"
       data-block-id={id}
+      tabIndex={interactive ? (selected ? 0 : -1) : undefined}
+      role="group"
+      aria-roledescription="block"
+      aria-label={blockLabel(block)}
       data-block-type={block.type}
       data-selected={selected || undefined}
       data-editing={editing || undefined}
@@ -361,61 +410,67 @@ function BlockView({ id, ctx, available, mobile }: BlockViewProps) {
       ) : null}
     </div>
   );
+});
+
+/** Column widths depend on the columns' own props; re-render when those change. */
+function useColumnWidths(
+  styles: RenderContext,
+  block: Extract<Block, { type: 'columns' }>,
+  available: number,
+): number[] {
+  const key = useEditorState((state) => {
+    const blocks = (state.proposal?.document ?? state.document).blocks;
+    return block.children
+      .map((childId) => {
+        const child = blocks[childId];
+        return child?.type === 'column' ? (child.props.width ?? '') : '';
+      })
+      .join(',');
+  });
+  return useMemo(() => {
+    const widths = key.split(',').map((width) => (width === '' ? undefined : Number(width)));
+    const columns = Object.fromEntries(
+      block.children.map((childId, index) => [
+        childId,
+        {
+          type: 'column',
+          children: [],
+          props: widths[index] === undefined ? {} : { width: widths[index] },
+        } satisfies Block,
+      ]),
+    );
+    return columnWidths(withBlocks(styles, columns), block, available);
+  }, [styles, block, available, key]);
 }
 
 function ContainerView({
   id,
   block,
-  ctx,
+  styles,
   available,
   mobile,
 }: BlockViewProps & { block: Extract<Block, { children: string[] }> }) {
   const width = innerWidth(available, block.style?.padding, block.style?.border);
-  const boxStyle = toReactStyle(boxDeclarations(ctx, block.style));
+  const boxStyle = toReactStyle(boxDeclarations(styles, block.style));
   const { readOnly } = useEditorOptions();
 
   if (block.type === 'columns') {
-    const widths = columnWidths(ctx, block, available);
-    const gap = block.props.gap ?? 0;
-    const stack = mobile && (block.props.stackOnMobile ?? true);
-    const align = { top: 'flex-start', middle: 'center', bottom: 'flex-end' }[
-      block.props.verticalAlign ?? 'top'
-    ];
     return (
-      <div style={boxStyle}>
-        <div
-          className="flex"
-          style={{
-            gap: stack ? 16 : gap,
-            flexDirection: stack ? 'column' : 'row',
-            alignItems: stack ? 'stretch' : align,
-          }}
-        >
-          {block.children.map((childId, index) => (
-            <div
-              key={childId}
-              className="min-w-0"
-              style={
-                stack ? undefined : { flex: `0 0 ${widths[index] ?? 0}px`, maxWidth: widths[index] }
-              }
-            >
-              <BlockView
-                id={childId}
-                ctx={ctx}
-                available={stack ? width : (widths[index] ?? 0)}
-                mobile={mobile}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
+      <ColumnsView
+        block={block}
+        styles={styles}
+        available={available}
+        mobile={mobile}
+        width={width}
+        boxStyle={boxStyle}
+      />
     );
   }
 
   return (
     <div style={{ ...boxStyle, minHeight: block.children.length === 0 ? 48 : undefined }}>
       {block.children.map((childId) => (
-        <BlockView key={childId} id={childId} ctx={ctx} available={width} mobile={mobile} />
+        <BlockView key={childId} id={childId} styles={styles} available={width} mobile={mobile} />
       ))}
       {block.children.length === 0 && !readOnly ? (
         <EmptySlot
@@ -423,6 +478,58 @@ function ContainerView({
           label={block.type === 'column' ? 'Drop blocks here' : 'Empty container'}
         />
       ) : null}
+    </div>
+  );
+}
+
+function ColumnsView({
+  block,
+  styles,
+  available,
+  mobile,
+  width,
+  boxStyle,
+}: {
+  block: Extract<Block, { type: 'columns' }>;
+  styles: RenderContext;
+  available: number;
+  mobile: boolean;
+  width: number;
+  boxStyle: CSSProperties;
+}) {
+  const widths = useColumnWidths(styles, block, available);
+  const gap = block.props.gap ?? 0;
+  const stack = mobile && (block.props.stackOnMobile ?? true);
+  const align = { top: 'flex-start', middle: 'center', bottom: 'flex-end' }[
+    block.props.verticalAlign ?? 'top'
+  ];
+  return (
+    <div style={boxStyle}>
+      <div
+        className="flex"
+        style={{
+          gap: stack ? 16 : gap,
+          flexDirection: stack ? 'column' : 'row',
+          alignItems: stack ? 'stretch' : align,
+        }}
+      >
+        {block.children.map((childId, index) => (
+          <div
+            key={childId}
+            className="min-w-0"
+            style={
+              stack ? undefined : { flex: `0 0 ${widths[index] ?? 0}px`, maxWidth: widths[index] }
+            }
+          >
+            <BlockView
+              id={childId}
+              styles={styles}
+              available={stack ? width : (widths[index] ?? 0)}
+              mobile={mobile}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -439,23 +546,28 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
   const viewport = useEditorState((state) => state.viewport);
   const { readOnly } = useEditorOptions();
   const drag = useActiveDrag();
-  const overId = useOverId();
-  const ctx = useMemo(() => createRenderContext(document), [document]);
+  const ctx = styleContextOf(document);
   const mobile = viewport === 'mobile';
   const width = mobile ? MOBILE_WIDTH : document.settings.width;
   const { settings } = document;
   const outer = resolvePadding(settings.padding);
   const canvasBorder = ctx.color(settings.borderColor);
-  const rootOver = overId === dropId('canvas', 'inside', ROOT_ID);
+  const rootOver = useIsOver(dropId('canvas', 'inside', ROOT_ID));
   const slotClassName = useSlotClassName('canvas');
   const validRootDrop = drag
     ? resolveDrop(store.getState().document, drag, 'inside', ROOT_ID) !== null
     : false;
 
   return (
-    <div
+    <section
       data-slot="canvas"
-      className={cn('meb-canvas-scroll min-h-0 flex-1 overflow-auto', slotClassName)}
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas is a keyboard stop; arrow keys then move between blocks.
+      tabIndex={0}
+      aria-label="Email canvas. Use the arrow keys to move between blocks."
+      className={cn(
+        'meb-canvas-scroll min-h-0 flex-1 overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-inset',
+        slotClassName,
+      )}
       style={{ background: ctx.color(settings.backdropColor, '$background') }}
       onClick={() => store.select(null)}
     >
@@ -483,7 +595,7 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
           }}
         >
           {document.root.map((id) => (
-            <BlockView key={id} id={id} ctx={ctx} available={width} mobile={mobile} />
+            <BlockView key={id} id={id} styles={ctx} available={width} mobile={mobile} />
           ))}
           {document.root.length === 0 && !readOnly ? (
             <div
@@ -515,6 +627,6 @@ export function Canvas({ onAddFirst }: { onAddFirst?: () => void }) {
           {drag ? <RootDropZone /> : null}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

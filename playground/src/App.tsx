@@ -107,6 +107,7 @@ const claudeAgent: EditorAgent = {
         prompt: request.prompt,
         document: request.document,
         selectedId: request.selectedId,
+        history: request.history,
         mergeTags: MERGE_TAGS.map((tag) => tag.key),
       }),
     });

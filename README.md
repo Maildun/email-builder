@@ -164,7 +164,9 @@ session.ops;           // the operations, replayable as an editor proposal
 
 ### In the editor
 
-Pass an `agent` to get the assistant panel. Edits arrive as a **proposal**: changed blocks are highlighted, and the user accepts or rejects them as one undoable step.
+Pass an `agent` to get the assistant panel. Edits arrive as a **proposal**: changed blocks are highlighted, the panel summarizes what changed (blocks, removals, theme, settings) with a **Show** button that jumps to each change, and the user accepts or rejects everything as one undoable step.
+
+Each request includes `history`: the earlier prompts in this session and whether their proposals were accepted, so follow-ups like "make it shorter" have context. **Stop** (or Esc) aborts `signal` and ignores any tool calls that arrive afterwards.
 
 ```tsx
 <EmailEditor
@@ -211,8 +213,11 @@ Pass an `agent` to get the assistant panel. Edits arrive as a **proposal**: chan
 | ⌫ | Delete the selected block |
 | ⌘D | Duplicate |
 | ⌥↑ / ⌥↓ | Move up / down |
+| ↑ / ↓ | Select the previous / next block |
+| ← / → | Select the parent / first child |
 | Enter | Edit text |
-| Esc | Stop editing / deselect |
+| Esc | Stop editing / deselect, or stop the assistant |
+| ⌘K | Open the assistant |
 
 ## Styling
 
