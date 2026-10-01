@@ -38,8 +38,16 @@ function toEditorMarkdown(markdown: string): string {
   );
 }
 
-function fromEditorMarkdown(markdown: string): string {
+/**
+ * The markdown serializer escapes characters that could be formatting, like
+ * the `_` in `{{ first_name }}`. Inside a merge tag they never are; unescape
+ * them so the tag stays exactly what the sending platform expects.
+ */
+const ESCAPED_MERGE_TAG = /\\?\{\\?\{((?:\\.|[^{}])*?)\\?\}\\?\}/g;
+
+export function fromEditorMarkdown(markdown: string): string {
   return markdown
+    .replace(ESCAPED_MERGE_TAG, (_match, inner: string) => `{{${inner.replace(/\\(.)/g, '$1')}}}`)
     .replaceAll(
       new RegExp(
         `${MERGE_LINK_HOST.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}([a-zA-Z_][a-zA-Z0-9_.]*)`,
