@@ -23,4 +23,4 @@ jobs:
       - name: Check tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
       # prepublishOnly runs typecheck, tests and build.
-      - run: npm publish --provenance
+      - run: npm publish
