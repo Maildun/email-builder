@@ -7,3 +7,5 @@ dist
 coverage
 playground/dist
 .claude/
+docs/.vitepress/cache
+docs/.vitepress/dist

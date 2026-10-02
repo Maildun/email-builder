@@ -8,6 +8,10 @@
     "type": "git",
     "url": "git+https://github.com/Maildun/email-builder.git"
   },
+  "homepage": "https://github.com/Maildun/email-builder#readme",
+  "bugs": {
+    "url": "https://github.com/Maildun/email-builder/issues"
+  },
   "keywords": [
     "email",
     "email-builder",
@@ -29,7 +33,7 @@
     "THIRD_PARTY_NOTICES.md"
   ],
   "bin": {
-    "email-builder": "./dist/cli.js"
+    "email-builder": "dist/cli.js"
   },
   "exports": {
     ".": {
@@ -56,9 +60,14 @@
   "engines": {
     "node": ">=20"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsdown && bun scripts/build-css.ts",
     "dev": "cd playground && bun install --silent && bun run dev",
+    "docs:dev": "cd docs && bun install --silent && bun run dev --port 5174",
+    "docs:build": "cd docs && bun install --silent && bun run build",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "format": "biome check --write .",
@@ -92,7 +101,6 @@
     "@tiptap/starter-kit": "^3.31.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cn": "^0.4.0",
     "dompurify": "^3.4.16",
     "marked": "^18.0.14",
     "tailwind-merge": "^3.7.0",
