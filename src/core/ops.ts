@@ -153,10 +153,6 @@ interface Draft {
   removed: Set<string>;
 }
 
-/**
- * Applies operations atomically: either every op succeeds and the result is a
- * valid document, or the original document is untouched and issues explain why.
- */
 export interface ApplyOptions {
   /**
    * Custom block definitions. When given, the data of every custom block the
@@ -165,32 +161,45 @@ export interface ApplyOptions {
   customBlocks?: CustomBlocks;
 }
 
+/**
+ * Applies operations atomically: either every op succeeds and the result is a
+ * valid document, or the original document is untouched and issues explain why.
+ * A failing op does not stop the batch from being checked: the issues of every
+ * failing op are returned together.
+ */
 export function applyOps(
   document: EmailDocument,
   ops: Op | Op[],
   options: ApplyOptions = {},
 ): ApplyResult {
   const list = Array.isArray(ops) ? ops : [ops];
-  const draft: Draft = {
+  let draft: Draft = {
     document: structuredClone(document),
     changed: new Set(),
     inserted: new Set(),
     removed: new Set(),
   };
+  const failures = new BatchFailures();
 
-  try {
-    list.forEach((raw, opIndex) => {
+  list.forEach((raw, opIndex) => {
+    // Each op runs on a copy so a failure halfway (e.g. in `replace`) leaves
+    // no trace, and the remaining ops are still checked against a clean draft.
+    const attempt = structuredClone(draft);
+    try {
       const parsed = OpSchema.safeParse(raw);
       if (!parsed.success) {
         throw new OpError(issuesFromZod(parsed.error, { opIndex }));
       }
-      applyOne(draft, parsed.data as Op, opIndex);
-    });
-  } catch (error) {
-    if (error instanceof OpError) {
-      return { ok: false, issues: error.issues };
+      applyOne(attempt, parsed.data as Op, opIndex);
+      draft = attempt;
+    } catch (error) {
+      if (!(error instanceof OpError)) throw error;
+      failures.add(raw, error.issues, opIndex);
     }
-    throw error;
+  });
+
+  if (failures.issues.length > 0) {
+    return { ok: false, issues: failures.issues };
   }
 
   const validation = validateDocument(draft.document);
@@ -246,6 +255,60 @@ function shareUnchanged(previous: EmailDocument, next: EmailDocument): EmailDocu
     settings: jsonEqual(previous.settings, next.settings) ? previous.settings : next.settings,
     blocks,
   };
+}
+
+/** Ids of the blocks an op would create, so later ops that use them can be explained. */
+function declaredIds(raw: unknown): string[] {
+  if (typeof raw !== 'object' || raw === null) return [];
+  const { blocks, block } = raw as { blocks?: unknown; block?: unknown };
+  const ids: string[] = [];
+  const visit = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (typeof value !== 'object' || value === null) return;
+    const { id, children } = value as { id?: unknown; children?: unknown };
+    if (typeof id === 'string') ids.push(id);
+    visit(children);
+  };
+  visit(blocks);
+  visit(block);
+  return ids;
+}
+
+/**
+ * Collects the issues of every failing op in a batch, so an agent can fix them
+ * all in one retry. A later op that targets a block an earlier failed op would
+ * have created gets a hint pointing at the root cause.
+ */
+class BatchFailures {
+  readonly issues: Issue[] = [];
+  private readonly pending = new Map<string, number>();
+
+  add(raw: unknown, issues: Issue[], opIndex: number): void {
+    const target = (typeof raw === 'object' && raw !== null ? raw : {}) as {
+      id?: unknown;
+      parentId?: unknown;
+    };
+    for (const issue of issues) {
+      const id =
+        issue.path === 'id' ? target.id : issue.path === 'parentId' ? target.parentId : undefined;
+      const origin = typeof id === 'string' ? this.pending.get(id) : undefined;
+      this.issues.push(
+        origin === undefined
+          ? { ...issue, opIndex }
+          : {
+              ...issue,
+              opIndex,
+              hint: `"${id}" would be created by op ${origin}, which failed; fixing op ${origin} fixes this too.`,
+            },
+      );
+    }
+    for (const id of declaredIds(raw)) {
+      this.pending.set(id, opIndex);
+    }
+  }
 }
 
 function fail(issue: Issue): never {
@@ -642,12 +705,14 @@ export function applyOpsMaterialized(
   const changed = new Set<string>();
   const inserted = new Set<string>();
   const removed = new Set<string>();
+  const failures = new BatchFailures();
   for (const [index, raw] of ops.entries()) {
     const parsed = OpSchema.safeParse(raw);
     const op = parsed.success ? materializeOp(current, parsed.data as Op) : raw;
     const result = applyOps(current, op, options);
     if (!result.ok) {
-      return { ok: false, issues: result.issues.map((issue) => ({ ...issue, opIndex: index })) };
+      failures.add(raw, result.issues, index);
+      continue;
     }
     materialized.push(op);
     current = result.document;
@@ -658,6 +723,9 @@ export function applyOpsMaterialized(
       changed.delete(id);
       inserted.delete(id);
     }
+  }
+  if (failures.issues.length > 0) {
+    return { ok: false, issues: failures.issues };
   }
   return {
     ok: true,

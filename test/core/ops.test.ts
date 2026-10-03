@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyOps,
+  applyOpsMaterialized,
   blockInputJsonSchema,
   createDocument,
   documentJsonSchema,
@@ -214,6 +215,46 @@ describe('applyOps', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.issues[0]?.opIndex).toBe(1);
     expect(doc).toEqual(snapshot);
+  });
+
+  it('reports every failing op in a batch, not just the first', () => {
+    const doc = base();
+    const snapshot = structuredClone(doc);
+    const result = applyOps(doc, [
+      { op: 'update', id: 'missing-a', props: {} },
+      { op: 'updateSettings', settings: { width: 600 } },
+      { op: 'remove', id: 'missing-b' },
+    ]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.issues.map((issue) => issue.opIndex)).toEqual([0, 2]);
+    expect(doc).toEqual(snapshot);
+  });
+
+  it('points ops that depend on a failed insert at the root cause', () => {
+    const result = applyOpsMaterialized(base(), [
+      {
+        op: 'insert',
+        blocks: [{ id: 'hero', type: 'container', children: [{ type: 'nope' }] }],
+      } as never,
+      { op: 'update', id: 'hero', style: { padding: 8 } },
+      { op: 'insert', parentId: 'hero', blocks: [{ type: 'text' }] },
+    ]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      const dependent = result.issues.filter((issue) => issue.opIndex !== 0);
+      expect(dependent.map((issue) => issue.opIndex)).toEqual([1, 2]);
+      for (const issue of dependent) expect(issue.hint).toContain('fixing op 0 fixes this too');
+    }
+  });
+
+  it('rolls back a replace that fails halfway before checking later ops', () => {
+    const doc = ok(applyOps(base(), { op: 'insert', blocks: [{ id: 'keep', type: 'text' }] }));
+    const result = applyOps(doc, [
+      { op: 'replace', id: 'keep', block: { type: 'nope' } } as never,
+      { op: 'update', id: 'keep', props: { markdown: 'Still here' } },
+    ]);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.issues.every((issue) => issue.opIndex === 0)).toBe(true);
   });
 
   it('updates settings and theme with validation', () => {

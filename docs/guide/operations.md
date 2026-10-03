@@ -36,6 +36,7 @@ if (result.ok) {
 ## How operations behave
 
 - **Atomic.** If any op in a batch fails, nothing changes and you get the issues. The input document is never mutated.
+- **Complete.** A failing op doesn't stop the batch from being checked: you get the issues of every failing op at once, each with its `opIndex`. An op that targets a block an earlier failed op would have created gets a hint naming that op.
 - **Validated.** The result is checked against the schema and the tree rules (placement, no orphans, no cycles) before it's returned.
 - **Nested input.** Inserted blocks can include their children. Missing ids and defaults are filled in.
 - **Structural sharing.** Unchanged blocks, the theme and settings keep their object identity, so UIs can skip re-rendering them.

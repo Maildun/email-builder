@@ -139,7 +139,8 @@ const DESCRIPTIONS: Record<keyof ReturnType<typeof inputSchemas>, string> = {
   update_settings: 'Changes email settings such as preheader, width or colors.',
   update_theme: 'Changes theme colors and fonts; every block using $tokens follows.',
   replace_document: 'Replaces the whole email with new blocks. Use only to start from scratch.',
-  apply_ops: 'Applies several operations atomically: all succeed or none do.',
+  apply_ops:
+    'Applies several operations atomically: all succeed or none do. When any fail, every failing op is reported (op numbers are 0-based) so you can fix them in one retry.',
   check_email:
     'Validates the email and returns warnings (accessibility, deliverability, placeholders) plus the plain-text version.',
 };
