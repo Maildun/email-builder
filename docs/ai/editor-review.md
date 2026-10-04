@@ -62,6 +62,28 @@ The operations carry explicit ids, so they replay to exactly what the model prod
 
 A `Proposal` has the proposed `document`, `changed` and `removed` block ids, `themeChanged`, `settingsChanged`, the `ops`, and an optional `label` and `summary`. Calls to `propose` and tool calls add up into one proposal until it's resolved. Resolve it in code with `editor.accept()` or `editor.reject()`.
 
+## Adding your own actions
+
+`proposalActions` puts your controls in the review bar, before **Reject**. For example, let the user trust your AI from now on and apply its changes directly:
+
+```tsx
+<EmailEditor
+  ref={editor}
+  proposalActions={() => (
+    <Button
+      onClick={() => {
+        setAutoApply(true); // your setting: next time, apply with editor.apply() instead of proposing
+        editor.current?.accept();
+      }}
+    >
+      Always allow
+    </Button>
+  )}
+/>
+```
+
+A function gets the pending `Proposal`, so the label can name its source.
+
 ## Try it
 
 The repository's playground has a **Propose a change** button that calls `editor.tools()` the way your AI would. See [Contributing](/contributing#playground) to run it.

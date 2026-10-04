@@ -22,6 +22,7 @@ import { EmailEditor, type EmailEditorProps, type EmailEditorHandle } from '@mai
 | `views` | `('design' \| 'preview' \| 'code')[]` | Views in the top bar. All by default. |
 | `panels` | `{ sidebar?: boolean; inspector?: boolean }` | Panels in the default layout. Panels left on can still be hidden from the top bar. |
 | `toolbar` | `ReactNode` | Extra controls at the right of the top bar. |
+| `proposalActions` | `ReactNode \| (proposal) => ReactNode` | Extra controls in the proposal bar, before Reject. |
 | `appearance` | `'inherit' \| 'light' \| 'dark' \| 'system'` | Color scheme. `inherit` follows a `.dark` class on an ancestor. |
 | `classNames` | `Partial<Record<EditorSlot, string>>` | Extra classes for `root`, `topbar`, `sidebar`, `stage`, `canvas`, `inspector`, `proposal`, `block-toolbar`. |
 | `messages` | `DeepPartial<EditorMessages>` | UI text. See [Translations](/editor/translations). |

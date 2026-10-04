@@ -37,6 +37,7 @@ import {
 import { EditorDnd } from './dnd';
 import { type DeepPartial, type EditorMessages, resolveMessages } from './messages';
 import { blockLabel } from './meta';
+import { ProposalActionsContext } from './panels/ProposalBar';
 import { ToolbarContext } from './panels/TopBar';
 import { EditorStore, type EditorView, type Proposal } from './store';
 import { cn, PortalContext, TooltipProvider } from './ui';
@@ -70,6 +71,11 @@ export interface EditorRootProps {
   views?: EditorView[];
   /** Extra controls at the right of the top bar. */
   toolbar?: ReactNode;
+  /**
+   * Extra controls in the proposal bar, before Reject, e.g. "Always allow"
+   * for a trusted AI. A function gets the pending proposal.
+   */
+  proposalActions?: ReactNode | ((proposal: Proposal) => ReactNode);
   /**
    * Color scheme. `inherit` (the default) follows a `.dark` class on an
    * ancestor, the shadcn/ui convention; `system` follows the OS setting.
@@ -394,6 +400,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
     sections: sectionsProp,
     views: viewsProp,
     toolbar,
+    proposalActions,
     appearance = 'inherit',
     classNames,
     onSelectionChange,
@@ -547,7 +554,9 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
     >
       <EditorProvider store={store} options={options}>
         <ToolbarContext.Provider value={toolbar}>
-          <Shell onSave={save}>{children}</Shell>
+          <ProposalActionsContext.Provider value={proposalActions}>
+            <Shell onSave={save}>{children}</Shell>
+          </ProposalActionsContext.Provider>
         </ToolbarContext.Provider>
       </EditorProvider>
     </div>

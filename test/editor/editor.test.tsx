@@ -237,6 +237,28 @@ describe('<EmailEditor>', () => {
     expect(screen.queryByRole('button', { name: /accept/i })).toBeNull();
   });
 
+  it('renders proposal actions with the pending proposal', () => {
+    const ref = createRef<EmailEditorHandle>();
+    render(
+      <EmailEditor
+        ref={ref}
+        defaultValue={doc()}
+        proposalActions={(proposal) => (
+          <button type="button" onClick={() => ref.current?.accept()}>
+            Always allow ({proposal.label ?? 'AI'})
+          </button>
+        )}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: /always allow/i })).toBeNull();
+    act(() => {
+      ref.current?.propose([{ op: 'updateTheme', colors: { primary: '#7c3aed' } }]);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Always allow (AI)' }));
+    expect(ref.current?.store.getState().proposal).toBeNull();
+    expect(ref.current?.getDocument().theme.colors.primary).toBe('#7c3aed');
+  });
+
   it('composes a custom layout from the parts', () => {
     const ref = createRef<EmailEditorHandle>();
     render(

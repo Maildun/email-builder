@@ -1,5 +1,5 @@
 import { Cancel01Icon, SparklesIcon, Tick02Icon } from '@hugeicons/core-free-icons';
-import { useEffect, useRef } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useRef } from 'react';
 import { useEditorOptions, useEditorState, useEditorStore, useSlotClassName } from '../context';
 import type { EditorMessages } from '../messages';
 import type { Proposal } from '../store';
@@ -40,6 +40,11 @@ function revealBlock(from: Element | null, id: string): boolean {
   return Boolean(element);
 }
 
+/** Extra controls in the proposal bar, before Reject (the `proposalActions` prop). */
+export const ProposalActionsContext = createContext<
+  ReactNode | ((proposal: Proposal) => ReactNode)
+>(null);
+
 /**
  * Review for pending changes (`editor.propose()`, e.g. from your own AI):
  * what changed, a way to step through it, and accept or reject as one undoable
@@ -53,6 +58,7 @@ export function EditorProposalBar() {
   const className = useSlotClassName('proposal');
   const bar = useRef<HTMLDivElement>(null);
   const shown = useRef(0);
+  const actions = useContext(ProposalActionsContext);
 
   // Reserve room while the bar is up, and bring the first change into view.
   const first = proposal?.changed[0];
@@ -117,6 +123,7 @@ export function EditorProposalBar() {
           {text.show}
         </Button>
       ) : null}
+      {typeof actions === 'function' ? actions(proposal) : actions}
       <Button size="sm" variant="ghost" onClick={() => store.reject()}>
         <Icon icon={Cancel01Icon} data-icon="inline-start" /> {text.reject}
       </Button>
