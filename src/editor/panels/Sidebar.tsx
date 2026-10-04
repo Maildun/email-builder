@@ -26,6 +26,7 @@ import type { BlockCategory } from '../messages';
 import { BLOCK_ICONS, blockIcon, blockLabel } from '../meta';
 import type { EditorStore } from '../store';
 import { cn, Icon, type IconSvgElement, Tabs, TabsContent, TabsList, TabsTrigger } from '../ui';
+import { type PaletteGroup, PaletteGroupTile, usePaletteGroups } from './PaletteGroups';
 import { SectionThumb } from './SectionThumb';
 
 const CATEGORIES: readonly BlockCategory[] = ['content', 'media', 'layout', 'advanced'];
@@ -207,13 +208,60 @@ function SectionItem({ name, surface, onInsert }: PaletteProps & { name: Section
   );
 }
 
-function PaletteGroup({ label, children }: { label: string; children: ReactNode }) {
+function GroupFrame({
+  label,
+  actions,
+  children,
+}: {
+  label: string;
+  actions?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <section data-slot="palette-group" className="flex flex-col gap-2.5 pt-3.5">
-      <h3 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</h3>
+      <div className="flex min-h-5 items-center justify-between gap-2">
+        <h3 className="truncate text-xs font-medium tracking-wide text-muted-foreground uppercase">
+          {label}
+        </h3>
+        {actions}
+      </div>
       {children}
     </section>
   );
+}
+
+/** Groups the host passed in `paletteGroups`, at one position in the palette. */
+function HostGroups({
+  position,
+  surface,
+  onInsert,
+}: Required<Pick<PaletteProps, 'surface'>> &
+  Pick<PaletteProps, 'onInsert'> & { position: NonNullable<PaletteGroup['position']> }) {
+  const store = useEditorStore();
+  const groups = usePaletteGroups(position);
+  return groups.map((group) => (
+    <GroupFrame key={group.id} label={group.label} actions={group.actions}>
+      {group.items.length ? (
+        <div data-group={group.id} className="grid grid-cols-2 gap-1">
+          {group.items.map((item) => (
+            <PaletteGroupTile
+              key={item.id}
+              group={group}
+              item={item}
+              surface={surface}
+              onInsert={(blocks) => {
+                const type = blocks[0]?.type ?? 'container';
+                insert(store, (target) => ({ op: 'insert', ...target, blocks }), type);
+                onInsert?.();
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        group.empty
+      )}
+    </GroupFrame>
+  ));
 }
 
 /** Blocks and sections to add. Click inserts after the selection; drag drops anywhere. */
@@ -224,28 +272,31 @@ export function Palette({ surface = 'sidebar', onInsert }: PaletteProps) {
   const text = options.messages.palette;
   return (
     <div data-slot="palette" className="px-3 pt-1 pb-4">
+      <HostGroups position="start" surface={surface} onInsert={onInsert} />
       {CATEGORIES.map((category) => {
         const inCategory = entries.filter((entry) => entry.category === category);
         if (!inCategory.length) return null;
         return (
-          <PaletteGroup key={category} label={text.categories[category]}>
+          <GroupFrame key={category} label={text.categories[category]}>
             <div className="grid grid-cols-3 gap-1.5">
               {inCategory.map((entry) => (
                 <PaletteItem key={entry.id} entry={entry} surface={surface} onInsert={onInsert} />
               ))}
             </div>
-          </PaletteGroup>
+          </GroupFrame>
         );
       })}
+      <HostGroups position="beforeSections" surface={surface} onInsert={onInsert} />
       {sections.length ? (
-        <PaletteGroup label={text.sections}>
+        <GroupFrame label={text.sections}>
           <div className="grid grid-cols-2 gap-1">
             {sections.map((name) => (
               <SectionItem key={name} name={name} surface={surface} onInsert={onInsert} />
             ))}
           </div>
-        </PaletteGroup>
+        </GroupFrame>
       ) : null}
+      <HostGroups position="end" surface={surface} onInsert={onInsert} />
     </div>
   );
 }

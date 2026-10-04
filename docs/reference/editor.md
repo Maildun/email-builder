@@ -19,6 +19,7 @@ import { EmailEditor, type EmailEditorProps, type EmailEditorHandle } from '@mai
 | `assetsUrl` | `string` | Where the social icons are hosted. Defaults to jsDelivr. |
 | `blockTypes` | `BlockType[]` | Built-in blocks offered in the palette. All by default. |
 | `sections` | `SectionName[]` | Sections in the palette; `[]` hides them. All by default. |
+| `paletteGroups` | `PaletteGroup[]` | Your own groups in the palette, e.g. saved sections. See [Palette groups](/editor/#palette-groups). |
 | `views` | `('design' \| 'preview' \| 'code')[]` | Views in the top bar. All by default. |
 | `panels` | `{ sidebar?: boolean; inspector?: boolean }` | Panels in the default layout. Panels left on can still be hidden from the top bar. |
 | `toolbar` | `ReactNode` | Extra controls at the right of the top bar. |
@@ -59,6 +60,7 @@ import { EmailEditor, type EmailEditorProps, type EmailEditorHandle } from '@mai
 | `EditorState` | See [Custom layouts](/editor/custom-layouts#reading-and-changing-state). |
 | `MergeTag` | `{ key: string; label?: string }` |
 | `ImageResult` | `{ url: string; alt?: string }` |
+| `PaletteGroup`, `PaletteGroupItem` | Host groups in the palette. See [Palette groups](/editor/#palette-groups). |
 | `EditorView` | `'design' \| 'preview' \| 'code'` |
 | `Viewport` | `'desktop' \| 'mobile'` |
 | `EditorSlot` | The `classNames` keys |

@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { createDocument, defineBlock, type EmailDocument, renderEmail } from '../../src';
 import { runTool } from '../../src/agent';
 import { EmailEditor, type EmailEditorHandle, EN_MESSAGES } from '../../src/editor';
-import { resolveDrop } from '../../src/editor/dnd';
+import { opsForDrop, resolveDrop } from '../../src/editor/dnd';
 import { insertionPoint } from '../../src/editor/panels/Sidebar';
 
 afterEach(cleanup);
@@ -352,6 +352,61 @@ describe('<EmailEditor>', () => {
     expect(ref.current?.render().html).toContain('Use SUMMER');
   });
 
+  it('inserts items from host palette groups, with fresh ids each time', () => {
+    const ref = createRef<EmailEditorHandle>();
+    const footer = {
+      id: 'footer',
+      label: 'My footer',
+      blocks: [
+        {
+          id: 'saved-box',
+          type: 'container' as const,
+          children: [{ id: 'saved-text', type: 'text' as const, props: { markdown: 'Acme Inc.' } }],
+        },
+      ],
+      actions: <button type="button">Rename My footer</button>,
+    };
+    render(
+      <EmailEditor
+        ref={ref}
+        defaultValue={doc()}
+        paletteGroups={[
+          {
+            id: 'saved',
+            label: 'Your sections',
+            position: 'beforeSections',
+            items: [footer],
+            actions: <button type="button">Save selection</button>,
+          },
+          { id: 'hidden', label: 'Hidden when empty', items: [] },
+          { id: 'empty', label: 'Favorites', items: [], position: 'start', empty: <p>None yet</p> },
+        ]}
+      />,
+    );
+    const sidebar = screen.getByRole('complementary', { name: 'Blocks and layers' });
+    const headings = within(sidebar)
+      .getAllByRole('heading')
+      .map((heading) => heading.textContent);
+    expect(headings[0]).toBe('Favorites');
+    expect(headings.indexOf('Your sections')).toBe(headings.indexOf('Sections') - 1);
+    expect(headings).not.toContain('Hidden when empty');
+    expect(within(sidebar).getByText('None yet')).toBeTruthy();
+    expect(within(sidebar).getByRole('button', { name: 'Save selection' })).toBeTruthy();
+    expect(within(sidebar).getByRole('button', { name: 'Rename My footer' })).toBeTruthy();
+
+    const item = within(sidebar).getByRole('button', { name: /^My footer$/ });
+    fireEvent.click(item);
+    fireEvent.click(item);
+    const document = ref.current?.getDocument();
+    const added = document?.root.slice(2) ?? [];
+    expect(added).toHaveLength(1); // The second insert went into the selected container.
+    expect(added[0]).not.toBe('saved-box');
+    const box = document?.blocks[added[0] as string];
+    expect(box?.type).toBe('container');
+    expect(box && 'children' in box ? box.children.length : 0).toBe(2);
+    expect(ref.current?.render().html.match(/Acme Inc\./g)).toHaveLength(2);
+  });
+
   it('follows a controlled value', () => {
     const first = doc();
     const { container, rerender } = render(<EmailEditor value={first} />);
@@ -415,5 +470,12 @@ describe('placement helpers', () => {
     expect(
       resolveDrop(d, { kind: 'move', id: 'title', blockType: 'heading' }, 'before', 'title'),
     ).toBeNull();
+  });
+
+  it('drops every block of a multi-block drag', () => {
+    const blocks = [{ type: 'heading' as const }, { type: 'text' as const }];
+    expect(
+      opsForDrop({ kind: 'new', blockType: 'heading', blocks }, { parentId: 'root', index: 1 }),
+    ).toEqual([{ op: 'insert', parentId: 'root', index: 1, blocks }]);
   });
 });

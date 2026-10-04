@@ -26,6 +26,7 @@ export {
   type PaddingSide,
   resolveMessages,
 } from './messages';
+export type { PaletteGroup, PaletteGroupItem } from './panels/PaletteGroups';
 export { describeProposal, EditorProposalBar } from './panels/ProposalBar';
 export { Palette as EditorPalette, Sidebar as EditorSidebar } from './panels/Sidebar';
 export { EditorStage } from './panels/Stage';

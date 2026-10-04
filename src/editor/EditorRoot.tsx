@@ -38,6 +38,7 @@ import {
 import { EditorDnd } from './dnd';
 import { type DeepPartial, type EditorMessages, resolveMessages } from './messages';
 import { blockLabel } from './meta';
+import { type PaletteGroup, PaletteGroupsContext } from './panels/PaletteGroups';
 import { ProposalActionsContext } from './panels/ProposalBar';
 import { ToolbarContext } from './panels/TopBar';
 import { EditorStore, type EditorView, type Proposal } from './store';
@@ -68,6 +69,11 @@ export interface EditorRootProps {
   blockTypes?: BlockType[];
   /** Sections offered in the palette; `[]` hides them. All by default. */
   sections?: SectionName[];
+  /**
+   * Your own groups in the palette, e.g. sections the user saved. Their items
+   * insert on click and drag onto the canvas like the built-in ones.
+   */
+  paletteGroups?: PaletteGroup[];
   /** Views offered in the top bar. All by default. */
   views?: EditorView[];
   /** Extra controls at the right of the top bar. */
@@ -360,6 +366,7 @@ function useShallowStable<T>(value: readonly T[] | undefined): readonly T[] | un
 }
 
 const NO_CUSTOM_BLOCKS: CustomBlocks = [];
+const NO_PALETTE_GROUPS: PaletteGroup[] = [];
 
 /** Runs `callback` with each new value of a store slice (not on mount). */
 function useStoreEffect<T>(
@@ -401,6 +408,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
     assetsUrl = DEFAULT_OPTIONS.assetsUrl,
     blockTypes: blockTypesProp,
     sections: sectionsProp,
+    paletteGroups = NO_PALETTE_GROUPS,
     views: viewsProp,
     toolbar,
     proposalActions,
@@ -562,7 +570,9 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
       <EditorProvider store={store} options={options}>
         <ToolbarContext.Provider value={toolbar}>
           <ProposalActionsContext.Provider value={proposalActions}>
-            <Shell onSave={save}>{children}</Shell>
+            <PaletteGroupsContext.Provider value={paletteGroups}>
+              <Shell onSave={save}>{children}</Shell>
+            </PaletteGroupsContext.Provider>
           </ProposalActionsContext.Provider>
         </ToolbarContext.Provider>
       </EditorProvider>

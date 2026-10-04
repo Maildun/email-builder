@@ -34,6 +34,8 @@ export type DragData =
       blockType: BlockType;
       /** The block to insert; defaults to `{ type: blockType }`. */
       input?: BlockInput;
+      /** Several blocks to insert instead, e.g. a host palette item; `blockType` is the first one's. */
+      blocks?: BlockInput[];
       label?: string;
       icon?: IconSvgElement;
     }
@@ -100,7 +102,7 @@ export function resolveDrop(
   return target;
 }
 
-function opsForDrop(drag: DragData, target: Target): Op[] {
+export function opsForDrop(drag: DragData, target: Target): Op[] {
   switch (drag.kind) {
     case 'move':
       return [{ op: 'move', id: drag.id, parentId: target.parentId, index: target.index }];
@@ -110,7 +112,7 @@ function opsForDrop(drag: DragData, target: Target): Op[] {
           op: 'insert',
           parentId: target.parentId,
           index: target.index,
-          blocks: [drag.input ?? ({ type: drag.blockType } as BlockInput)],
+          blocks: drag.blocks ?? [drag.input ?? ({ type: drag.blockType } as BlockInput)],
         },
       ];
     case 'section':

@@ -94,6 +94,50 @@ const editor = useRef<EmailEditorHandle>(null);
 />;
 ```
 
+## Palette groups
+
+`paletteGroups` adds your own groups to the palette, for example sections the user saved. Items insert on click (after the selection, like the built-in blocks) and drag onto the canvas or the layers. Their blocks' ids are dropped, so every insert gets fresh ones.
+
+```tsx
+<EmailEditor
+  paletteGroups={[
+    {
+      id: 'saved',
+      label: 'Your sections',
+      position: 'beforeSections', // 'start' | 'beforeSections' | 'end' (default)
+      actions: <button onClick={saveSelection}>Save</button>,
+      empty: <p>Select a block and save it to reuse it.</p>,
+      items: saved.map((section) => ({
+        id: section.id,
+        label: section.name,
+        blocks: section.blocks,
+        actions: <SectionMenu section={section} />, // shown on hover
+      })),
+    },
+  ]}
+/>
+```
+
+| `PaletteGroup` | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Unique among the groups. |
+| `label` | `string` | Heading. |
+| `items` | `PaletteGroupItem[]` | What the group offers. |
+| `position` | `'start' \| 'beforeSections' \| 'end'` | Where the group goes. Default `end`. |
+| `actions` | `ReactNode` | Controls beside the heading. |
+| `empty` | `ReactNode` | Shown when `items` is empty. Without it, an empty group is hidden. |
+
+| `PaletteGroupItem` | Type | Description |
+| --- | --- | --- |
+| `id` | `string` | Unique within its group. |
+| `label` | `string` | Name under the thumbnail. |
+| `description` | `string` | Tooltip. |
+| `blocks` | `BlockInput[]` | Inserted on click or drop. |
+| `thumbnail` | `ReactNode` | Replaces the default thumbnail, a small render of the blocks in the email's theme. |
+| `actions` | `ReactNode` | Controls shown over the item on hover. |
+
+To save something the user selected, turn it into blocks with `toBlockInput(document, id)` from the core package.
+
 ## The ref handle
 
 | Method | Description |
