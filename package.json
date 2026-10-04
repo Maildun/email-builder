@@ -1,6 +1,6 @@
 {
   "name": "@maildun/email-builder",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Agentic-first email builder: a typed document model, an operations API for LLM agents, a dependency-light HTML renderer, and a modern React editor.",
   "license": "MIT",
   "type": "module",
