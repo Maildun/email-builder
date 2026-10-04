@@ -22,5 +22,13 @@ jobs:
       - run: bun run lint
       - name: Check tag matches package.json version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+      - name: Skip if this version is already on npm
+        id: published
+        run: |
+          if npm view "$(node -p 'require("./package.json").name')@${GITHUB_REF_NAME#v}" version >/dev/null 2>&1; then
+            echo "already=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${GITHUB_REF_NAME} is already on npm; skipping publish."
+          fi
       # prepublishOnly runs typecheck, tests and build.
-      - run: npm publish
+      - if: steps.published.outputs.already != 'true'
+        run: npm publish
