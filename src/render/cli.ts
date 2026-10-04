@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import type { CustomBlocks } from '../core/custom';
 import { lintDocument } from '../core/lint';
 import { validateDocument } from '../core/validate';
-import { serveStdio } from '../mcp/server';
+import { type McpServerOptions, serveStdio } from '../mcp/server';
 import { renderEmail } from './html';
 
 const USAGE = `Usage: email-builder <command> [file]
@@ -13,12 +16,50 @@ Commands:
   render     {"html", "text", "warnings"}   (exit 1 if the document is invalid)
   validate   {"ok", "issues", "warnings"}
   mcp        Runs an MCP server (stdio) for AI clients to design emails in a folder.
-             Options: --dir <folder> (default: current folder), --assets-url <url>
+             Options:
+               --dir <folder>          where the email files live (default: current folder)
+               --assets-url <url>      where rendered social icons load from
+               --brief <text>          brand, audience or tone guidance for the AI
+               --merge-tags <a,b,…>    merge tags your sending platform supports
+               --blocks <module>       JS module exporting custom blocks (default export or "customBlocks")
+               --require-unsubscribe   warn when the email has no {{ unsubscribe_url }}
 `;
 
 function option(argv: string[], name: string): string | undefined {
   const index = argv.indexOf(name);
   return index === -1 ? undefined : argv[index + 1];
+}
+
+async function loadCustomBlocks(path: string): Promise<CustomBlocks> {
+  const module = (await import(pathToFileURL(resolve(path)).href)) as {
+    default?: unknown;
+    customBlocks?: unknown;
+  };
+  const blocks = module.customBlocks ?? module.default;
+  if (!Array.isArray(blocks)) {
+    throw new Error(`${path} must export an array of custom blocks (default or "customBlocks").`);
+  }
+  return blocks as CustomBlocks;
+}
+
+async function serveMcp(argv: string[]): Promise<void> {
+  const dir = option(argv, '--dir');
+  const assetsUrl = option(argv, '--assets-url');
+  const brief = option(argv, '--brief');
+  const mergeTags = option(argv, '--merge-tags')
+    ?.split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  const blocks = option(argv, '--blocks');
+  const options: McpServerOptions = {
+    ...(dir ? { dir } : {}),
+    ...(assetsUrl ? { assetsUrl } : {}),
+    ...(brief ? { brief } : {}),
+    ...(mergeTags?.length ? { mergeTags } : {}),
+    ...(blocks ? { customBlocks: await loadCustomBlocks(blocks) } : {}),
+    ...(argv.includes('--require-unsubscribe') ? { lint: { requireUnsubscribe: true } } : {}),
+  };
+  serveStdio(options);
 }
 
 function readInput(file: string | undefined): string {
@@ -28,9 +69,10 @@ function readInput(file: string | undefined): string {
 function main(argv: string[]): number | undefined {
   const [command, file] = argv;
   if (command === 'mcp') {
-    const dir = option(argv, '--dir');
-    const assetsUrl = option(argv, '--assets-url');
-    serveStdio({ ...(dir ? { dir } : {}), ...(assetsUrl ? { assetsUrl } : {}) });
+    serveMcp(argv).catch((error: Error) => {
+      process.stderr.write(`${error.message}\n`);
+      process.exitCode = 2;
+    });
     return undefined;
   }
   if (command !== 'render' && command !== 'validate') {

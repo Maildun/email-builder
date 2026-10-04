@@ -1,8 +1,10 @@
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { defineBlock } from '../../src';
 import { EmailMcpServer } from '../../src/mcp/server';
 
 let dir: string;
@@ -78,6 +80,114 @@ describe('EmailMcpServer', () => {
   it('stays inside its folder', () => {
     expect(call('create_email', { file: '../escape.json' }).text).toContain('outside');
     expect(call('open_email', { file: '/etc/passwd' }).isError).toBe(true);
+  });
+
+  it('annotates tools and offers every tool the library supports', () => {
+    const response = server.handle({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) as {
+      result: {
+        tools: Array<{ name: string; title?: string; annotations?: Record<string, boolean> }>;
+      };
+    };
+    const tools = Object.fromEntries(response.result.tools.map((tool) => [tool.name, tool]));
+    for (const name of ['import_email', 'copy_email', 'undo', 'redo', 'get_reference']) {
+      expect(tools[name], name).toBeDefined();
+    }
+    for (const tool of response.result.tools) expect(tool.title, tool.name).toBeTruthy();
+    expect(tools.list_emails?.annotations?.readOnlyHint).toBe(true);
+    expect(tools.remove_block?.annotations?.destructiveHint).toBe(true);
+  });
+
+  it('looks up the reference without an open email', () => {
+    const result = call('get_reference', { topic: 'hero' });
+    expect(result.isError).toBe(false);
+    expect(result.text).toContain('### hero');
+  });
+
+  it('undoes and redoes changes, saving each step', () => {
+    call('create_email', { file: 'steps' });
+    call('insert_section', { name: 'hero' });
+    call('insert_section', { name: 'footer' });
+    const saved = () => readFileSync(join(dir, 'steps.json'), 'utf8');
+    expect(saved()).toContain('Unsubscribe');
+    expect(call('undo').text).toContain('1 more to undo');
+    expect(saved()).not.toContain('Unsubscribe');
+    call('undo');
+    expect(JSON.parse(saved()).root).toEqual([]);
+    expect(call('undo').isError).toBe(true);
+    call('redo');
+    call('redo');
+    expect(call('redo').text).toBe('Nothing to redo.');
+    expect(saved()).toContain('Unsubscribe');
+    call('undo');
+    call('insert_section', { name: 'cta' });
+    expect(call('redo').isError).toBe(true); // A new change clears redo.
+  });
+
+  it('copies an email and opens the copy', () => {
+    call('create_email', { file: 'base', template: 'newsletter' });
+    expect(call('copy_email', { to: 'base' }).text).toContain('already exists');
+    expect(call('copy_email', { to: 'variant' }).isError).toBe(false);
+    call('update_settings', { settings: { preheader: 'Variant B' } });
+    expect(readFileSync(join(dir, 'variant.json'), 'utf8')).toContain('Variant B');
+    expect(readFileSync(join(dir, 'base.json'), 'utf8')).not.toContain('Variant B');
+    expect(call('copy_email', { from: 'base.json', to: 'c' }).isError).toBe(false);
+    expect(call('list_emails').text).toContain('- c.json (open)');
+  });
+
+  it('imports EmailBuilder.js documents', () => {
+    copyFileSync(
+      join(__dirname, '../fixtures/emailbuilderjs/one-time-passcode.json'),
+      join(dir, 'otp.json'),
+    );
+    expect(call('open_email', { file: 'otp' }).text).toContain('import_email');
+    const imported = call('import_email', { from: 'otp.json' });
+    expect(imported.isError, imported.text).toBe(false);
+    expect(imported.text).toContain('otp-imported.json');
+    expect(call('get_document').text).toContain('heading');
+    expect(call('import_email', { from: 'otp-imported.json', to: 'again' }).text).toContain(
+      'not an EmailBuilder.js document',
+    );
+  });
+
+  it('returns HTML inline on request', () => {
+    call('create_email', { file: 'inline', template: 'newsletter' });
+    expect(call('render_email').text).not.toContain('<!DOCTYPE html>');
+    expect(call('render_email', { include_html: true }).text).toContain('<!DOCTYPE html>');
+  });
+
+  it('passes brief, merge tags, custom blocks and lint options through', () => {
+    const product = defineBlock({
+      name: 'product-card',
+      label: 'Product card',
+      description: 'A product with price.',
+      schema: z.object({ title: z.string(), price: z.string() }),
+      defaults: { title: 'Mug', price: '$12' },
+      render: (data) => `<p>${data.title} ${data.price}</p>`,
+    });
+    server = new EmailMcpServer({
+      dir,
+      brief: 'Acme sells mugs.',
+      mergeTags: ['first_name'],
+      customBlocks: [product],
+      lint: { requireUnsubscribe: true },
+    });
+    const instructions = server.instructions();
+    expect(instructions).toContain('Acme sells mugs.');
+    expect(instructions).toContain('{{ first_name }}');
+    expect(instructions).toContain('### product-card');
+    call('create_email', { file: 'mugs' });
+    const inserted = call('insert_blocks', {
+      blocks: [
+        { type: 'custom', props: { name: 'product-card', data: { title: 'Cup', price: '$9' } } },
+      ],
+    });
+    expect(inserted.isError, inserted.text).toBe(false);
+    expect(call('check_email').text).toContain('missing-unsubscribe');
+    call('render_email');
+    expect(readFileSync(join(dir, 'mugs.html'), 'utf8')).toContain('Cup $9');
+    expect(call('get_reference', { topic: 'product-card' }).text).toContain(
+      'A product with price.',
+    );
   });
 
   it('answers unknown methods with a JSON-RPC error', () => {

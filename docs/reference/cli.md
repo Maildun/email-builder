@@ -47,6 +47,10 @@ npx email-builder mcp --dir ./emails
 | --- | --- | --- |
 | `--dir <folder>` | current folder | Where the email files live |
 | `--assets-url <url>` | jsDelivr | Where rendered social icons load from |
+| `--brief <text>` | – | Brand, audience or tone guidance added to the instructions |
+| `--merge-tags <a,b,…>` | – | Merge tags your sending platform supports; the AI uses only these |
+| `--blocks <module>` | – | JS module exporting [custom blocks](/guide/custom-blocks) (default export or `customBlocks`) |
+| `--require-unsubscribe` | off | `check_email` and `render_email` warn when there's no `{{ unsubscribe_url }}` |
 
 ## Exit codes
 

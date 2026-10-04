@@ -101,6 +101,7 @@ The docs are also readable on GitHub in [`docs/`](docs/).
 | `@maildun/email-builder/core.css` | Editor styles for Tailwind CSS 4 + shadcn/ui apps | – |
 | `@maildun/email-builder/agent` | Agent tools, system prompt, provider adapters | No |
 | `@maildun/email-builder/compat` | `fromEmailBuilderJs` | No |
+| `@maildun/email-builder/mcp` | `EmailMcpServer`, `serveStdio` (Node) | No |
 
 ## Contributing
 

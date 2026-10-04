@@ -52,6 +52,10 @@
       "types": "./dist/compat.d.ts",
       "default": "./dist/compat.js"
     },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "default": "./dist/mcp.js"
+    },
     "./styles.css": "./dist/styles.css",
     "./core.css": "./dist/core.css",
     "./editor.css": "./dist/styles.css",

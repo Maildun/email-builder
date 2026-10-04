@@ -3,8 +3,10 @@ import { applyOps, createDocument, renderEmail, validateDocument } from '../../s
 import {
   buildSystemPrompt,
   createAgentSession,
+  isReadOnlyTool,
   outlineDocument,
   runTool,
+  simplifySchema,
   toAnthropicTools,
   toMcpTools,
   toOpenAITools,
@@ -154,5 +156,54 @@ describe('adapters and prompt', () => {
     expect(prompt).toContain('{{ first_name }}');
     expect(prompt).toContain('- footer:');
     expect(prompt).toContain('- testimonial:');
+  });
+
+  it('annotates tools and passes titles and annotations to MCP', () => {
+    const byName = Object.fromEntries(tools.map((tool) => [tool.name, tool]));
+    for (const name of ['get_document', 'get_block', 'get_reference', 'check_email']) {
+      expect(isReadOnlyTool(byName[name])).toBe(true);
+    }
+    expect(isReadOnlyTool(byName.update_block)).toBe(false);
+    expect(byName.remove_block?.annotations?.destructiveHint).toBe(true);
+    expect(byName.insert_section?.annotations?.destructiveHint).toBe(false);
+    const mcp = toMcpTools(tools).find((tool) => tool.name === 'insert_section');
+    expect(mcp).toMatchObject({ title: 'Insert section', annotations: { readOnlyHint: false } });
+  });
+
+  it('simplifies schemas for strict OpenAI-compatible APIs', () => {
+    const strict = createAgentSession(createDocument(), { strictSchemas: true }).tools;
+    const simple = JSON.stringify(toOpenAITools(strict, { simpleSchemas: true }));
+    expect(simple).not.toMatch(/"\$ref"|"\$defs"|"\$schema"|additionalProperties|propertyNames/);
+    expect(simplifySchema({ type: 'integer', maximum: 2 ** 53 })).toEqual({ type: 'integer' });
+    expect(JSON.stringify(toOpenAITools(strict))).toContain('$ref');
+  });
+});
+
+describe('get_reference', () => {
+  const { tools } = createAgentSession(createDocument());
+  const look = (topic: string) => runTool(tools, 'get_reference', { topic });
+
+  it('describes a block type with typed props, style, defaults and placement', () => {
+    const button = look('button');
+    expect(button.ok).toBe(true);
+    expect(button.content).toContain('### button');
+    expect(button.content).toContain('href:');
+    expect(button.content).toContain('defaults:');
+    expect(button.content).toContain('goes in: root, container, column');
+    expect(look('columns').content).toContain('holds: column');
+  });
+
+  it('covers sections, templates and catalogs', () => {
+    expect(look('navheader').content).toContain('### navHeader');
+    expect(look('templates').content).toContain('- newsletter:');
+    expect(look('sections').content).toContain('- footer:');
+    expect(look('blocks').content).toContain('### image');
+    expect(look('custom-blocks').content).toContain('No custom blocks');
+  });
+
+  it('explains unknown topics', () => {
+    const result = look('carousel');
+    expect(result.ok).toBe(false);
+    expect(result.content).toContain('a block type');
   });
 });

@@ -108,12 +108,28 @@ React 19. Marked `'use client'`.
 | `createAgentTools(store, options?)` | Tools bound to your own store. |
 | `runTool(tools, name, input)` | Runs a tool call: `{ ok, content, data? }`. |
 | `buildSystemPrompt(options?)` | The system prompt. |
-| `blockCatalog()`, `customBlockCatalog(list)` | Just the catalogs. |
-| `toAnthropicTools`, `toOpenAITools`, `toMcpTools` | Provider adapters. |
+| `blockCatalog()`, `customBlockCatalog(list)`, `sectionCatalog()`, `templateCatalog()` | Just the catalogs. |
+| `blockReference(type)`, `sectionReference(name)` | One block type or section in full, as `get_reference` returns it. |
+| `toAnthropicTools`, `toOpenAITools(tools, { simpleSchemas? })`, `toMcpTools` | Provider adapters. `toMcpTools` includes titles and annotations. |
+| `simplifySchema(schema)` | A tool schema without `$ref`s and keywords strict APIs reject (Gemini, xAI). |
+| `isReadOnlyTool(tool)` | True for tools that only read (`annotations.readOnlyHint`). |
 | `outlineDocument(doc)`, `summarizeBlock(block)` | The outline `get_document` returns. |
-| `AgentTool`, `AgentSession`, `AgentToolsOptions`, `DocumentStore`, `ToolResult`, `SystemPromptOptions`, `JsonSchema` | Types. |
+| `AgentTool`, `AgentSession`, `AgentToolsOptions`, `DocumentStore`, `ToolResult`, `ToolAnnotations`, `SystemPromptOptions`, `OpenAIToolsOptions`, `JsonSchema` | Types. |
 
 See [Agent tools](/ai/agents).
+
+## `@maildun/email-builder/mcp`
+
+Node only (reads and writes files).
+
+| Export | Description |
+| --- | --- |
+| `EmailMcpServer` | The MCP server over a folder of email files. `handle(message)` answers one JSON-RPC message; `instructions()` and `tools` expose what it sends. |
+| `serveStdio(options?)` | Runs the server on stdin/stdout, like `email-builder mcp`. |
+| `PROTOCOL_VERSIONS` | MCP revisions it speaks, newest first. |
+| `McpServerOptions`, `JsonRpcMessage` | Types. |
+
+See [MCP server](/ai/mcp).
 
 ## `@maildun/email-builder/compat`
 

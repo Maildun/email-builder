@@ -3,7 +3,7 @@ import type { CustomBlocks } from '../core/custom';
 import { formatIssues, type Issue } from '../core/issues';
 import { type LintOptions, lintDocument } from '../core/lint';
 import { type ApplyResult, applyOpsMaterialized, type Op } from '../core/ops';
-import { BLOCK_TYPES } from '../core/schema/blocks';
+import { BLOCK_TYPES, type BlockType } from '../core/schema/blocks';
 import {
   type BlockInput,
   BlockInputSchema,
@@ -14,6 +14,14 @@ import { buildSection, SECTION_NAMES, type SectionName } from '../core/sections'
 import { toBlockInput } from '../core/tree';
 import { renderEmail } from '../render/html';
 import { outlineDocument, summarizeBlock } from './outline';
+import {
+  blockCatalog,
+  blockReference,
+  customBlockCatalog,
+  sectionCatalog,
+  sectionReference,
+  templateCatalog,
+} from './prompt';
 
 export type JsonSchema = Record<string, unknown>;
 
@@ -26,11 +34,31 @@ export interface ToolResult {
   data?: unknown;
 }
 
+/** Hints about a tool's behavior, in MCP's `annotations` shape. */
+export interface ToolAnnotations {
+  /** The tool only reads; it never changes the document or anything else. */
+  readOnlyHint?: boolean;
+  /** The tool may delete or overwrite content (only meaningful when not read-only). */
+  destructiveHint?: boolean;
+  /** Calling it again with the same input has no further effect. */
+  idempotentHint?: boolean;
+  /** The tool reaches outside the document (network, other files …). */
+  openWorldHint?: boolean;
+}
+
 export interface AgentTool {
   name: string;
+  /** Short human-readable name, e.g. "Insert section". */
+  title?: string;
   description: string;
   inputSchema: JsonSchema;
+  annotations?: ToolAnnotations;
   execute: (input: unknown) => ToolResult;
+}
+
+/** True when the tool only reads (its `readOnlyHint` annotation), e.g. to skip saving or reviewing. */
+export function isReadOnlyTool(tool: Pick<AgentTool, 'annotations'> | undefined): boolean {
+  return tool?.annotations?.readOnlyHint === true;
 }
 
 export interface DocumentStore {
@@ -77,6 +105,13 @@ function inputSchemas(strict: boolean) {
   return {
     get_document: z.object({}),
     get_block: z.object({ id: z.string() }),
+    get_reference: z.object({
+      topic: z
+        .string()
+        .describe(
+          `"blocks", "sections", "templates", "custom-blocks", a block type (${BLOCK_TYPES.join(', ')}) or a section name.`,
+        ),
+    }),
     insert_blocks: z.object({
       parentId: parent.optional(),
       index: index.optional(),
@@ -128,6 +163,8 @@ const DESCRIPTIONS: Record<keyof ReturnType<typeof inputSchemas>, string> = {
   get_document:
     'Returns the outline of the email: settings, theme colors and every block as "id type: summary".',
   get_block: 'Returns one block with all its props, style and nested children as JSON.',
+  get_reference:
+    'Looks up the reference: every prop and style key of a block type with its type and defaults, the params of a section, or the catalog of blocks, sections, templates or custom blocks.',
   insert_blocks:
     'Inserts one or more blocks (with nested children) into a parent. Returns the new ids.',
   update_block: 'Changes props and/or style of a block. Only the given keys change.',
@@ -144,6 +181,51 @@ const DESCRIPTIONS: Record<keyof ReturnType<typeof inputSchemas>, string> = {
   check_email:
     'Validates the email and returns warnings (accessibility, deliverability, placeholders) plus the plain-text version.',
 };
+
+type ToolName = keyof ReturnType<typeof inputSchemas>;
+
+const TITLES: Record<ToolName, string> = {
+  get_document: 'Get document outline',
+  get_block: 'Get block',
+  get_reference: 'Look up blocks and sections',
+  insert_blocks: 'Insert blocks',
+  update_block: 'Update block',
+  move_block: 'Move block',
+  remove_block: 'Remove block',
+  duplicate_block: 'Duplicate block',
+  replace_block: 'Replace block',
+  insert_section: 'Insert section',
+  update_settings: 'Update settings',
+  update_theme: 'Update theme',
+  replace_document: 'Replace document',
+  apply_ops: 'Apply operations',
+  check_email: 'Check email',
+};
+
+const READ_ONLY = new Set<ToolName>(['get_document', 'get_block', 'get_reference', 'check_email']);
+const DESTRUCTIVE = new Set<ToolName>([
+  'remove_block',
+  'replace_block',
+  'replace_document',
+  'apply_ops',
+]);
+const IDEMPOTENT = new Set<ToolName>([
+  'update_block',
+  'move_block',
+  'update_settings',
+  'update_theme',
+  'replace_document',
+]);
+
+function annotationsFor(name: ToolName): ToolAnnotations {
+  if (READ_ONLY.has(name)) return { readOnlyHint: true, openWorldHint: false };
+  return {
+    readOnlyHint: false,
+    destructiveHint: DESTRUCTIVE.has(name),
+    idempotentHint: IDEMPOTENT.has(name),
+    openWorldHint: false,
+  };
+}
 
 function failure(issues: Issue[]): ToolResult {
   return {
@@ -206,6 +288,38 @@ export function createAgentTools(
       }
       const block = toBlockInput(document, input.id);
       return { ok: true, content: JSON.stringify(block, null, 2), data: block };
+    },
+
+    get_reference: (input: { topic: string }) => {
+      const topic = input.topic.trim();
+      const key = topic.toLowerCase();
+      const custom = options.customBlocks ?? [];
+      let content: string | undefined;
+      if (key === 'blocks') content = blockCatalog();
+      else if (key === 'sections') content = sectionCatalog();
+      else if (key === 'templates') content = templateCatalog();
+      else if (key === 'custom-blocks' || key === 'custom blocks') {
+        content = custom.length
+          ? customBlockCatalog(custom)
+          : 'No custom blocks are available here.';
+      } else if ((BLOCK_TYPES as string[]).includes(key))
+        content = blockReference(key as BlockType);
+      else {
+        const section = SECTION_NAMES.find((name) => name.toLowerCase() === key);
+        const definition = custom.find((candidate) => candidate.name === key);
+        if (section) content = sectionReference(section);
+        else if (definition) content = customBlockCatalog([definition]);
+      }
+      if (content === undefined) {
+        return failure([
+          {
+            path: 'topic',
+            message: `Nothing called "${topic}".`,
+            hint: `Use blocks, sections, templates, custom-blocks, a block type (${BLOCK_TYPES.join(', ')}) or a section (${SECTION_NAMES.join(', ')}).`,
+          },
+        ]);
+      }
+      return { ok: true, content };
     },
 
     insert_blocks: (input: { parentId?: string; index?: number; blocks: BlockInput[] }) =>
@@ -309,7 +423,9 @@ export function createAgentTools(
     const schema = schemas[name];
     return {
       name,
+      title: TITLES[name],
       description: DESCRIPTIONS[name],
+      annotations: annotationsFor(name),
       inputSchema: z.toJSONSchema(schema, { io: 'input', unrepresentable: 'any' }) as JsonSchema,
       execute: (input: unknown) => {
         const parsed = schema.safeParse(input ?? {});

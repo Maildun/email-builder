@@ -6,6 +6,7 @@ export default defineConfig({
     editor: 'src/editor/index.ts',
     agent: 'src/agent/index.ts',
     compat: 'src/compat/index.ts',
+    mcp: 'src/mcp/index.ts',
     cli: 'src/render/cli.ts',
   },
   format: 'esm',

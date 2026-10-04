@@ -1,8 +1,14 @@
 import { z } from 'zod';
 import type { CustomBlocks } from '../core/custom';
-import { BLOCK_DEFINITIONS, BLOCK_TYPES } from '../core/schema/blocks';
+import { BLOCK_DEFINITIONS, BLOCK_TYPES, type BlockType, canContain } from '../core/schema/blocks';
 import { FONT_KEYS, THEME_COLOR_TOKENS } from '../core/schema/primitives';
-import { SECTION_NAMES, SECTIONS, type SectionDefinition } from '../core/sections';
+import {
+  SECTION_NAMES,
+  SECTIONS,
+  type SectionDefinition,
+  type SectionName,
+} from '../core/sections';
+import { TEMPLATES, type TemplateName } from '../core/templates';
 
 type JsonSchema = {
   type?: string | string[];
@@ -57,7 +63,49 @@ export function blockCatalog(): string {
   }).join('\n\n');
 }
 
-function sectionCatalog(): string {
+/** Everything about one block type: props and style with their types, defaults and placement. */
+export function blockReference(type: BlockType): string {
+  const definition = BLOCK_DEFINITIONS[type];
+  const parents = (['root', ...BLOCK_TYPES] as const).filter((parent) =>
+    parent === 'root' || BLOCK_DEFINITIONS[parent].container ? canContain(parent, type) : false,
+  );
+  const children = definition.container
+    ? BLOCK_TYPES.filter((child) => canContain(type, child))
+    : [];
+  const props = describeFields(definition.props);
+  return [
+    `### ${type} (${definition.label})`,
+    definition.description,
+    props.length > 0 ? `props:\n${props.map((line) => `  - ${line}`).join('\n')}` : 'props: none',
+    `style:\n${describeFields(definition.style)
+      .map((line) => `  - ${line}`)
+      .join('\n')}`,
+    `defaults: ${JSON.stringify(definition.defaults)}`,
+    `goes in: ${parents.join(', ')}`,
+    children.length > 0 ? `holds: ${children.join(', ')}` : 'holds: nothing (not a container)',
+  ].join('\n');
+}
+
+/** One section: what it builds and the parameters it takes. */
+export function sectionReference(name: SectionName): string {
+  const section = SECTIONS[name] as SectionDefinition;
+  return [
+    `### ${name} (${section.label})`,
+    section.description,
+    `params (all optional strings):\n${Object.entries(section.params)
+      .map(([param, meaning]) => `  - ${param}: ${meaning}`)
+      .join('\n')}`,
+  ].join('\n');
+}
+
+/** The starting templates for new emails. */
+export function templateCatalog(): string {
+  return (Object.keys(TEMPLATES) as TemplateName[])
+    .map((name) => `- ${name}: ${TEMPLATES[name].description}`)
+    .join('\n');
+}
+
+export function sectionCatalog(): string {
   return SECTION_NAMES.map((name) => {
     const section = SECTIONS[name] as SectionDefinition;
     const params = Object.entries(section.params)
@@ -106,7 +154,7 @@ export function buildSystemPrompt(options: SystemPromptOptions = {}): string {
   return `You design and edit HTML emails by calling tools that change a structured email document. You never write the email HTML yourself; the renderer produces Outlook-, Gmail- and mobile-safe HTML from the document.
 ${options.brief ? `\n## Brief\n${options.brief}\n` : ''}
 ## How to work
-1. Call get_document first to see the current outline and block ids.
+1. Call get_document first to see the current outline and block ids. Call get_reference for the full props of a block type or the params of a section when you're unsure.
 2. Prefer insert_section for common patterns (${SECTION_NAMES.join(', ')}); then adjust with update_block.
 3. Make focused edits with update_block / move_block / remove_block. Use replace_document only to start over.
 4. Batch related changes into one call where the tool allows (insert_blocks takes nested blocks; apply_ops takes several operations and is atomic).

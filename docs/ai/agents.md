@@ -95,6 +95,7 @@ session.getDocument();
 | --- | --- |
 | `get_document` | The outline: settings, theme colors and every block as `id type: summary`. |
 | `get_block` | One block with all its props, style and nested children as JSON. |
+| `get_reference` | The full reference for a block type (typed props and style, defaults, where it can go) or a section, or the catalog of blocks, sections, templates or custom blocks. |
 | `insert_blocks` | Inserts blocks (with nested children) into a parent. Returns the new ids. |
 | `update_block` | Changes props and/or style of a block. Only the given keys change. |
 | `move_block` | Moves a block (with its children) to another parent or position. |
@@ -108,9 +109,11 @@ session.getDocument();
 | `apply_ops` | Applies several [operations](/guide/operations) atomically, reporting every failing op so the model can fix them in one retry. |
 | `check_email` | Validates the email and returns lint warnings plus the plain-text version. |
 
-Every tool has `name`, `description`, `inputSchema` (JSON Schema) and `execute(input)`. `runTool(tools, name, input)` finds and runs one, and returns `{ ok, content, data? }`: `content` is the text for the model, `data` structured details for you (new ids, issues).
+Every tool has `name`, `title`, `description`, `inputSchema` (JSON Schema), `annotations` and `execute(input)`. `runTool(tools, name, input)` finds and runs one, and returns `{ ok, content, data? }`: `content` is the text for the model, `data` structured details for you (new ids, issues).
 
-**Adapters** shape the tools for each API: `toAnthropicTools`, `toOpenAITools` and `toMcpTools`.
+**Annotations** follow MCP: `readOnlyHint` (`get_document`, `get_block`, `get_reference`, `check_email`), `destructiveHint` (`remove_block`, `replace_block`, `replace_document`, `apply_ops`) and `idempotentHint`. `isReadOnlyTool(tool)` checks the first, e.g. to skip saving or reviewing after a read.
+
+**Adapters** shape the tools for each API: `toAnthropicTools`, `toOpenAITools` and `toMcpTools` (which keeps titles and annotations). Some OpenAI-compatible APIs (Gemini, xAI) reject parts of JSON Schema; `toOpenAITools(tools, { simpleSchemas: true })` runs each schema through `simplifySchema`, which inlines `$ref`s and drops the keywords they refuse.
 
 ## The system prompt
 
@@ -125,7 +128,7 @@ buildSystemPrompt({
 });
 ```
 
-`blockCatalog()` and `customBlockCatalog()` return just the catalogs, if you write your own prompt.
+`blockCatalog()`, `sectionCatalog()`, `templateCatalog()` and `customBlockCatalog()` return just the catalogs, if you write your own prompt. `blockReference(type)` and `sectionReference(name)` return one entry in full.
 
 ## Sessions and stores
 
