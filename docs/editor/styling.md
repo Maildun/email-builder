@@ -92,3 +92,15 @@ For anything else, target the slots in CSS loaded after the editor's stylesheet:
 ```
 
 The email canvas resets your page's global styles inside it, so what you see matches what recipients get.
+
+## Swapping icons
+
+The editor uses the free [Hugeicons](https://hugeicons.com) stroke set. Pass `icons` to use other Hugeicons, for example to match an app built on another style:
+
+```tsx
+import { CancelCircleIcon, CheckmarkCircle02Icon, SparklesIcon } from '@hugeicons-pro/core-solid-rounded';
+
+<EmailEditor icons={{ proposal: SparklesIcon, reject: CancelCircleIcon, accept: CheckmarkCircle02Icon }} />
+```
+
+Icons: `proposal` (the review bar's mark), `reject`, `accept`. The rest keep the built-in icons.

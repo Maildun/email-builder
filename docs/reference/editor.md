@@ -25,6 +25,7 @@ import { EmailEditor, type EmailEditorProps, type EmailEditorHandle } from '@mai
 | `proposalActions` | `ReactNode \| (proposal) => ReactNode` | Extra controls in the proposal bar, before Reject. |
 | `appearance` | `'inherit' \| 'light' \| 'dark' \| 'system'` | Color scheme. `inherit` follows a `.dark` class on an ancestor. |
 | `classNames` | `Partial<Record<EditorSlot, string>>` | Extra classes for `root`, `topbar`, `sidebar`, `stage`, `canvas`, `inspector`, `proposal`, `block-toolbar`. |
+| `icons` | `Partial<Record<EditorIconName, IconSvgElement>>` | Replacement Hugeicons for `proposal` (the review bar's mark), `reject` and `accept`. Others keep the built-in icons. |
 | `messages` | `DeepPartial<EditorMessages>` | UI text. See [Translations](/editor/translations). |
 | `onSelectionChange` | `(id, block) => void` | The selected block changed. |
 | `onProposalChange` | `(proposal \| null) => void` | A proposal appeared, changed, or was resolved. |

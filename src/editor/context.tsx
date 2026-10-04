@@ -1,3 +1,4 @@
+import type { IconSvgElement } from '@hugeicons/react';
 import { createContext, type ReactNode, useContext, useSyncExternalStore } from 'react';
 import type { CustomBlockDefinition, CustomBlocks } from '../core/custom';
 import type { BlockType } from '../core/schema/blocks';
@@ -30,10 +31,17 @@ export type EditorSlot =
 
 export type EditorClassNames = Partial<Record<EditorSlot, string>>;
 
+/** Icons the host can swap, e.g. for another Hugeicons style. */
+export type EditorIconName = 'proposal' | 'reject' | 'accept';
+
+/** Replacement icons (Hugeicons `IconSvgElement`s); the rest keep the built-in ones. */
+export type EditorIcons = Partial<Record<EditorIconName, IconSvgElement>>;
+
 export interface EditorOptions {
   readOnly: boolean;
   mergeTags: MergeTag[];
   classNames?: EditorClassNames;
+  icons?: EditorIcons;
   /** Host-defined block types, and the same list by name. */
   customBlocks: CustomBlocks;
   customBlockMap: ReadonlyMap<string, CustomBlockDefinition>;
@@ -111,6 +119,11 @@ export function useEditorOptions(): EditorOptions {
 /** The host's extra class name for one part of the editor. */
 export function useSlotClassName(slot: EditorSlot): string | undefined {
   return useContext(OptionsContext).classNames?.[slot];
+}
+
+/** The host's icon for one part of the editor, or `fallback`. */
+export function useEditorIcon(name: EditorIconName, fallback: IconSvgElement): IconSvgElement {
+  return useContext(OptionsContext).icons?.[name] ?? fallback;
 }
 
 /** The editor's UI text (translated when the host passed `messages`). */

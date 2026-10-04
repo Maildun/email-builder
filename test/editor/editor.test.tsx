@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import type { IconSvgElement } from '@hugeicons/react';
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -257,6 +258,17 @@ describe('<EmailEditor>', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Always allow (AI)' }));
     expect(ref.current?.store.getState().proposal).toBeNull();
     expect(ref.current?.getDocument().theme.colors.primary).toBe('#7c3aed');
+  });
+
+  it('uses the host icons in the proposal bar', () => {
+    const ref = createRef<EmailEditorHandle>();
+    const accept: IconSvgElement = [['path', { d: 'M1 1h22v22H1z', key: '0' }]];
+    render(<EmailEditor ref={ref} defaultValue={doc()} icons={{ accept }} />);
+    act(() => {
+      ref.current?.propose([{ op: 'updateTheme', colors: { primary: '#7c3aed' } }]);
+    });
+    const button = screen.getByRole('button', { name: /accept/i });
+    expect(button.querySelector('path')?.getAttribute('d')).toBe('M1 1h22v22H1z');
   });
 
   it('composes a custom layout from the parts', () => {

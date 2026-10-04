@@ -1,6 +1,8 @@
 export { Canvas } from './canvas/Canvas';
 export {
   type EditorClassNames,
+  type EditorIconName,
+  type EditorIcons,
   type EditorOptions,
   EditorProvider,
   type EditorSlot,

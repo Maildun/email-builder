@@ -1,6 +1,12 @@
 import { Cancel01Icon, SparklesIcon, Tick02Icon } from '@hugeicons/core-free-icons';
 import { createContext, type ReactNode, useContext, useEffect, useRef } from 'react';
-import { useEditorOptions, useEditorState, useEditorStore, useSlotClassName } from '../context';
+import {
+  useEditorIcon,
+  useEditorOptions,
+  useEditorState,
+  useEditorStore,
+  useSlotClassName,
+} from '../context';
 import type { EditorMessages } from '../messages';
 import type { Proposal } from '../store';
 import { Button, cn, Icon } from '../ui';
@@ -59,6 +65,9 @@ export function EditorProposalBar() {
   const bar = useRef<HTMLDivElement>(null);
   const shown = useRef(0);
   const actions = useContext(ProposalActionsContext);
+  const proposalIcon = useEditorIcon('proposal', SparklesIcon);
+  const rejectIcon = useEditorIcon('reject', Cancel01Icon);
+  const acceptIcon = useEditorIcon('accept', Tick02Icon);
 
   // Reserve room while the bar is up, and bring the first change into view.
   const first = proposal?.changed[0];
@@ -106,7 +115,7 @@ export function EditorProposalBar() {
       )}
       onClick={(event) => event.stopPropagation()}
     >
-      <Icon icon={SparklesIcon} className="size-4 shrink-0 text-editor-ai" />
+      <Icon icon={proposalIcon} className="size-4 shrink-0 text-editor-ai" />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <strong className="font-semibold text-sm">{describeProposal(proposal, messages)}</strong>
         {proposal.summary ? (
@@ -125,7 +134,7 @@ export function EditorProposalBar() {
       ) : null}
       {typeof actions === 'function' ? actions(proposal) : actions}
       <Button size="sm" variant="ghost" onClick={() => store.reject()}>
-        <Icon icon={Cancel01Icon} data-icon="inline-start" /> {text.reject}
+        <Icon icon={rejectIcon} data-icon="inline-start" /> {text.reject}
       </Button>
       <Button
         size="sm"
@@ -138,7 +147,7 @@ export function EditorProposalBar() {
           });
         }}
       >
-        <Icon icon={Tick02Icon} data-icon="inline-start" /> {text.accept}
+        <Icon icon={acceptIcon} data-icon="inline-start" /> {text.accept}
       </Button>
     </div>
   );

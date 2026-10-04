@@ -25,6 +25,7 @@ import { duplicateBlock, removeBlock } from './actions';
 import {
   DEFAULT_OPTIONS,
   type EditorClassNames,
+  type EditorIcons,
   type EditorOptions,
   EditorProvider,
   type ImageResult,
@@ -83,6 +84,8 @@ export interface EditorRootProps {
   appearance?: 'inherit' | 'light' | 'dark' | 'system';
   /** Extra class names for parts of the editor; each part also has a matching `data-slot`. */
   classNames?: EditorClassNames;
+  /** Replacement icons for parts of the editor, e.g. another Hugeicons style. */
+  icons?: EditorIcons;
   /** Called when the selected block changes. */
   onSelectionChange?: (id: string | null, block: Block | null) => void;
   /** Called when a proposal appears, changes, or is accepted/rejected (null). */
@@ -403,6 +406,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
     proposalActions,
     appearance = 'inherit',
     classNames,
+    icons: iconsProp,
     onSelectionChange,
     onProposalChange,
     onSave,
@@ -488,6 +492,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
 
   const mergeTags = useStructural(mergeTagsProp);
   const slotClassNames = useStructural(classNames);
+  const icons = useStructural(iconsProp);
   const customBlocks = useShallowStable(customBlocksProp) ?? NO_CUSTOM_BLOCKS;
   const blockTypes = useShallowStable(blockTypesProp);
   const sections = useShallowStable(sectionsProp);
@@ -516,6 +521,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
       messages,
       assetsUrl,
       ...(slotClassNames ? { classNames: slotClassNames } : {}),
+      ...(icons ? { icons } : {}),
       ...(uploadImage ? { onUploadImage: uploadImage } : {}),
       ...(pickImage ? { onPickImage: pickImage } : {}),
       ...(blockTypes ? { blockTypes } : {}),
@@ -529,6 +535,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
       messages,
       assetsUrl,
       slotClassNames,
+      icons,
       uploadImage,
       pickImage,
       blockTypes,
