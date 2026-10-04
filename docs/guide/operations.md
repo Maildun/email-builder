@@ -36,26 +36,28 @@ if (result.ok) {
 ## How operations behave
 
 - **Atomic.** If any op in a batch fails, nothing changes and you get the issues. The input document is never mutated.
-- **Complete.** A failing op doesn't stop the batch from being checked: you get the issues of every failing op at once, each with its `opIndex`. An op that targets a block an earlier failed op would have created gets a hint naming that op.
+- **Complete.** A failing op doesn't stop the batch from being checked: you get the issues of every failing op at once, each with its `opIndex`. An op that targets a block an earlier failed op would have created gets a hint naming that op. When every op succeeds but the result breaks a document rule, those final issues have no `opIndex`.
 - **Validated.** The result is checked against the schema and the tree rules (placement, no orphans, no cycles) before it's returned.
-- **Nested input.** Inserted blocks can include their children. Missing ids and defaults are filled in.
+- **Nested input.** Inserted blocks can include their children. Missing ids are filled in, and the block's default props and style are merged under yours. In a `columns` block, children that aren't `column` blocks are wrapped in one, and an empty `columns` gets two columns.
 - **Structural sharing.** Unchanged blocks, the theme and settings keep their object identity, so UIs can skip re-rendering them.
 
 ## The operations
 
 | Op | Shape | What it does |
 | --- | --- | --- |
-| `insert` | `{ op, parentId?, index?, blocks }` | Inserts blocks (with nested children) into `parentId` (default `root`) at `index` (default: the end). |
+| `insert` | `{ op, parentId?, index?, blocks }` | Inserts blocks (with nested children) into `parentId` (default `root`) at `index` (default: the end; an index past the end is clamped). |
 | `update` | `{ op, id, props?, style? }` | Merges keys into a block's props and/or style. `null` removes a key so the default applies. |
-| `move` | `{ op, id, parentId, index? }` | Moves a block, with its children, to another parent or position. |
-| `remove` | `{ op, id }` | Removes a block and all its descendants. |
+| `move` | `{ op, id, parentId, index? }` | Moves a block, with its children, to another parent or position. Fails when the target is the block itself or one of its descendants. |
+| `remove` | `{ op, id }` | Removes a block and all its descendants. Refuses the last `column` of a `columns` block; remove the `columns` block instead. |
 | `duplicate` | `{ op, id }` | Copies a block, with its children, right after itself. |
-| `replace` | `{ op, id, block }` | Replaces a block in place with new content. |
-| `updateSettings` | `{ op, settings }` | Merges keys into `settings`. |
-| `updateTheme` | `{ op, colors?, fonts? }` | Merges theme colors and fonts. Every block using `$tokens` follows. |
-| `replaceDocument` | `{ op, document }` | Replaces everything, with a full document or `{ settings?, theme?, blocks }`. |
+| `replace` | `{ op, id, block }` | Replaces a block in place with new content. Keeps the original id unless `block.id` is given. |
+| `updateSettings` | `{ op, settings }` | Merges keys into `settings`. `null` removes an optional key. |
+| `updateTheme` | `{ op, colors?, fonts? }` | Merges theme colors and fonts. Every block using `$tokens` follows. Theme keys can't be removed. |
+| `replaceDocument` | `{ op, document }` | Replaces everything, with a full document (one with `version`, which must be valid as is) or `{ settings?, theme?, blocks }` built on an empty document. |
 
-`parentId` is the id of a `container`, a `column`, or `"root"` for the document body.
+`parentId` is the id of a `container`, a `column`, a `columns` block (for inserting or moving `column` blocks), or `"root"` for the document body.
+
+`applyOps` takes one op or an array. `applyOpsMaterialized` takes an array and, on success, also returns the `ops` it applied.
 
 ## Errors that explain themselves
 
@@ -96,10 +98,10 @@ Helpers for walking a document:
 | Function | Returns |
 | --- | --- |
 | `walk(doc, visit)` | Visits every block depth-first: `visit(id, block, depth, parentId)` |
-| `findParent(doc, id)` | `{ parentId, index }` |
-| `childrenOf(doc, parentId)` | Child ids of a container or `root` |
-| `descendantIds(doc, id)` | Every id inside a block |
+| `findParent(doc, id)` | `{ parentId, index }`, or `undefined` |
+| `childrenOf(doc, parentId)` | Child ids of a container or `root`, or `undefined` |
+| `descendantIds(doc, id)` | The block's id and every id inside it |
 | `ancestorIds(doc, id)` | Ids of the containers above a block, nearest first |
-| `toBlockInput(doc, id)` | A block as nested input, e.g. to copy it |
+| `toBlockInput(doc, id, keepIds = true)` | A block as nested input, e.g. to copy it. Pass `false` to drop the ids. Throws if the block doesn't exist. |
 
 Next: [validate and lint](./validation) documents you receive.

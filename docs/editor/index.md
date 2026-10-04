@@ -2,7 +2,9 @@
 
 `<EmailEditor>` is the visual editor: a palette of blocks and sections on the left, the email in the middle, an inspector on the right, and a top bar with views (design, preview, code), the mobile/desktop toggle and undo/redo.
 
-The code view shows the HTML, plain text and JSON with line numbers and syntax colors. HTML is indented for reading (toggle it off to see the output as sent); **Copy** always copies the exact output.
+The code view shows the HTML, plain text and JSON with line numbers, syntax colors and the size in KB. HTML is indented for reading (toggle **Format** off to see the output as sent), **Wrap** wraps long lines (on by default for plain text), render warnings appear above the code, and long runs of preheader filler are collapsed into a "× N" badge. **Copy** always copies the exact output.
+
+On the design and preview views, an email wider than the stage is scaled down to fit rather than reflowed, so the layout stays the one recipients get.
 
 ```tsx
 import { EmailEditor } from '@maildun/email-builder/editor';
@@ -179,6 +181,8 @@ To save something the user selected, turn it into blocks with `toBlockInput(docu
 | ⌘S | `onSave` |
 
 On Windows and Linux, use Ctrl for ⌘ and Alt for ⌥.
+
+While an AI proposal is waiting for review, only undo/redo, ⌘\\ and ⌘S work; the block shortcuts come back once it's accepted or rejected. With `readOnly`, only ⌘S works.
 
 ## More
 

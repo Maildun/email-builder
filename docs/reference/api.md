@@ -13,8 +13,8 @@ No React, no DOM. Safe on servers, edge runtimes and in the browser.
 | `createDocument({ settings?, theme?, blocks? })` | A valid document from partial settings/theme and nested blocks. Throws on invalid input. |
 | `emptyDocument()` | A blank document with default settings and theme. |
 | `DEFAULT_SETTINGS`, `DEFAULT_THEME` | The defaults. |
-| `TEMPLATES`, `TemplateName` | Starter documents. See [Templates](/guide/sections#templates). |
-| `SECTIONS`, `SECTION_NAMES`, `buildSection(name, params)` | See [Sections](/guide/sections). |
+| `TEMPLATES`, `TemplateName`, `TemplateDefinition` | Starter documents. See [Templates](/guide/sections#templates). |
+| `SECTIONS`, `SECTION_NAMES`, `buildSection(name, params)`, `SectionName`, `SectionDefinition` | See [Sections](/guide/sections). |
 | `ROOT_ID` | `'root'`, the id of the document body. |
 
 ### Operations
@@ -25,7 +25,7 @@ No React, no DOM. Safe on servers, edge runtimes and in the browser.
 | `applyOpsMaterialized(doc, ops, options?)` | Same, one op at a time, and returns the ops with explicit ids. |
 | `materializeOp(doc, op)` | One op with explicit ids for everything it creates. |
 | `OpSchema` and `InsertOpSchema` … `ReplaceDocumentOpSchema` | Zod schemas for operations. |
-| `Op`, `InsertOp`, `UpdateOp`, `MoveOp`, `RemoveOp`, `DuplicateOp`, `ReplaceOp`, `UpdateSettingsOp`, `UpdateThemeOp`, `ReplaceDocumentOp`, `ApplyResult` | Types. |
+| `Op`, `InsertOp`, `UpdateOp`, `MoveOp`, `RemoveOp`, `DuplicateOp`, `ReplaceOp`, `UpdateSettingsOp`, `UpdateThemeOp`, `ReplaceDocumentOp`, `ApplyResult`, `ApplyOptions` | Types. |
 
 See [Operations](/guide/operations).
 
@@ -37,6 +37,7 @@ See [Operations](/guide/operations).
 | `validateStructure(doc)` | Tree checks only, for an already-typed document. |
 | `lintDocument(doc, options?)` | Quality warnings. See [Lint](/guide/validation#lint). |
 | `formatIssues(issues)` | Issues as readable text. |
+| `issuesFromZod(error, options?)`, `joinPath`, `aliasHint` | Helpers for turning Zod errors into `Issue`s, for hosts that validate their own input the same way. |
 | `Issue`, `LintWarning`, `LintOptions`, `ValidationResult` | Types. |
 
 ### Schemas and types
@@ -51,11 +52,12 @@ See [Operations](/guide/operations).
 | `FONT_FAMILIES`, `FONT_KEYS`, `resolveFontStack(font)` | Font presets. |
 | `THEME_COLOR_TOKENS`, `resolveColor(color, theme)`, `contrastRatio(fg, bg)` | Colors. |
 | `resolvePadding(padding)`, `isSafeUrl(url)` | Value helpers. |
-| `EmailDocument`, `Settings`, `Theme`, `Block`, `BlockOf<T>`, `BlockInput`, `BlockType`, `BlockProps<T>`, `BlockStyle<T>` | Types. |
+| `ColorSchema`, `HexColorSchema`, `PaddingSchema`, `UrlSchema`, `BorderSchema`, `FontFamilySchema`, `FontWeightSchema`, `AlignSchema`, `VerticalAlignSchema`, `BlockIdSchema`, the per-block `*Props` schemas, `SocialLinkSchema` | Zod schemas for the value types, to reuse in your own forms or custom blocks. |
+| `EmailDocument`, `Settings`, `Theme`, `Block`, `BlockOf<T>`, `BlockInput`, `BlockType`, `BlockProps<T>`, `BlockStyle<T>`, `BlockDefinition`, `ContainerBlock`, `FontKey`, `ThemeColorToken`, `ResolvedPadding` | Types. |
 
 ### Tree
 
-`walk`, `findParent`, `childrenOf`, `descendantIds`, `ancestorIds`, `toBlockInput`, `normalizeBlockInputs`, and `createId` / `createUniqueId` for ids. See [Reading the tree](/guide/operations#reading-the-tree).
+`walk`, `findParent`, `childrenOf`, `descendantIds`, `ancestorIds`, `toBlockInput`, `normalizeBlockInputs` (nested input to stored blocks; returns a `NormalizeResult`), the `ParentInfo` and `ParentType` types, and `createId` / `createUniqueId` for ids. See [Reading the tree](/guide/operations#reading-the-tree).
 
 ### Custom blocks
 
@@ -63,6 +65,7 @@ See [Operations](/guide/operations).
 | --- | --- |
 | `defineBlock(definition)` | Declares a custom block. See [Custom blocks](/guide/custom-blocks). |
 | `customBlockMap(list)` | Definitions by name. |
+| `CUSTOM_BLOCK_NAME` | The pattern a custom block name must match: lowercase letters, digits and dashes, starting with a letter, up to 64 characters. |
 | `validateCustomBlocks(doc, list, ids?)` | Checks custom block data against the definitions. |
 | `CustomBlockDefinition`, `CustomBlockField`, `CustomRenderContext`, `CustomBlocks` | Types. |
 
@@ -72,6 +75,8 @@ See [Operations](/guide/operations).
 | --- | --- |
 | `SOCIAL_NETWORKS`, `SOCIAL_LABELS`, `detectNetwork(url)` | Supported networks. |
 | `socialIconUrl(assetsUrl, network, variant)`, `DEFAULT_ASSETS_URL` | Icon URLs. |
+| `SOCIAL_STARTER_URLS` | The placeholder link a new icon starts with; lint flags it until it points at a profile. |
+| `SocialNetwork`, `SocialVariant` | Types. |
 | `youtubeId(url)`, `videoThumbnail(props)` | Video helpers. |
 
 ### Renderer
@@ -82,8 +87,8 @@ See [Operations](/guide/operations).
 | `renderPlainText(doc, options?)` | Only the plain-text version. |
 | `renderMarkdown`, `renderInlineMarkdown`, `markdownToPlainText` | The restricted markdown renderer. |
 | `escapeHtml`, `safeUrl`, `protectMergeTags` | Escaping helpers. |
-| `createRenderContext`, `renderDocumentHtml`, `renderBlock`, `box`, `boxDeclarations`, `typeDeclarations`, `columnWidths`, `innerWidth` | Building blocks for custom renderers. |
-| `RenderOptions`, `RenderResult`, `RenderWarning`, `RenderContext` | Types. |
+| `createRenderContext(doc, { annotate?, customBlocks?, assetsUrl? })`, `renderDocumentHtml`, `renderBlock`, `box`, `boxDeclarations`, `typeDeclarations`, `columnWidths`, `innerWidth` | Building blocks for custom renderers. |
+| `RenderOptions`, `RenderResult`, `RenderWarning`, `RenderContext`, `BoxStyle`, `TypeStyle` | Types. |
 
 ## `@maildun/email-builder/editor`
 
@@ -98,7 +103,7 @@ React 19. Marked `'use client'`.
 | `EditorStore` | The state store. |
 | `EN_MESSAGES`, `resolveMessages`, `EditorMessages` | UI text. See [Translations](/editor/translations). |
 | `describeProposal(proposal, messages)` | A short description of a proposal's changes, in the given UI language. |
-| `EmailEditorProps`, `EmailEditorHandle`, `EditorRootProps`, `EditorOptions`, `EditorState`, `Proposal`, `MergeTag`, `ImageResult`, `EditorView`, `Viewport`, `EditorSlot`, `EditorClassNames` | Types. |
+| `EmailEditorProps`, `EmailEditorHandle`, `EditorRootProps`, `EditorOptions`, `EditorState`, `Proposal`, `MergeTag`, `ImageResult`, `EditorView`, `Viewport`, `EditorSlot`, `EditorClassNames`, `PaletteGroup`, `PaletteGroupItem`, `EditorIcons`, `EditorIconName`, `ApplyOptions`, `EditorPanel`, `Toast`, `DeepPartial`, `LabelledItem`, `BlockCategory`, `PaddingSide` | Types. See [Editor props](./editor#types). |
 
 ## `@maildun/email-builder/agent`
 
@@ -124,8 +129,8 @@ Node only (reads and writes files).
 
 | Export | Description |
 | --- | --- |
-| `EmailMcpServer` | The MCP server over a folder of email files. `handle(message)` answers one JSON-RPC message; `instructions()` and `tools` expose what it sends. |
-| `serveStdio(options?)` | Runs the server on stdin/stdout, like `email-builder mcp`. |
+| `EmailMcpServer` | The MCP server over a folder of email files. `handle(message)` answers one JSON-RPC message; `instructions()` and `tools` expose what it sends; `dir` is the resolved folder. |
+| `serveStdio(options?)` | Runs the server on stdin/stdout, like `email-builder mcp`, and returns it. Logs the version and folder to stderr. |
 | `PROTOCOL_VERSIONS` | MCP revisions it speaks, newest first. |
 | `McpServerOptions`, `JsonRpcMessage` | Types. |
 
@@ -135,6 +140,7 @@ See [MCP server](/ai/mcp).
 
 | Export | Description |
 | --- | --- |
+| `EmailBuilderJsDocument`, `ImportResult` | Types. |
 | `fromEmailBuilderJs(input)` | `{ document, warnings }`. Throws when the input isn't an EmailBuilder.js document. |
 | `isEmailBuilderJsDocument(value)` | Type guard. |
 | `escapeMarkdown(text)` | Escapes markdown syntax so text renders literally. |
@@ -145,7 +151,7 @@ See [Migrating from EmailBuilder.js](/guide/migrating).
 
 | Import | Use |
 | --- | --- |
-| `@maildun/email-builder/styles.css` | Precompiled, scoped. Any React app. |
+| `@maildun/email-builder/styles.css` | Precompiled, scoped. Any React app. Also available as `editor.css`. |
 | `@maildun/email-builder/core.css` | For Tailwind CSS 4 + shadcn/ui apps. |
 
 See [Styling and theming](/editor/styling).

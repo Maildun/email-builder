@@ -46,6 +46,7 @@ Email Builder takes the other route:
 | `@maildun/email-builder/core.css` | Editor styles for Tailwind CSS 4 + shadcn/ui apps | – |
 | `@maildun/email-builder/agent` | Agent tools, system prompt, provider adapters | No |
 | `@maildun/email-builder/compat` | `fromEmailBuilderJs` importer | No |
+| `@maildun/email-builder/mcp` | MCP server (`EmailMcpServer`, `serveStdio`), Node only | No |
 
 React is an optional peer dependency: a server that only renders or runs agents doesn't need it.
 

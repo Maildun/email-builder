@@ -2,12 +2,13 @@
 layout: home
 
 hero:
-  name: Email Builder
+  name: Maildun Email Builder
   text: Emails that people and AI can design together
   tagline: A typed document model, an operations API for LLM agents, an email-safe HTML renderer and a modern React editor. One package, MIT licensed.
   image:
-    src: /logo.svg
-    alt: Email Builder
+    light: /logo.svg
+    dark: /logo-white.svg
+    alt: Maildun
   actions:
     - theme: brand
       text: Get started

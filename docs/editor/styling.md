@@ -78,7 +78,7 @@ Each part of the editor has a `data-slot` attribute and accepts extra classes th
 <EmailEditor classNames={{ sidebar: 'w-72', canvas: 'bg-slate-50' }} />
 ```
 
-Slots: `root`, `topbar`, `sidebar`, `stage`, `canvas`, `inspector`, `proposal`, `block-toolbar`.
+Slots: `root`, `topbar`, `sidebar`, `stage`, `canvas`, `inspector`, `proposal`, `block-toolbar`. The `root` element is the exception in CSS: target it as `[data-slot='editor']` or `.meb-root`.
 
 For anything else, target the slots in CSS loaded after the editor's stylesheet:
 
@@ -92,6 +92,8 @@ For anything else, target the slots in CSS loaded after the editor's stylesheet:
 ```
 
 The email canvas resets your page's global styles inside it, so what you see matches what recipients get.
+
+When the stage is narrower than the email, Design and Preview scale the email down instead of reflowing it. The scale factor is set as `--meb-scale` on `[data-slot='email-frame']`, and `[data-slot='email-frame-fit']` gets a `data-scaled` attribute. The block toolbar and format bar stay at full size by counter-scaling with `calc(1 / var(--meb-scale, 1))`; do the same for any overlay you add inside the canvas.
 
 ## Swapping icons
 

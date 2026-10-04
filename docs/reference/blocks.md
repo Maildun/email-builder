@@ -41,6 +41,24 @@ Blocks share three groups of style keys:
 
 Colors are hex values, `transparent`, or theme tokens like `$primary`. See [Values](/guide/document#values).
 
+### Default styles
+
+New blocks start with this style; anything else comes from the email's settings.
+
+| Block | Default style |
+| --- | --- |
+| `heading` | padding 16 / 24 / 8 / 24 |
+| `text` | padding 8 / 24 |
+| `button` | padding 16 / 24, `fontWeight: 'bold'` |
+| `image`, `video`, `social` | padding 16 / 24, `align: 'center'` |
+| `avatar` | padding 16 / 24, `align: 'left'` |
+| `divider`, `html`, `custom` | padding 16 / 24 |
+| `container` | padding 16 / 0 |
+| `columns` | padding 8 / 24 |
+| `spacer`, `column` | none |
+
+Padding is written top / right / bottom / left, or vertical / horizontal when the sides match.
+
 ## Content
 
 ### heading
@@ -56,6 +74,8 @@ A title or section heading.
 
 Paragraphs of body copy in restricted markdown.
 
+Default: `'Write something people want to read.'`
+
 | Prop | Type | Description |
 | --- | --- | --- |
 | `markdown` | string | Paragraphs, line breaks, `**bold**`, `*italic*`, `~~strike~~`, `` `code` ``, links, `- ` and `1. ` lists. Raw HTML is escaped. |
@@ -67,7 +87,7 @@ A call-to-action link styled as a button. Outlook-safe.
 | Prop | Type | Default | Description |
 | --- | --- | --- | --- |
 | `text` | string | `'Get started'` | Label |
-| `href` | URL | | Link |
+| `href` | URL | `'https://example.com'` | Link |
 | `shape` | `rectangle`, `rounded`, `pill` | `rounded` | |
 | `size` | `xs`, `sm`, `md`, `lg` | `md` | |
 | `fullWidth` | boolean | `false` | Stretch to the content width |
@@ -96,7 +116,7 @@ A picture, optionally linked.
 
 | Prop | Type | Default | Description |
 | --- | --- | --- | --- |
-| `src` | URL | | Absolute image URL |
+| `src` | URL | a placehold.co placeholder | Absolute image URL |
 | `alt` | string | | Always describe the image |
 | `href` | URL | | Link when clicked |
 | `width` | 1–1200 or `'full'` | `'full'` | px, or fill the content width. Omit for the natural size. |
@@ -119,7 +139,7 @@ A small round or square portrait or logo.
 
 | Prop | Type | Default | Description |
 | --- | --- | --- | --- |
-| `src` | URL | | |
+| `src` | URL | a placehold.co placeholder | |
 | `alt` | string | | |
 | `size` | 16–256 | `64` | Diameter in px |
 | `shape` | `circle`, `square`, `rounded` | `circle` | |
@@ -167,6 +187,8 @@ One column inside `columns`. Holds any blocks, including another `columns` row.
 ### html
 
 Raw HTML for anything the other blocks can't express. Inserted as-is, so it's your job to keep it email-safe.
+
+Default: `'<p>Custom <strong>HTML</strong></p>'`
 
 | Prop | Type | Description |
 | --- | --- | --- |

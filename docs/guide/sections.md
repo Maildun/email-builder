@@ -32,7 +32,7 @@ All parameters are optional strings; anything you leave out gets sensible placeh
 | `hero` | Large image, headline, supporting copy and a primary button. | `heading`, `text`, `buttonText`, `href`, `imageSrc` (omit for no image), `imageAlt` |
 | `article` | A heading followed by body copy. | `heading`, `text` |
 | `features` | Three columns with a short title and text each; stacks on mobile. | `title1`–`title3`, `text1`–`text3` |
-| `imageText` | An image beside a heading, copy and a button; stacks on mobile. | `heading`, `text`, `buttonText` (omit for no button), `href`, `imageSrc`, `imageAlt`, `imageSide` (`left` or `right`) |
+| `imageText` | An image beside a heading, copy and a button; stacks on mobile. | `heading`, `text`, `buttonText` (omit for no button), `href`, `imageSrc`, `imageAlt`, `imageSide` (`left`, the default, or `right`) |
 | `cards` | Two side-by-side cards with an image, title, text and link. | `title1`, `text1`, `href1`, `imageSrc1`, `title2`, `text2`, `href2`, `imageSrc2`, `buttonText` |
 | `gallery` | A 2×2 grid of images. | `imageSrc1`–`imageSrc4` |
 | `testimonial` | A customer quote with their photo, name and role. | `quote`, `name`, `role`, `avatarSrc` |
@@ -50,7 +50,7 @@ Templates are whole documents to start from:
 | Name | Description |
 | --- | --- |
 | `blank` | An empty canvas. |
-| `newsletter` | Logo, hero, two articles, features row and footer. |
+| `newsletter` | Logo, hero, an article, a features row, a call to action and footer. |
 | `announcement` | A single focused message with one call to action. |
 
 ```ts

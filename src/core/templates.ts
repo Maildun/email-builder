@@ -16,7 +16,7 @@ export const TEMPLATES = {
   },
   newsletter: {
     label: 'Newsletter',
-    description: 'Logo, hero, two articles, features row and footer.',
+    description: 'Logo, hero, an article, a features row, a call to action and footer.',
     create: () =>
       createDocument({
         settings: { preheader: 'This month: what we shipped, what we learned, and what is next.' },

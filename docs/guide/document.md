@@ -41,10 +41,10 @@ Why flat? It makes every block addressable by id, so operations like "update `ct
 | Key | Type | Description |
 | --- | --- | --- |
 | `width` | 320–1200 | Content width in px. 600 is standard. |
-| `preheader` | string | Inbox preview text after the subject line. Not visible in the body. |
-| `title` | string | HTML `<title>`, used by some web views. |
-| `lang` | string | `<html lang>`, e.g. `"en"`. |
-| `padding` | padding | Space between the window edge and the canvas. |
+| `preheader` | string (≤300) | Inbox preview text after the subject line. Not visible in the body. |
+| `title` | string (≤200) | HTML `<title>`, used by some web views. |
+| `lang` | string (≤20) | `<html lang>`, e.g. `"en"`. |
+| `padding` | padding | Space between the window edge and the canvas. Default 32 top and bottom, 0 at the sides. |
 | `backdropColor` | color | Color around the canvas. Default `$background`. |
 | `canvasColor` | color | The email's own background. Default `$surface`. |
 | `textColor` | color | Default text color. Default `$text`. |

@@ -61,10 +61,15 @@ import { EmailEditor, type EmailEditorProps, type EmailEditorHandle } from '@mai
 | `MergeTag` | `{ key: string; label?: string }` |
 | `ImageResult` | `{ url: string; alt?: string }` |
 | `PaletteGroup`, `PaletteGroupItem` | Host groups in the palette. See [Palette groups](/editor/#palette-groups). |
+| `EditorIcons`, `EditorIconName` | Replacement icons for the `icons` prop. See [Swapping icons](/editor/styling#swapping-icons). |
+| `ApplyOptions` | `{ mergeKey?: string; select?: string \| null }`, the second argument of `store.apply` |
+| `EditorPanel` | `'sidebar' \| 'inspector'` |
+| `Toast` | `{ id: number; message: string; action?: { label: string; run: () => void } }` |
 | `EditorView` | `'design' \| 'preview' \| 'code'` |
 | `Viewport` | `'desktop' \| 'mobile'` |
 | `EditorSlot` | The `classNames` keys |
 | `EditorMessages` | Every UI string; `EN_MESSAGES` is the English set |
+| `DeepPartial`, `LabelledItem`, `BlockCategory`, `PaddingSide` | Helper types used by `EditorMessages` |
 
 ## `EditorStore`
 

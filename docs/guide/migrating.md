@@ -20,13 +20,13 @@ Save the converted document the next time the user saves, and it's migrated.
 ## How the import works
 
 - **Ids** are kept where they're valid, so links to blocks survive.
-- **Layout.** The `EmailLayout` root becomes the document's settings and theme (backdrop, canvas, text color, font).
-- **Columns.** The fixed three-slot `ColumnsContainer` becomes a `columns` block with `column` children.
+- **Layout.** The `EmailLayout` root becomes the document's theme and settings: backdrop, canvas and text colors go into the `background`, `surface` and `text` tokens, the font becomes both the body and heading font, and `borderColor` and `borderRadius` go into settings.
+- **Columns.** The fixed three-slot `ColumnsContainer` becomes a `columns` block with 2 or 3 `column` children. `fixedWidths` become column widths in %, vertical alignment defaults to `middle`, and columns stack on mobile when there are three or when they hold images, avatars, buttons or nested columns.
 - **Fonts.** The nine font presets have the same keys and stacks, so text looks the same.
-- **Text.** Plain text is escaped so it renders literally. Markdown text that the restricted renderer can't express (tables, images, raw HTML) becomes an `html` block.
+- **Text.** Plain text is escaped so it renders literally. Markdown text that the restricted renderer can't express (tables, images, raw HTML) becomes an `html` block, sanitized on the way: scripts and iframes are removed, `on*` attributes stripped, and `javascript:` and `data:` URLs replaced. Original `Html` blocks are carried over as they are.
 - **Dropped content.** Hidden or unattached blocks, unsupported block types and invalid values are dropped, with a warning for each. An invalid value only drops that key; the rest of the block survives.
 
-`fromEmailBuilderJs` throws when the input has no `EmailLayout` root; check with `isEmailBuilderJsDocument` first.
+`fromEmailBuilderJs` throws when the input has no `EmailLayout` root (check with `isEmailBuilderJsDocument` first), or in the rare case that the conversion produces an invalid document.
 
 ## Side by side
 

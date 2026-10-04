@@ -54,8 +54,10 @@ npx email-builder mcp --dir ./emails
 
 ## Exit codes
 
+Running `email-builder` with no command, or with `--help`, prints the usage to stderr and exits with `0`.
+
 | Code | Meaning |
 | --- | --- |
 | `0` | Success |
 | `1` | The document is invalid |
-| `2` | Unknown command, or the input isn't JSON |
+| `2` | Unknown command, the input isn't JSON, or `mcp` couldn't start (e.g. the `--blocks` module didn't load or doesn't export an array) |

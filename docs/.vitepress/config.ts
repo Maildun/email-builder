@@ -5,7 +5,7 @@ const repo = 'https://github.com/Maildun/email-builder';
 const base = process.env.DOCS_BASE ?? '/';
 
 export default defineConfig({
-  title: 'Email Builder',
+  title: 'Maildun Email Builder',
   description:
     'An agentic-first email builder for React and TypeScript: a typed document model, an operations API for LLM agents, an email-safe HTML renderer and a modern editor.',
   base,
@@ -27,7 +27,7 @@ export default defineConfig({
     },
   },
   themeConfig: {
-    logo: '/logo.svg',
+    logo: { light: '/logo.svg', dark: '/logo-white.svg', alt: 'Maildun' },
     nav: [
       { text: 'Guide', link: '/guide/getting-started', activeMatch: '/guide/' },
       { text: 'Editor', link: '/editor/', activeMatch: '/editor/' },

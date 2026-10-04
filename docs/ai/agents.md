@@ -95,7 +95,7 @@ session.getDocument();
 | --- | --- |
 | `get_document` | The outline: settings, theme colors and every block as `id type: summary`. |
 | `get_block` | One block with all its props, style and nested children as JSON. |
-| `get_reference` | The full reference for a block type (typed props and style, defaults, where it can go) or a section, or the catalog of blocks, sections, templates or custom blocks. |
+| `get_reference` | The full reference for a block type (typed props and style, defaults, where it can go) a section, a custom block by name, or the catalog of blocks, sections, templates or custom blocks. |
 | `insert_blocks` | Inserts blocks (with nested children) into a parent. Returns the new ids. |
 | `update_block` | Changes props and/or style of a block. Only the given keys change. |
 | `move_block` | Moves a block (with its children) to another parent or position. |
@@ -111,7 +111,7 @@ session.getDocument();
 
 Every tool has `name`, `title`, `description`, `inputSchema` (JSON Schema), `annotations` and `execute(input)`. `runTool(tools, name, input)` finds and runs one, and returns `{ ok, content, data? }`: `content` is the text for the model, `data` structured details for you (new ids, issues).
 
-**Annotations** follow MCP: `readOnlyHint` (`get_document`, `get_block`, `get_reference`, `check_email`), `destructiveHint` (`remove_block`, `replace_block`, `replace_document`, `apply_ops`) and `idempotentHint`. `isReadOnlyTool(tool)` checks the first, e.g. to skip saving or reviewing after a read.
+**Annotations** follow MCP: `readOnlyHint` (`get_document`, `get_block`, `get_reference`, `check_email`), `destructiveHint` (`remove_block`, `replace_block`, `replace_document`, `apply_ops`) and `idempotentHint` (`update_block`, `move_block`, `update_settings`, `update_theme`, `replace_document`). Every tool sets `openWorldHint: false`. `isReadOnlyTool(tool)` checks the first, e.g. to skip saving or reviewing after a read.
 
 **Adapters** shape the tools for each API: `toAnthropicTools`, `toOpenAITools` and `toMcpTools` (which keeps titles and annotations). Some OpenAI-compatible APIs (Gemini, xAI) reject parts of JSON Schema; `toOpenAITools(tools, { simpleSchemas: true })` runs each schema through `simplifySchema`, which inlines `$ref`s and drops the keywords they refuse.
 
@@ -121,7 +121,7 @@ Every tool has `name`, `title`, `description`, `inputSchema` (JSON Schema), `ann
 
 ```ts
 buildSystemPrompt({
-  brief: 'Acme sells specialty coffee. Warm, short, no exclamation marks.', // prepended
+  brief: 'Acme sells specialty coffee. Warm, short, no exclamation marks.', // added as a "Brief" section before the working rules
   mergeTags: ['first_name', 'unsubscribe_url'], // the only tags the model may use
   customBlocks: [productCard],                  // documents your custom blocks
   extra: 'Always end with the footer section.', // appended

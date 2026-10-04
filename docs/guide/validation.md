@@ -20,7 +20,9 @@ if (result.ok) {
 }
 ```
 
-Besides the schema, it checks the tree: every child exists, every block has exactly one parent, there are no cycles or orphans, and parent and child types fit together (for example, only `column` blocks inside `columns`).
+Besides the schema, it checks the tree: every child exists, every block has exactly one parent, there are no cycles or orphans, and parent and child types fit together (for example, only `column` blocks inside `columns`). A `columns` block holds 1–4 columns, container blocks need a `children` array while other blocks can't have one, and `root` can't be used as a block id.
+
+Custom block data isn't checked here; use `validateCustomBlocks` for that.
 
 Want the schema itself? `documentJsonSchema()`, `blockInputJsonSchema()` and `opJsonSchema()` return JSON Schemas, useful for validating in other languages or for structured output.
 

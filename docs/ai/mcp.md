@@ -58,19 +58,21 @@ npx -y @maildun/email-builder mcp --dir ./emails --merge-tags first_name,unsubsc
 
 The server offers file tools plus the same editing tools as the [agent module](./agents):
 
-| Tool | What it does |
-| --- | --- |
-| `list_emails` | Lists the email documents in the folder, marking the open one. |
-| `create_email` | Creates a new email file, optionally from a [template](/guide/sections#templates), and opens it. |
-| `open_email` | Opens an existing email file for editing. Points to `import_email` for EmailBuilder.js files. |
-| `copy_email` | Copies an email (the open one by default) to a new file and opens the copy, e.g. for a variant. |
-| `import_email` | Converts an [EmailBuilder.js](/guide/migrating) JSON file into a new email file and opens it, listing anything that didn't carry over. |
-| `undo` / `redo` | Steps back and forward through changes to the open email (100 steps), saving each time. History resets when another email is opened. |
-| `render_email` | Writes the HTML and plain-text versions next to the JSON file and reports warnings. `include_html: true` also returns the HTML. |
-| `get_reference` | Looks up a block type's props and style (with types, defaults and where it can go), a section's params, or the catalog of blocks, sections, templates or custom blocks. Works without an open email. |
-| `get_document` … `check_email` | The other [editing tools](./agents#tools). They act on the open email and save it after every successful change. |
+| Tool | Arguments | What it does |
+| --- | --- | --- |
+| `list_emails` | – | Lists the email documents in the folder, marking the open one. Looks up to 3 folders deep, skips dotfiles and `node_modules`, lists only valid email JSON and stops at 200 files. |
+| `create_email` | `file`, `template?` | Creates a new email file, optionally from a [template](/guide/sections#templates) (default `blank`), and opens it. Fails if the file already exists. |
+| `open_email` | `file` | Opens an existing email file for editing. Points to `import_email` for EmailBuilder.js files. |
+| `copy_email` | `to`, `from?` | Copies an email (the open one by default) to a new file and opens the copy, e.g. for a variant. |
+| `import_email` | `from`, `to?` | Converts an [EmailBuilder.js](/guide/migrating) JSON file into a new email file (default `<from>-imported.json`) and opens it, listing anything that didn't carry over. |
+| `undo` / `redo` | – | Steps back and forward through changes to the open email (100 steps), saving each time. History resets when another email is opened. |
+| `render_email` | `out?`, `include_html?` | Writes the HTML (default: the JSON file's name with `.html`) and a plain-text `.txt` beside it, and reports warnings. `include_html: true` also returns the HTML. |
+| `get_reference` | `topic` | Looks up a block type's props and style (with types, defaults and where it can go), a section's params, a custom block, or the catalog of blocks, sections, templates or custom blocks. Works without an open email. |
+| `get_document` … `check_email` | | The other [editing tools](./agents#tools). They act on the open email and save it after every successful change. |
 
-Every tool has a `title` and MCP `annotations` (`readOnlyHint`, `destructiveHint`, `idempotentHint`), so clients can auto-approve reads and ask before destructive changes.
+Paths are relative to `--dir`; a path without an extension gets `.json`. Until an email is opened or created, the editing tools (except `get_reference`) answer *"No email is open"*.
+
+Every tool has a `title` and MCP `annotations` (`readOnlyHint`, `destructiveHint`, `idempotentHint`, and `openWorldHint: false` since nothing leaves the folder), so clients can auto-approve reads and ask before destructive changes.
 
 The system prompt is sent as the server's instructions, so the client knows the blocks, sections and rules without extra setup. Some clients shorten long instructions; `get_reference` gives the model the same reference on demand.
 
@@ -82,7 +84,7 @@ The files are ordinary documents. Open them in `<EmailEditor>`, render them with
 
 ## Embedding the server
 
-The server is transport-agnostic and exported from `@maildun/email-builder/mcp` (Node only). `EmailMcpServer` handles parsed JSON-RPC messages; `serveStdio(options)` wires it to stdin/stdout, which is what the CLI does.
+The server is transport-agnostic and exported from `@maildun/email-builder/mcp` (Node only). `EmailMcpServer` handles parsed JSON-RPC messages; `serveStdio(options)` wires it to stdin/stdout (logging to stderr) and returns the server, which is what the CLI does. The `instructions` option, which adds your own text after the built-in instructions, is only available from code; the CLI has no flag for it.
 
 ```ts
 import { EmailMcpServer } from '@maildun/email-builder/mcp';
@@ -93,6 +95,7 @@ const server = new EmailMcpServer({
   mergeTags: ['first_name', 'unsubscribe_url'],
   customBlocks: [productCard],
   lint: { requireUnsubscribe: true },
+  instructions: 'Always create a plain-text-friendly layout.', // appended to the server instructions
 });
 
 // From your own transport (HTTP, WebSocket …):

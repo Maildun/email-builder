@@ -22,6 +22,8 @@ import { EmailEditor } from '@maildun/email-builder/editor';
 | `EmailEditor.Inspector` | Settings for the selected block, or the email when nothing is selected |
 | `EmailEditor.Layout` | Sidebar, stage and inspector in the default three columns |
 
+`EmailEditor.TopBar` shows the buttons that hide and show the side panels only when you ask for them with `panelToggles={{ sidebar: true, inspector: true }}`, since a custom layout may not have those panels. `EmailEditor.Layout` takes `sidebar` and `inspector` (both `true` by default) to leave a panel out. `<EmailEditor>` sets both from its `panels` prop.
+
 They're also exported by name: `EditorRoot`, `EditorTopBar`, `EditorSidebar`, `EditorStage`, `EditorInspector`, `EditorLayout`, plus `EditorPalette` (the palette alone) and `EditorProposalBar`.
 
 ## Reading and changing state
