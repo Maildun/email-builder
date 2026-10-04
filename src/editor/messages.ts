@@ -120,6 +120,15 @@ export interface EditorMessages {
     headingFont: string;
     baseSize: string;
     lineHeight: string;
+    components: string;
+    buttonStyle: string;
+    buttonShape: string;
+    buttonRadius: string;
+    imageRadius: string;
+    cardRadius: string;
+    cardBorder: string;
+    cardShadow: string;
+    dividerStyle: string;
     layout: string;
     contentWidth: string;
     outerPadding: string;
@@ -324,6 +333,15 @@ export const EN_MESSAGES: EditorMessages = {
     headingFont: 'Heading font',
     baseSize: 'Base size',
     lineHeight: 'Line height',
+    components: 'Components',
+    buttonStyle: 'Button style',
+    buttonShape: 'Button shape',
+    buttonRadius: 'Button radius',
+    imageRadius: 'Image radius',
+    cardRadius: 'Card radius',
+    cardBorder: 'Card border',
+    cardShadow: 'Card shadow',
+    dividerStyle: 'Divider style',
     layout: 'Layout',
     contentWidth: 'Content width',
     outerPadding: 'Outer padding',

@@ -3,7 +3,11 @@ import { SOCIAL_NETWORKS } from '../social';
 import {
   AlignStyleShape,
   BoxStyleShape,
+  ButtonShapeSchema,
+  ButtonSizeSchema,
+  ButtonVariantSchema,
   ColorSchema,
+  LineStyleSchema,
   TypographyStyleShape,
   UrlSchema,
   VerticalAlignSchema,
@@ -46,11 +50,20 @@ export const TextProps = z.strictObject({
 export const ButtonProps = z.strictObject({
   text: z.string().max(200).optional().describe('Button label.'),
   href: UrlSchema.optional(),
-  shape: z.enum(['rectangle', 'rounded', 'pill']).optional(),
-  size: z.enum(['xs', 'sm', 'md', 'lg']).optional(),
+  variant: ButtonVariantSchema.optional().describe(
+    `${ButtonVariantSchema.description} Omit to follow the theme's button style.`,
+  ),
+  shape: ButtonShapeSchema.optional().describe(
+    `${ButtonShapeSchema.description} Omit to follow the theme's button style.`,
+  ),
+  size: ButtonSizeSchema.optional().describe("Omit to follow the theme's button style."),
   fullWidth: z.boolean().optional().describe('Stretch the button to the full content width.'),
-  buttonColor: ColorSchema.optional().describe('Button fill color.'),
-  textColor: ColorSchema.optional().describe('Button label color.'),
+  buttonColor: ColorSchema.optional().describe(
+    'Button color: the fill of solid buttons, the tint, border or text of the other variants. Defaults to $primary.',
+  ),
+  textColor: ColorSchema.optional().describe(
+    'Label color. Defaults to white on solid buttons and to the button color otherwise.',
+  ),
 });
 
 export const ImageProps = z.strictObject({
@@ -107,6 +120,7 @@ export const DividerProps = z.strictObject({
   color: ColorSchema.optional(),
   thickness: z.number().int().min(1).max(24).optional().describe('Line thickness in px.'),
   width: z.number().int().min(1).max(100).optional().describe('Line width as % of the content.'),
+  lineStyle: LineStyleSchema.optional().describe("Omit to follow the theme's divider style."),
 });
 
 export const SpacerProps = z.strictObject({
@@ -135,7 +149,14 @@ export const CustomProps = z.strictObject({
     .describe("The custom block's content; its shape is set by the custom block definition."),
 });
 
-export const ContainerProps = z.strictObject({});
+const CardSchema = z
+  .boolean()
+  .optional()
+  .describe(
+    "Style as a card with the theme's card radius, border and shadow. Give it a backgroundColor such as $surface or $background.",
+  );
+
+export const ContainerProps = z.strictObject({ card: CardSchema });
 
 export const ColumnsProps = z.strictObject({
   gap: z.number().int().min(0).max(80).optional().describe('Space between columns in px.'),
@@ -153,6 +174,7 @@ export const ColumnProps = z.strictObject({
     .max(100)
     .optional()
     .describe('Column width as % of the row. Omit to share the remaining space equally.'),
+  card: CardSchema,
 });
 
 /**
@@ -195,13 +217,10 @@ export const BLOCK_DEFINITIONS = {
       props: {
         text: 'Get started',
         href: 'https://example.com',
-        shape: 'rounded',
-        size: 'md',
         fullWidth: false,
         buttonColor: '$primary',
-        textColor: '#ffffff',
       },
-      style: { padding: { top: 16, right: 24, bottom: 16, left: 24 }, fontWeight: 'bold' },
+      style: { padding: { top: 16, right: 24, bottom: 16, left: 24 } },
     },
   },
   social: {
@@ -276,7 +295,7 @@ export const BLOCK_DEFINITIONS = {
     style: BoxStyle,
     container: false,
     defaults: {
-      props: { color: '$border', thickness: 1, width: 100 },
+      props: { color: '$border', width: 100 },
       style: { padding: { top: 16, right: 24, bottom: 16, left: 24 } },
     },
   },

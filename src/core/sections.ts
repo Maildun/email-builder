@@ -236,7 +236,7 @@ export const SECTIONS = {
               alt: p.imageAlt ?? '',
               width: 'full' as const,
             },
-            style: { padding: 0, borderRadius: 6 },
+            style: { padding: 0 },
           },
         ],
       };
@@ -319,7 +319,7 @@ export const SECTIONS = {
               width: 'full' as const,
               ...(p[`href${n}`] ? { href: p[`href${n}`] } : {}),
             },
-            style: { padding: { top: 0, right: 0, bottom: 12, left: 0 }, borderRadius: 6 },
+            style: { padding: { top: 0, right: 0, bottom: 12, left: 0 } },
           },
           {
             type: 'heading' as const,
@@ -379,7 +379,7 @@ export const SECTIONS = {
                 alt: '',
                 width: 'full' as const,
               },
-              style: { padding: 0, borderRadius: 6 },
+              style: { padding: 0 },
             },
           ],
         })),
@@ -397,9 +397,9 @@ export const SECTIONS = {
     },
     build: (p) => ({
       type: 'container',
+      props: { card: true },
       style: {
         backgroundColor: '$background',
-        borderRadius: 8,
         padding: { top: 28, right: 32, bottom: 28, left: 32 },
         align: 'center',
       },
@@ -448,9 +448,9 @@ export const SECTIONS = {
     },
     build: (p) => ({
       type: 'container',
+      props: { card: true },
       style: {
         backgroundColor: '$background',
-        borderRadius: 8,
         padding: { top: 24, right: 24, bottom: 24, left: 24 },
         align: 'center',
       },
@@ -557,9 +557,9 @@ export const SECTIONS = {
     params: { heading: 'Heading', buttonText: 'Button label', href: 'Button link' },
     build: (p) => ({
       type: 'container',
+      props: { card: true },
       style: {
         backgroundColor: '$background',
-        borderRadius: 8,
         padding: { top: 24, right: 24, bottom: 24, left: 24 },
         align: 'center',
       },

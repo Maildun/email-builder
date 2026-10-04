@@ -56,7 +56,11 @@ export function outlineDocument(document: EmailDocument): string {
     `settings: width ${settings.width}px, preheader ${quote(settings.preheader)}, font ${settings.fontSize}px/${settings.lineHeight}`,
     `theme: ${Object.entries(theme.colors)
       .map(([name, value]) => `$${name} ${value}`)
-      .join(', ')}; fonts body ${theme.fonts.body}, heading ${theme.fonts.heading}`,
+      .join(', ')}; fonts body ${theme.fonts.body}, heading ${theme.fonts.heading}${
+      theme.styles && Object.keys(theme.styles).length > 0
+        ? `; styles ${JSON.stringify(theme.styles)}`
+        : ''
+    }`,
     'body (id "root"):',
   ];
   if (document.root.length === 0) {

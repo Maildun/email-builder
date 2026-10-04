@@ -1,4 +1,5 @@
 import { ArrowRight01Icon, Copy01Icon, Delete02Icon } from '@hugeicons/core-free-icons';
+import { resolveThemeStyles } from '../../core/defaults';
 import type { Block } from '../../core/schema/blocks';
 import { type EmailDocument, ROOT_ID } from '../../core/schema/document';
 import { FONT_FAMILIES, type FontKey, type Padding } from '../../core/schema/primitives';
@@ -47,6 +48,7 @@ import {
   type FieldSpec,
   FONT_OPTIONS,
   type Scope,
+  STYLE_OPTIONS,
 } from './fields';
 import { SocialLinksInput } from './SocialLinks';
 
@@ -451,6 +453,18 @@ function EmailInspector() {
 
   const fontValue = (font: string) => (font in FONT_FAMILIES ? (font as FontKey) : undefined);
 
+  const styles = resolveThemeStyles(theme);
+  const themeStyle =
+    (component: 'button' | 'image' | 'card' | 'divider', key: string) => (value: unknown) => {
+      const result = store.apply(
+        { op: 'updateTheme', styles: { [component]: { [key]: value ?? null } } },
+        { mergeKey: `theme.styles.${component}.${key}` },
+      );
+      return result.ok ? null : firstMessage(result.issues);
+    };
+  const styleOptions = (options: Array<{ value: string; label: string }>) =>
+    options.map((option) => ({ ...option, label: translate(messages, option.label) }));
+
   return (
     <div data-slot="inspector-body" className="pb-6">
       <Section title={text.inbox}>
@@ -523,6 +537,97 @@ function EmailInspector() {
               max={2.5}
               step={0.05}
               onChange={(v) => setting('lineHeight')(v ?? 1.5)}
+            />
+          )}
+        </Field>
+      </Section>
+      <Section title={text.components}>
+        <Field label={text.buttonStyle}>
+          {(id) => (
+            <SelectInput
+              id={id}
+              value={styles.button.variant}
+              options={styleOptions(STYLE_OPTIONS.buttonVariant)}
+              placeholder={text.selectPlaceholder}
+              onChange={themeStyle('button', 'variant')}
+            />
+          )}
+        </Field>
+        <Field label={text.buttonShape}>
+          {(id) => (
+            <SelectInput
+              id={id}
+              value={styles.button.shape}
+              options={styleOptions(STYLE_OPTIONS.buttonShape)}
+              placeholder={text.selectPlaceholder}
+              onChange={themeStyle('button', 'shape')}
+            />
+          )}
+        </Field>
+        <Field label={text.buttonRadius}>
+          {(id) => (
+            <NumberInput
+              id={id}
+              value={styles.button.radius}
+              min={0}
+              max={48}
+              unit="px"
+              onChange={themeStyle('button', 'radius')}
+            />
+          )}
+        </Field>
+        <Field label={text.imageRadius}>
+          {(id) => (
+            <NumberInput
+              id={id}
+              value={styles.image.radius}
+              min={0}
+              max={48}
+              unit="px"
+              onChange={themeStyle('image', 'radius')}
+            />
+          )}
+        </Field>
+        <Field label={text.cardRadius}>
+          {(id) => (
+            <NumberInput
+              id={id}
+              value={styles.card.radius}
+              min={0}
+              max={48}
+              unit="px"
+              onChange={themeStyle('card', 'radius')}
+            />
+          )}
+        </Field>
+        <Field label={text.cardBorder}>
+          {(id) => (
+            <SwitchInput
+              id={id}
+              checked={styles.card.border}
+              onChange={themeStyle('card', 'border')}
+            />
+          )}
+        </Field>
+        <Field label={text.cardShadow}>
+          {(id) => (
+            <SelectInput
+              id={id}
+              value={styles.card.shadow}
+              options={styleOptions(STYLE_OPTIONS.shadow)}
+              placeholder={text.selectPlaceholder}
+              onChange={themeStyle('card', 'shadow')}
+            />
+          )}
+        </Field>
+        <Field label={text.dividerStyle}>
+          {(id) => (
+            <SelectInput
+              id={id}
+              value={styles.divider.style}
+              options={styleOptions(STYLE_OPTIONS.lineStyle)}
+              placeholder={text.selectPlaceholder}
+              onChange={themeStyle('divider', 'style')}
             />
           )}
         </Field>

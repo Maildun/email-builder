@@ -50,10 +50,11 @@ See [Operations](/guide/operations).
 | `canContain(parent, child)`, `isContainerType(type)`, `hasChildren(block)` | Placement helpers. |
 | `documentJsonSchema()`, `blockInputJsonSchema()`, `opJsonSchema()` | JSON Schemas. |
 | `FONT_FAMILIES`, `FONT_KEYS`, `resolveFontStack(font)` | Font presets. |
-| `THEME_COLOR_TOKENS`, `resolveColor(color, theme)`, `contrastRatio(fg, bg)` | Colors. |
+| `THEME_COLOR_TOKENS`, `resolveColor(color, theme)`, `contrastRatio(fg, bg)`, `mixColors(color, base, amount)` | Colors. |
+| `DEFAULT_THEME_STYLES`, `resolveThemeStyles(theme)`, `BUTTON_VARIANTS` | [Component styles](/guide/document#component-styles). |
 | `resolvePadding(padding)`, `isSafeUrl(url)` | Value helpers. |
 | `ColorSchema`, `HexColorSchema`, `PaddingSchema`, `UrlSchema`, `BorderSchema`, `FontFamilySchema`, `FontWeightSchema`, `AlignSchema`, `VerticalAlignSchema`, `BlockIdSchema`, the per-block `*Props` schemas, `SocialLinkSchema` | Zod schemas for the value types, to reuse in your own forms or custom blocks. |
-| `EmailDocument`, `Settings`, `Theme`, `Block`, `BlockOf<T>`, `BlockInput`, `BlockType`, `BlockProps<T>`, `BlockStyle<T>`, `BlockDefinition`, `ContainerBlock`, `FontKey`, `ThemeColorToken`, `ResolvedPadding` | Types. |
+| `EmailDocument`, `Settings`, `Theme`, `Block`, `BlockOf<T>`, `BlockInput`, `BlockType`, `BlockProps<T>`, `BlockStyle<T>`, `BlockDefinition`, `ContainerBlock`, `FontKey`, `ThemeColorToken`, `ThemeStyles`, `ResolvedThemeStyles`, `ResolvedPadding` | Types. |
 
 ### Tree
 

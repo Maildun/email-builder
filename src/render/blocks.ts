@@ -1,4 +1,5 @@
 import type { z } from 'zod';
+import { mixColors } from '../core/colors';
 import type { Block, BlockOf } from '../core/schema/blocks';
 import type { BorderSchema, Padding } from '../core/schema/primitives';
 import { SOCIAL_LABELS, socialIconUrl } from '../core/social';
@@ -92,6 +93,33 @@ function withoutRadius<T extends BoxStyle>(
   return rest;
 }
 
+const SHADOWS = {
+  none: undefined,
+  sm: '0 1px 2px rgba(0,0,0,0.08)',
+  md: '0 4px 12px rgba(0,0,0,0.10)',
+  lg: '0 12px 32px rgba(0,0,0,0.14)',
+} as const;
+
+/**
+ * A card's box: the theme's card radius, outline and shadow, under anything
+ * the block sets itself.
+ */
+function cardStyle(
+  ctx: RenderContext,
+  style: BoxStyle | undefined,
+): [BoxStyle, Record<string, string | undefined>] {
+  const card = ctx.styles.card;
+  return [
+    {
+      ...style,
+      borderRadius: style?.borderRadius ?? card.radius,
+      border:
+        style?.border ?? (card.border ? { width: 1, style: 'solid', color: '$border' } : undefined),
+    },
+    { 'box-shadow': SHADOWS[card.shadow] },
+  ];
+}
+
 const HEADING_SIZES = { 1: 32, 2: 24, 3: 20 } as const;
 
 const BUTTON_SIZES = {
@@ -140,26 +168,20 @@ export function renderBlock(
       return box(ctx, id, block.style, block.props.html ?? '', typeDeclarations(ctx, block.style));
     case 'custom':
       return renderCustom(ctx, id, block, available);
-    case 'container': {
-      const width = innerWidth(available, block.style?.padding, block.style?.border);
+    case 'container':
+    case 'column': {
+      const [style, extra] = block.props.card ? cardStyle(ctx, block.style) : [block.style, {}];
+      const width = innerWidth(available, style?.padding, style?.border);
       return box(
         ctx,
         id,
-        block.style,
+        style,
         block.children.map((child) => renderChild(child, width)).join(''),
+        extra,
       );
     }
     case 'columns':
       return renderColumns(ctx, id, block, available, renderChild);
-    case 'column': {
-      const width = innerWidth(available, block.style?.padding, block.style?.border);
-      return box(
-        ctx,
-        id,
-        block.style,
-        block.children.map((child) => renderChild(child, width)).join(''),
-      );
-    }
   }
 }
 
@@ -238,6 +260,12 @@ function renderText(ctx: RenderContext, id: string, block: BlockOf<'text'>): str
   return box(ctx, id, block.style, `<div style="${style}">${body}</div>`);
 }
 
+/** Border width of outline buttons and of card outlines, in px. */
+const OUTLINE_WIDTH = 2;
+
+/** How much of the button color tints a soft button's fill. */
+const SOFT_TINT = 0.14;
+
 function renderButton(
   ctx: RenderContext,
   id: string,
@@ -245,31 +273,65 @@ function renderButton(
   available: number,
 ): string {
   const props = block.props;
-  const size = BUTTON_SIZES[props.size ?? 'md'];
+  const theme = ctx.styles.button;
+  const variant = props.variant ?? theme.variant;
+  const size = BUTTON_SIZES[props.size ?? theme.size];
   const fontSize = block.style?.fontSize ?? size.fontSize;
-  const [padY, padX] = size.padding;
-  const fill = ctx.color(props.buttonColor, '$primary') ?? '#000000';
-  const textColor = ctx.color(props.textColor) ?? '#ffffff';
+  const color = ctx.color(props.buttonColor, '$primary') ?? '#000000';
+  const canvas = ctx.color(ctx.document.settings.canvasColor, '$surface') ?? '#ffffff';
+  const fill =
+    variant === 'solid'
+      ? color
+      : variant === 'soft'
+        ? mixColors(color, canvas, SOFT_TINT)
+        : undefined;
+  const textColor = ctx.color(props.textColor) ?? (variant === 'solid' ? '#ffffff' : color);
   const fontFamily = ctx.font(block.style?.fontFamily);
-  const fontWeight = fontWeightCss(block.style?.fontWeight ?? 'bold');
+  const fontWeight = fontWeightCss(block.style?.fontWeight ?? theme.fontWeight);
+  const letterSpacingPx = block.style?.letterSpacing ?? theme.letterSpacing;
+  const letterSpacing = letterSpacingPx ? `${letterSpacingPx}px` : undefined;
   const href = safeUrl(props.href) ?? '#';
-  const label = escapeHtml(props.text ?? '');
-  const height = Math.round(fontSize * 1.25 + padY * 2);
+  const text = theme.uppercase ? (props.text ?? '').toUpperCase() : (props.text ?? '');
+  const label = escapeHtml(text);
+  const boxStyle = { align: 'left' as const, ...withoutRadius(block.style) };
+
+  if (variant === 'link') {
+    // A plain text link: every client, Outlook included, renders it as is.
+    const linkStyle = css({
+      color: textColor,
+      'font-family': fontFamily,
+      'font-size': px(fontSize),
+      'font-weight': fontWeight,
+      'line-height': '1.25',
+      'letter-spacing': letterSpacing,
+      'text-decoration': 'underline',
+    });
+    return box(
+      ctx,
+      id,
+      boxStyle,
+      `<a href="${href}" target="_blank" style="${linkStyle}">${label}</a>`,
+    );
+  }
+
+  const border = variant === 'outline' ? OUTLINE_WIDTH : 0;
+  const [padY, padX] = [size.padding[0] - border, size.padding[1] - border];
+  const height = Math.round(fontSize * 1.25 + size.padding[0] * 2);
   const contentWidth = innerWidth(available, block.style?.padding, block.style?.border);
   const width = props.fullWidth
     ? contentWidth
-    : Math.min(contentWidth, Math.round((props.text ?? '').length * fontSize * 0.6 + padX * 2));
+    : Math.min(contentWidth, Math.round(text.length * fontSize * 0.6 + size.padding[1] * 2));
   // A corner radius overrides the shape; past half the height it is a pill.
+  const shape = props.shape ?? theme.shape;
   const shapeRadius =
-    props.shape === 'pill' ? Math.round(height / 2) : props.shape === 'rectangle' ? 0 : 6;
+    shape === 'pill' ? Math.round(height / 2) : shape === 'rectangle' ? 0 : theme.radius;
   const radius = Math.min(block.style?.borderRadius ?? shapeRadius, Math.round(height / 2));
   const arcsize = `${Math.round((radius / height) * 100)}%`;
-  const letterSpacing =
-    block.style?.letterSpacing !== undefined ? `${block.style.letterSpacing}px` : undefined;
 
   const anchorStyle = css({
     display: props.fullWidth ? 'block' : 'inline-block',
     'background-color': fill,
+    border: border ? `${border}px solid ${color}` : undefined,
     color: textColor,
     'font-family': fontFamily,
     'font-size': px(fontSize),
@@ -282,11 +344,13 @@ function renderButton(
     'border-radius': px(radius),
     'mso-hide': 'all',
   });
+  const vmlFill = fill ? `fillcolor="${fill}"` : 'filled="f"';
+  const vmlStroke = border ? `strokecolor="${color}" strokeweight="${border}px"` : 'stroke="f"';
   const vml =
-    `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:${height}px;v-text-anchor:middle;width:${width}px;" arcsize="${arcsize}" stroke="f" fillcolor="${fill}">` +
-    `<w:anchorlock/><center style="${css({ color: textColor, 'font-family': fontFamily, 'font-size': px(fontSize), 'font-weight': fontWeight })}">${label}</center></v:roundrect><![endif]-->`;
+    `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:${height}px;v-text-anchor:middle;width:${width}px;" arcsize="${arcsize}" ${vmlStroke} ${vmlFill}>` +
+    `<w:anchorlock/><center style="${css({ color: textColor, 'font-family': fontFamily, 'font-size': px(fontSize), 'font-weight': fontWeight, 'letter-spacing': letterSpacing })}">${label}</center></v:roundrect><![endif]-->`;
   const anchor = `<!--[if !mso]><!--><a href="${href}" target="_blank" style="${anchorStyle}">${label}</a><!--<![endif]-->`;
-  return box(ctx, id, { align: 'left', ...withoutRadius(block.style) }, vml + anchor);
+  return box(ctx, id, boxStyle, vml + anchor);
 }
 
 function imageMargin(align: BoxStyle['align']): string {
@@ -321,7 +385,7 @@ function renderImage(
     height: props.height ? px(props.height) : 'auto',
     margin: imageMargin(align),
     // Round the picture itself: the cell's radius doesn't clip its content.
-    'border-radius': px(block.style?.borderRadius),
+    'border-radius': px(block.style?.borderRadius ?? (ctx.styles.image.radius || undefined)),
     border: '0',
     outline: 'none',
     'text-decoration': 'none',
@@ -425,7 +489,7 @@ function renderVideo(
   const height = Math.round((width * 9) / 16);
   const align = block.style?.align ?? 'center';
   const alt = escapeHtml(props.alt ?? '');
-  const radius = block.style?.borderRadius;
+  const radius = block.style?.borderRadius ?? (ctx.styles.image.radius || undefined);
   // A background image (VML for Outlook) under a link that fills the frame,
   // so the whole poster is clickable; the dark fill shows if images are off.
   const cellStyle = css({
@@ -459,10 +523,16 @@ function renderVideo(
 }
 
 function renderDivider(ctx: RenderContext, id: string, block: BlockOf<'divider'>): string {
-  const thickness = block.props.thickness ?? 1;
+  const thickness = block.props.thickness ?? ctx.styles.divider.thickness;
+  const lineStyle = block.props.lineStyle ?? ctx.styles.divider.style;
   const color = ctx.color(block.props.color, '$border') ?? '#cccccc';
   const width = block.props.width ?? 100;
-  const line = `<table role="presentation" width="${width}%" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td bgcolor="${color}" style="${css({ height: px(thickness), 'line-height': px(thickness), 'font-size': '0', 'background-color': color })}">&#8202;</td></tr></table>`;
+  // A solid line is a filled cell (the most robust); dashes and dots need a border.
+  const cell =
+    lineStyle === 'solid'
+      ? `<td bgcolor="${color}" style="${css({ height: px(thickness), 'line-height': px(thickness), 'font-size': '0', 'background-color': color })}">&#8202;</td>`
+      : `<td style="${css({ height: '0', 'line-height': '0', 'font-size': '0', 'border-top': `${thickness}px ${lineStyle} ${color}` })}">&#8202;</td>`;
+  const line = `<table role="presentation" width="${width}%" align="center" cellpadding="0" cellspacing="0" border="0"><tr>${cell}</tr></table>`;
   return box(ctx, id, block.style, line);
 }
 

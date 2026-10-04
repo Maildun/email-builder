@@ -49,7 +49,7 @@ New blocks start with this style; anything else comes from the email's settings.
 | --- | --- |
 | `heading` | padding 16 / 24 / 8 / 24 |
 | `text` | padding 8 / 24 |
-| `button` | padding 16 / 24, `fontWeight: 'bold'` |
+| `button` | padding 16 / 24 (weight from the [theme styles](/guide/document#component-styles)) |
 | `image`, `video`, `social` | padding 16 / 24, `align: 'center'` |
 | `avatar` | padding 16 / 24, `align: 'left'` |
 | `divider`, `html`, `custom` | padding 16 / 24 |
@@ -88,11 +88,14 @@ A call-to-action link styled as a button. Outlook-safe.
 | --- | --- | --- | --- |
 | `text` | string | `'Get started'` | Label |
 | `href` | URL | `'https://example.com'` | Link |
-| `shape` | `rectangle`, `rounded`, `pill` | `rounded` | |
-| `size` | `xs`, `sm`, `md`, `lg` | `md` | |
+| `variant` | `solid`, `soft`, `outline`, `ghost`, `link` | theme | Look of the button |
+| `shape` | `rectangle`, `rounded`, `pill` | theme | `rounded` uses the theme's button radius |
+| `size` | `xs`, `sm`, `md`, `lg` | theme | |
 | `fullWidth` | boolean | `false` | Stretch to the content width |
-| `buttonColor` | color | `$primary` | Fill |
-| `textColor` | color | `#ffffff` | Label color |
+| `buttonColor` | color | `$primary` | Fill of solid buttons; tint, border or text of the others |
+| `textColor` | color | white on solid, else the button color | Label color |
+
+Leave `variant`, `shape` and `size` unset to follow the theme's [component styles](/guide/document#component-styles).
 
 ### social
 
@@ -151,8 +154,9 @@ A small round or square portrait or logo.
 | Prop | Type | Default | Description |
 | --- | --- | --- | --- |
 | `color` | color | `$border` | |
-| `thickness` | 1–24 | `1` | px |
+| `thickness` | 1–24 | theme (`1`) | px |
 | `width` | 1–100 | `100` | % of the content width |
+| `lineStyle` | `solid`, `dashed`, `dotted` | theme (`solid`) | |
 
 ### spacer
 
@@ -162,7 +166,11 @@ A small round or square portrait or logo.
 
 ### container
 
-Groups blocks with a shared background, border or padding. No props; style it and put blocks in `children`.
+Groups blocks with a shared background, border or padding. Style it and put blocks in `children`.
+
+| Prop | Type | Description |
+| --- | --- | --- |
+| `card` | boolean | Style as a card: the theme's card radius, border and shadow (the block's own `borderRadius` and `border` win). |
 
 ### columns
 
@@ -181,6 +189,7 @@ One column inside `columns`. Holds any blocks, including another `columns` row.
 | Prop | Type | Description |
 | --- | --- | --- |
 | `width` | 5–100 | % of the row. Omit to share the remaining space equally. |
+| `card` | boolean | Style as a card, like `container`. |
 
 ## Advanced
 

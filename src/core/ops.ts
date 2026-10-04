@@ -76,6 +76,12 @@ export const UpdateThemeOpSchema = z.strictObject({
   op: z.literal('updateTheme'),
   colors: PatchSchema.optional(),
   fonts: PatchSchema.optional(),
+  styles: z
+    .record(z.string(), z.union([PatchSchema, z.null()]))
+    .optional()
+    .describe(
+      'Component styles by component (button, image, card, divider), merged field by field. null removes a field or a whole component.',
+    ),
 });
 
 export const ReplaceDocumentOpSchema = z.strictObject({
@@ -115,6 +121,8 @@ export type UpdateThemeOp = {
   op: 'updateTheme';
   colors?: Record<string, unknown>;
   fonts?: Record<string, unknown>;
+  /** Per component (button, image, card, divider); `null` removes a field or component. */
+  styles?: Record<string, Record<string, unknown> | null>;
 };
 export type ReplaceDocumentOp = { op: 'replaceDocument'; document: unknown };
 
@@ -511,6 +519,18 @@ function applyOne(draft: Draft, op: Op, opIndex: number): void {
       const next = structuredClone(doc.theme);
       patch(next.colors as Record<string, unknown>, op.colors, false);
       patch(next.fonts as Record<string, unknown>, op.fonts, false);
+      if (op.styles) {
+        const styles = (next.styles ?? {}) as Record<string, Record<string, unknown>>;
+        for (const [component, changes] of Object.entries(op.styles)) {
+          if (changes === null) {
+            delete styles[component];
+            continue;
+          }
+          styles[component] = { ...styles[component] };
+          patch(styles[component], changes);
+        }
+        next.styles = styles;
+      }
       const parsed = ThemeSchema.safeParse(next);
       if (!parsed.success) {
         throw new OpError(issuesFromZod(parsed.error, { prefix: 'theme', opIndex }));
@@ -562,6 +582,7 @@ const TreeDocumentSchema = z.strictObject({
     .strictObject({
       colors: z.record(z.string(), z.unknown()).optional(),
       fonts: z.record(z.string(), z.unknown()).optional(),
+      styles: UpdateThemeOpSchema.shape.styles,
     })
     .optional(),
   blocks: z.array(z.unknown()),
@@ -619,7 +640,11 @@ function buildDocument(input: unknown, opIndex: number): EmailDocument {
 export function createDocument(
   input: {
     settings?: Record<string, unknown>;
-    theme?: { colors?: Record<string, unknown>; fonts?: Record<string, unknown> };
+    theme?: {
+      colors?: Record<string, unknown>;
+      fonts?: Record<string, unknown>;
+      styles?: Record<string, Record<string, unknown> | null>;
+    };
     blocks?: BlockInput[];
   } = {},
 ): EmailDocument {

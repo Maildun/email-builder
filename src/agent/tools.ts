@@ -141,10 +141,22 @@ function inputSchemas(strict: boolean) {
         'primary, secondary, text, muted, background, surface, border, link (hex only)',
       ),
       fonts: Patch.optional().describe('body, heading'),
+      styles: z
+        .record(z.string(), Patch.nullable())
+        .optional()
+        .describe(
+          'Component styles, merged field by field; null removes a field or component. button: {variant: solid|soft|outline|ghost|link, shape: rectangle|rounded|pill, radius, size: xs|sm|md|lg, fontWeight, uppercase, letterSpacing}; image: {radius}; card: {radius, border, shadow: none|sm|md|lg}; divider: {style: solid|dashed|dotted, thickness}',
+        ),
     }),
     replace_document: z.object({
       settings: Patch.optional(),
-      theme: z.object({ colors: Patch.optional(), fonts: Patch.optional() }).optional(),
+      theme: z
+        .object({
+          colors: Patch.optional(),
+          fonts: Patch.optional(),
+          styles: z.record(z.string(), Patch.nullable()).optional(),
+        })
+        .optional(),
       blocks: z.array(block),
     }),
     apply_ops: z.object({
@@ -152,7 +164,7 @@ function inputSchemas(strict: boolean) {
         .array(z.record(z.string(), z.unknown()))
         .min(1)
         .describe(
-          'Atomic batch. Each op is one of: {op:"insert", parentId?, index?, blocks}, {op:"update", id, props?, style?}, {op:"move", id, parentId, index?}, {op:"remove", id}, {op:"duplicate", id}, {op:"replace", id, block}, {op:"updateSettings", settings}, {op:"updateTheme", colors?, fonts?}.',
+          'Atomic batch. Each op is one of: {op:"insert", parentId?, index?, blocks}, {op:"update", id, props?, style?}, {op:"move", id, parentId, index?}, {op:"remove", id}, {op:"duplicate", id}, {op:"replace", id, block}, {op:"updateSettings", settings}, {op:"updateTheme", colors?, fonts?, styles?}.',
         ),
     }),
     check_email: z.object({}),
@@ -174,7 +186,8 @@ const DESCRIPTIONS: Record<keyof ReturnType<typeof inputSchemas>, string> = {
   replace_block: 'Replaces a block, keeping its position, with new block content.',
   insert_section: 'Inserts a ready-made section (see the section list in the system prompt).',
   update_settings: 'Changes email settings such as preheader, width or colors.',
-  update_theme: 'Changes theme colors and fonts; every block using $tokens follows.',
+  update_theme:
+    'Changes theme colors, fonts and component styles (button, image, card, divider); every block using $tokens or not setting its own style follows.',
   replace_document: 'Replaces the whole email with new blocks. Use only to start from scratch.',
   apply_ops:
     'Applies several operations atomically: all succeed or none do. When any fail, every failing op is reported (op numbers are 0-based) so you can fix them in one retry.',
@@ -371,8 +384,11 @@ export function createAgentTools(
     update_settings: (input: { settings: Record<string, unknown> }) =>
       commit([{ op: 'updateSettings', settings: input.settings }], () => 'Settings updated.'),
 
-    update_theme: (input: { colors?: Record<string, unknown>; fonts?: Record<string, unknown> }) =>
-      commit([{ op: 'updateTheme', ...input }], () => 'Theme updated.'),
+    update_theme: (input: {
+      colors?: Record<string, unknown>;
+      fonts?: Record<string, unknown>;
+      styles?: Record<string, Record<string, unknown> | null>;
+    }) => commit([{ op: 'updateTheme', ...input }], () => 'Theme updated.'),
 
     replace_document: (input: {
       settings?: Record<string, unknown>;

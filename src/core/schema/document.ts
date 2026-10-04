@@ -7,9 +7,70 @@ import {
   type BlockStyle,
   type BlockType,
 } from './blocks';
-import { ColorSchema, FontFamilySchema, HexColorSchema, PaddingSchema } from './primitives';
+import {
+  ButtonShapeSchema,
+  ButtonSizeSchema,
+  ButtonVariantSchema,
+  ColorSchema,
+  FontFamilySchema,
+  FontWeightSchema,
+  HexColorSchema,
+  LineStyleSchema,
+  PaddingSchema,
+  ShadowSchema,
+} from './primitives';
 
 export const ROOT_ID = 'root';
+
+const RadiusSchema = z.number().int().min(0).max(48).describe('Corner radius in px.');
+
+/**
+ * Component styles, like a design system's variants: every block that doesn't
+ * set its own value follows these, so one change restyles the whole email.
+ */
+export const ThemeStylesSchema = z
+  .strictObject({
+    button: z
+      .strictObject({
+        variant: ButtonVariantSchema.optional(),
+        shape: ButtonShapeSchema.optional(),
+        radius: RadiusSchema.optional().describe('Corner radius of "rounded" buttons in px.'),
+        size: ButtonSizeSchema.optional(),
+        fontWeight: FontWeightSchema.optional(),
+        uppercase: z.boolean().optional().describe('Set button labels in capitals.'),
+        letterSpacing: z
+          .number()
+          .min(-2)
+          .max(10)
+          .optional()
+          .describe('Label letter spacing in px.'),
+      })
+      .optional(),
+    image: z
+      .strictObject({
+        radius: RadiusSchema.optional().describe(
+          'Corner radius of images and video posters in px.',
+        ),
+      })
+      .optional(),
+    card: z
+      .strictObject({
+        radius: RadiusSchema.optional().describe('Corner radius of cards in px.'),
+        border: z.boolean().optional().describe('Outline cards with the $border color.'),
+        shadow: ShadowSchema.optional(),
+      })
+      .optional()
+      .describe('Containers and columns with props.card = true.'),
+    divider: z
+      .strictObject({
+        style: LineStyleSchema.optional(),
+        thickness: z.number().int().min(1).max(24).optional().describe('Line thickness in px.'),
+      })
+      .optional(),
+  })
+  .describe('Component styles blocks inherit unless they set their own value.');
+
+export type ThemeStyles = z.infer<typeof ThemeStylesSchema>;
 
 export const ThemeSchema = z.strictObject({
   colors: z.strictObject({
@@ -26,6 +87,7 @@ export const ThemeSchema = z.strictObject({
     body: FontFamilySchema,
     heading: FontFamilySchema,
   }),
+  styles: ThemeStylesSchema.optional(),
 });
 
 export type Theme = z.infer<typeof ThemeSchema>;

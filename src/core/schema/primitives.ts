@@ -131,6 +131,30 @@ export function resolveFontStack(font: string | undefined): string | undefined {
   return font in FONT_FAMILIES ? FONT_FAMILIES[font as FontKey].stack : font;
 }
 
+export const BUTTON_VARIANTS = ['solid', 'soft', 'outline', 'ghost', 'link'] as const;
+
+export const ButtonVariantSchema = z
+  .enum(BUTTON_VARIANTS)
+  .describe(
+    'solid = filled with the button color; soft = light tint of it with colored text; outline = colored border and text; ghost = colored text only, button-sized; link = underlined text link.',
+  );
+
+export const ButtonShapeSchema = z
+  .enum(['rectangle', 'rounded', 'pill'])
+  .describe(
+    'rectangle = square corners, rounded = the theme button radius, pill = fully round ends.',
+  );
+
+export const ButtonSizeSchema = z.enum(['xs', 'sm', 'md', 'lg']);
+
+export const LineStyleSchema = z.enum(['solid', 'dashed', 'dotted']);
+
+export const ShadowSchema = z
+  .enum(['none', 'sm', 'md', 'lg'])
+  .describe(
+    'Drop shadow. Apple Mail, iOS and most webmail show it; Outlook and Gmail apps ignore it.',
+  );
+
 export const FontWeightSchema = z
   .union([
     z.literal('normal'),

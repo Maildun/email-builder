@@ -1,5 +1,6 @@
 import { resolveColor } from '../core/colors';
 import { type CustomBlockDefinition, type CustomBlocks, customBlockMap } from '../core/custom';
+import { type ResolvedThemeStyles, resolveThemeStyles } from '../core/defaults';
 import type { EmailDocument, Theme } from '../core/schema/document';
 import { type Padding, resolveFontStack, resolvePadding } from '../core/schema/primitives';
 import { DEFAULT_ASSETS_URL } from '../core/social';
@@ -18,6 +19,8 @@ export interface RenderWarning {
 export interface RenderContext {
   document: EmailDocument;
   theme: Theme;
+  /** Component styles from the theme, with defaults filled in. */
+  styles: ResolvedThemeStyles;
   /** Resolves tokens like `$primary`; falls back when the value is missing. */
   color: (value: string | undefined, fallback?: string) => string | undefined;
   /** Resolves a font key or stack; falls back to the body font. */
@@ -51,6 +54,7 @@ export function createRenderContext(
   return {
     document,
     theme,
+    styles: resolveThemeStyles(theme),
     color,
     font: (value) => resolveFontStack(value) ?? bodyFont,
     headingFont: resolveFontStack(theme.fonts.heading) ?? bodyFont,

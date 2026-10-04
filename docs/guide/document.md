@@ -79,6 +79,28 @@ Theme colors themselves must be hex values (`#1f6feb`). `DEFAULT_THEME` and `DEF
 
 `FONT_FAMILIES` maps each key to its label and stack.
 
+### Component styles
+
+`theme.styles` is optional and works like a design system's component variants: every block that doesn't set its own value follows it, so one change restyles every button, image, card and divider in the email.
+
+```json
+"styles": {
+  "button": { "variant": "outline", "shape": "pill", "size": "md", "fontWeight": 600, "uppercase": false },
+  "image": { "radius": 12 },
+  "card": { "radius": 16, "border": true, "shadow": "sm" },
+  "divider": { "style": "dashed", "thickness": 1 }
+}
+```
+
+| Component | Keys |
+| --- | --- |
+| `button` | `variant` (`solid`, `soft`, `outline`, `ghost`, `link`), `shape` (`rectangle`, `rounded`, `pill`), `radius` (px for `rounded`), `size` (`xs`–`lg`), `fontWeight`, `uppercase`, `letterSpacing` |
+| `image` | `radius`: corners of image and video blocks |
+| `card` | `radius`, `border` (outline in `$border`), `shadow` (`none`, `sm`, `md`, `lg`): containers and columns with `props.card: true` |
+| `divider` | `style` (`solid`, `dashed`, `dotted`), `thickness` |
+
+A block's own props and style always win (`button.props.variant`, `image.style.borderRadius`, …). Anything left out falls back to `DEFAULT_THEME_STYLES`, which matches how emails rendered before theme styles existed: solid rounded buttons with a 6px radius, square images, 8px cards. `resolveThemeStyles(theme)` returns the merged result. Shadows show in Apple Mail, iOS and most webmail; Outlook ignores them.
+
 ## Blocks
 
 Each block has a `type`, `props` (its content) and an optional `style` (its box and typography). Containers also have `children`.

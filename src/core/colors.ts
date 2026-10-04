@@ -38,6 +38,25 @@ function luminance([r, g, b]: [number, number, number]): number {
   return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
 }
 
+/**
+ * Blends `color` into `base`: `amount` 0 is `base`, 1 is `color`. Both must be
+ * hex colors; otherwise `color` is returned unchanged.
+ */
+export function mixColors(color: string, base: string, amount: number): string {
+  const fg = toRgb(color);
+  const bg = toRgb(base);
+  if (!fg || !bg) {
+    return color;
+  }
+  const hex = fg
+    .map((channel, index) => {
+      const value = Math.round(channel * amount + (bg[index] ?? 0) * (1 - amount));
+      return value.toString(16).padStart(2, '0');
+    })
+    .join('');
+  return `#${hex}`;
+}
+
 /** WCAG contrast ratio between two hex colors, or undefined if either is not hex. */
 export function contrastRatio(foreground: string, background: string): number | undefined {
   const fg = toRgb(foreground);

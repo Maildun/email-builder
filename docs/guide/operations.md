@@ -52,7 +52,7 @@ if (result.ok) {
 | `duplicate` | `{ op, id }` | Copies a block, with its children, right after itself. |
 | `replace` | `{ op, id, block }` | Replaces a block in place with new content. Keeps the original id unless `block.id` is given. |
 | `updateSettings` | `{ op, settings }` | Merges keys into `settings`. `null` removes an optional key. |
-| `updateTheme` | `{ op, colors?, fonts? }` | Merges theme colors and fonts. Every block using `$tokens` follows. Theme keys can't be removed. |
+| `updateTheme` | `{ op, colors?, fonts?, styles? }` | Merges theme colors, fonts and [component styles](./document#component-styles). Every block using `$tokens`, or not setting its own style, follows. Color and font keys can't be removed; in `styles`, `null` removes a field (`{ button: { size: null } }`) or a whole component (`{ card: null }`). |
 | `replaceDocument` | `{ op, document }` | Replaces everything, with a full document (one with `version`, which must be valid as is) or `{ settings?, theme?, blocks }` built on an empty document. |
 
 `parentId` is the id of a `container`, a `column`, a `columns` block (for inserting or moving `column` blocks), or `"root"` for the document body.

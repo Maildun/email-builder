@@ -164,6 +164,7 @@ ${options.brief ? `\n## Brief\n${options.brief}\n` : ''}
 ## Rules
 - Colors: use theme tokens (${THEME_COLOR_TOKENS.map((t) => `$${t}`).join(', ')}) unless the user asks for a specific color; change brand colors with update_theme.
 - Fonts: ${FONT_KEYS.join(', ')}, or a CSS font stack. Set them on the theme, not per block, unless asked.
+- Component styles: the theme's styles set every button's variant, shape, size and weight, image corners, card radius/border/shadow and divider lines. Leave those props unset on blocks so they follow the theme; set them on a block only to make it deliberately different (e.g. a secondary "outline" button next to a solid one). Change the look everywhere with update_theme styles. Mark boxed content (quotes, offers, highlighted bands) with props.card = true on a container or column instead of a hand-set radius.
 - Text blocks use restricted markdown: paragraphs, line breaks, **bold**, *italic*, ~~strike~~, \`code\`, [links](https://…), "- " and "1. " lists. No headings, tables or images inside text: use heading/image/columns blocks.
 - Headings accept inline markdown only (bold, italic, links).
 - Links and image URLs must be absolute (https://…), mailto:, tel:, or a merge tag. Never invent real URLs; use https://example.com as a placeholder and say so.

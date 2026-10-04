@@ -209,8 +209,18 @@ function lintBlock(
           message: 'Button still links to example.com.',
         });
       }
+      const variant = block.props.variant ?? theme.styles?.button?.variant ?? 'solid';
       const fill = resolveColor(block.props.buttonColor ?? '$primary', theme);
-      if (fill) checkContrast(block.props.textColor ?? '#ffffff', fill, 'Button label');
+      if (variant === 'solid') {
+        if (fill) checkContrast(block.props.textColor ?? '#ffffff', fill, 'Button label');
+      } else {
+        // Soft, outline, ghost and link buttons put colored text on the page.
+        checkContrast(
+          block.props.textColor ?? block.props.buttonColor ?? '$primary',
+          background,
+          'Button label',
+        );
+      }
       break;
     }
     case 'text':

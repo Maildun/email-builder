@@ -79,6 +79,45 @@ const OWN_RADIUS = {
 
 const CLEARS_RADIUS = { clears: { scope: 'style', key: 'borderRadius' } } as const;
 
+/** First option of selects whose unset value follows the theme's component styles. */
+const THEME_OPTION = { value: DEFAULT_OPTION, label: 'Theme' };
+
+/** Makes a container or column a card styled by the theme. */
+const CARD = {
+  key: 'card',
+  scope: 'props',
+  label: 'Card',
+  kind: 'switch',
+  hint: "Uses the theme's card radius, border and shadow.",
+} as const satisfies FieldSpec;
+
+/** Theme component style options, shared with the email inspector. */
+export const STYLE_OPTIONS = {
+  buttonVariant: [
+    { value: 'solid', label: 'Solid' },
+    { value: 'soft', label: 'Soft' },
+    { value: 'outline', label: 'Outline' },
+    { value: 'ghost', label: 'Ghost' },
+    { value: 'link', label: 'Link' },
+  ],
+  buttonShape: [
+    { value: 'rectangle', label: 'Square' },
+    { value: 'rounded', label: 'Rounded' },
+    { value: 'pill', label: 'Pill' },
+  ],
+  shadow: [
+    { value: 'none', label: 'None' },
+    { value: 'sm', label: 'Small' },
+    { value: 'md', label: 'Medium' },
+    { value: 'lg', label: 'Large' },
+  ],
+  lineStyle: [
+    { value: 'solid', label: 'Solid' },
+    { value: 'dashed', label: 'Dashed' },
+    { value: 'dotted', label: 'Dotted' },
+  ],
+};
+
 const BOX: FieldSpec[] = [
   { key: 'padding', scope: 'style', label: 'Padding', kind: 'padding' },
   { key: 'backgroundColor', scope: 'style', label: 'Background', kind: 'color', allowClear: true },
@@ -195,18 +234,27 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
     {
       title: 'Button',
       fields: [
+        {
+          key: 'variant',
+          scope: 'props',
+          label: 'Style',
+          kind: 'select',
+          options: [THEME_OPTION, ...STYLE_OPTIONS.buttonVariant],
+        },
         { key: 'buttonColor', scope: 'props', label: 'Button color', kind: 'color' },
-        { key: 'textColor', scope: 'props', label: 'Label color', kind: 'color' },
+        {
+          key: 'textColor',
+          scope: 'props',
+          label: 'Label color',
+          kind: 'color',
+          allowClear: true,
+        },
         {
           key: 'shape',
           scope: 'props',
           label: 'Shape',
-          kind: 'segmented',
-          options: [
-            { value: 'rectangle', label: 'Square' },
-            { value: 'rounded', label: 'Rounded' },
-            { value: 'pill', label: 'Pill' },
-          ],
+          kind: 'select',
+          options: [THEME_OPTION, ...STYLE_OPTIONS.buttonShape],
           ...CLEARS_RADIUS,
         },
         OWN_RADIUS,
@@ -214,12 +262,13 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
           key: 'size',
           scope: 'props',
           label: 'Size',
-          kind: 'segmented',
+          kind: 'select',
           options: [
-            { value: 'xs', label: 'XS' },
-            { value: 'sm', label: 'S' },
-            { value: 'md', label: 'M' },
-            { value: 'lg', label: 'L' },
+            THEME_OPTION,
+            { value: 'xs', label: 'Extra small' },
+            { value: 'sm', label: 'Small' },
+            { value: 'md', label: 'Medium' },
+            { value: 'lg', label: 'Large' },
           ],
         },
         { key: 'fullWidth', scope: 'props', label: 'Full width', kind: 'switch' },
@@ -262,7 +311,12 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
         ALIGN,
       ],
     },
-    { title: 'Box', fields: BOX },
+    {
+      title: 'Box',
+      fields: BOX.map((field) =>
+        field.key === 'borderRadius' ? { ...field, placeholder: 'Theme' } : field,
+      ),
+    },
   ],
   social: [
     {
@@ -387,6 +441,13 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
       fields: [
         { key: 'color', scope: 'props', label: 'Color', kind: 'color' },
         {
+          key: 'lineStyle',
+          scope: 'props',
+          label: 'Line style',
+          kind: 'select',
+          options: [THEME_OPTION, ...STYLE_OPTIONS.lineStyle],
+        },
+        {
           key: 'thickness',
           scope: 'props',
           label: 'Thickness',
@@ -394,6 +455,7 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
           min: 1,
           max: 24,
           unit: 'px',
+          placeholder: 'Theme',
         },
         {
           key: 'width',
@@ -444,7 +506,7 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
     { title: 'Box', fields: BOX },
   ],
   custom: [{ title: 'Box', fields: [ALIGN, ...BOX] }],
-  container: [{ title: 'Box', fields: [ALIGN, ...BOX] }],
+  container: [{ title: 'Box', fields: [CARD, ALIGN, ...BOX] }],
   columns: [
     {
       title: 'Columns',
@@ -482,7 +544,7 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
         },
       ],
     },
-    { title: 'Box', fields: BOX },
+    { title: 'Box', fields: [CARD, ...BOX] },
   ],
 };
 
