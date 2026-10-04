@@ -259,3 +259,13 @@
     animation-duration: 0.01ms !important;
   }
 }
+
+/* The frame scales down on narrow stages; keep the block toolbar and format bar at full size. */
+.meb-backdrop :is(.meb-block-toolbar, [data-slot='format-bar']) {
+  scale: calc(1 / var(--meb-scale, 1));
+  transform-origin: bottom left;
+}
+
+.meb-backdrop .meb-block-toolbar[data-placement='bottom'] {
+  transform-origin: top left;
+}

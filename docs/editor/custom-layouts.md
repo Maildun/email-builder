@@ -61,7 +61,7 @@ Editor state (`EditorState`):
 | `document` | The committed document |
 | `selectedId`, `editingId` | Selected block, and the block whose text is being edited |
 | `view` | `'design'`, `'preview'` or `'code'` |
-| `viewport` | `'desktop'` or `'mobile'` |
+| `viewport` | `'desktop'` (the email's `settings.width`) or `'mobile'` (375px). When the stage is narrower, Design and Preview scale the email down to fit rather than reflowing it, so the layout stays the one recipients get. |
 | `panels` | `{ sidebar, inspector }` open state |
 | `proposal` | The pending [proposal](/ai/editor-review), or `null` |
 | `canUndo`, `canRedo` | History availability |
