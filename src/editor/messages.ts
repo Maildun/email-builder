@@ -189,6 +189,14 @@ export interface EditorMessages {
     size: (kilobytes: number) => string;
     copy: string;
     copied: string;
+    /** Toggle: indent the HTML for reading (copying always gives the exact output). */
+    format: string;
+    /** Toggle: wrap long lines. */
+    wrap: string;
+    /** Badge on a collapsed run of a repeated entity, e.g. "× 80". */
+    repeated: (count: number) => string;
+    /** Tooltip on that run. */
+    repeatedTip: string;
   };
   formatBar: {
     bold: string;
@@ -377,6 +385,11 @@ export const EN_MESSAGES: EditorMessages = {
     size: (kilobytes) => `${kilobytes} KB`,
     copy: 'Copy',
     copied: 'Copied',
+    format: 'Format HTML',
+    wrap: 'Wrap lines',
+    repeated: (count) => `× ${count}`,
+    repeatedTip:
+      'Preheader filler, repeated so inboxes don’t pull body text into the preview. Collapsed here; copied in full.',
   },
   formatBar: {
     bold: 'Bold',

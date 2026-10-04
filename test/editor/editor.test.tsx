@@ -3,7 +3,7 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { createDocument, defineBlock, type EmailDocument } from '../../src';
+import { createDocument, defineBlock, type EmailDocument, renderEmail } from '../../src';
 import { runTool } from '../../src/agent';
 import { EmailEditor, type EmailEditorHandle, EN_MESSAGES } from '../../src/editor';
 import { resolveDrop } from '../../src/editor/dnd';
@@ -27,6 +27,28 @@ const doc = () =>
   });
 
 describe('<EmailEditor>', () => {
+  it('previews desktop above the mobile breakpoint and mobile below it', () => {
+    const editor = createRef<EmailEditorHandle>();
+    const { container } = render(<EmailEditor ref={editor} defaultValue={doc()} />);
+    act(() => editor.current?.store.setView('preview'));
+    const frame = () => container.querySelector<HTMLElement>('[data-slot="preview-frame"]');
+    // The iframe fills the frame's content box; its width is the email's viewport.
+    const viewportWidth = () => {
+      const style = frame()?.style;
+      return (
+        Number.parseFloat(style?.maxWidth ?? '0') -
+        2 * Number.parseFloat(style?.paddingInline || '0')
+      );
+    };
+    const breakpoint = Number(
+      /max-width:(\d+)px\)\{/.exec(renderEmail(doc()).html)?.[1] ?? Number.NaN,
+    );
+    expect(viewportWidth()).toBeGreaterThan(breakpoint);
+    act(() => editor.current?.store.setViewport('mobile'));
+    expect(viewportWidth()).toBe(375);
+    expect(viewportWidth()).toBeLessThanOrEqual(breakpoint);
+  });
+
   it('renders the email on the canvas and inserts blocks from the palette', () => {
     const onChange = vi.fn();
     const { container } = render(<EmailEditor defaultValue={doc()} onChange={onChange} />);

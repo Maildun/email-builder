@@ -1,10 +1,17 @@
-import { Copy01Icon, Tick02Icon } from '@hugeicons/core-free-icons';
+import {
+  Copy01Icon,
+  TextAlignLeftIcon,
+  TextWrapIcon,
+  Tick02Icon,
+} from '@hugeicons/core-free-icons';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRenderContext } from '../../render/context';
 import { renderEmail } from '../../render/html';
 import { EmailFrame, emailWidth } from '../canvas/EmailFrame';
 import { useEditorOptions, useEditorState, useMessages, useVisibleDocument } from '../context';
-import { Badge, Button, Icon, Tabs, TabsList, TabsTrigger } from '../ui';
+import { Badge, Button, Icon, Tabs, TabsList, TabsTrigger, Tip } from '../ui';
+import { CodeBlock } from './CodeBlock';
+import { formatHtml, tokenizeHtml, tokenizeJson, tokenizeText, toLines } from './code';
 
 /** The real rendered email in an isolated iframe, so media queries apply. */
 export function Preview() {
@@ -70,12 +77,18 @@ export function Preview() {
       data-slot="preview"
       className="min-h-0 flex-1 overflow-auto p-6 pb-[calc(24px+var(--meb-overlay-space,0px))]"
     >
-      {/* The same frame as the design canvas; the email renders at its real width inside. */}
+      {/*
+        The same frame as the design canvas. On desktop the iframe spans the gutters too: the
+        email draws its own backdrop around the centered content, and its viewport must be wider
+        than the mobile breakpoint (settings.width + 20px) or the columns would stack. On mobile
+        the viewport is the phone's width, so the mobile styles apply.
+      */}
       <EmailFrame
         data-slot="preview-frame"
         data-viewport={viewport}
         width={emailWidth(document, viewport)}
         backdrop={backdrop}
+        style={viewport === 'mobile' ? undefined : { paddingInline: 0 }}
       >
         <iframe
           ref={frame}
@@ -121,6 +134,14 @@ export function CodeView() {
   const json = useMemo(() => JSON.stringify(document, null, 2), [document]);
   const outputs = { html: rendered.html, text: rendered.text, json };
   const [tab, setTab] = useState<keyof typeof outputs>('html');
+  const [formatted, setFormatted] = useState(true);
+  // Prose and unformatted HTML read better wrapped; indented code reads better unwrapped.
+  const [wrap, setWrap] = useState({ html: false, text: true, json: false });
+  const lines = useMemo(() => {
+    if (tab === 'json') return toLines(tokenizeJson(json));
+    if (tab === 'text') return toLines(tokenizeText(rendered.text));
+    return toLines(tokenizeHtml(formatted ? formatHtml(rendered.html) : rendered.html));
+  }, [tab, json, rendered, formatted]);
 
   return (
     <div
@@ -139,6 +160,35 @@ export function CodeView() {
             <TabsTrigger value="json">{text.json}</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-1.5">
+            {tab === 'html' ? (
+              <Tip label={text.format}>
+                <Button
+                  size="icon-xs"
+                  variant="ghost"
+                  aria-label={text.format}
+                  aria-pressed={formatted}
+                  className="aria-pressed:bg-muted aria-pressed:text-foreground"
+                  onClick={() => {
+                    setFormatted(!formatted);
+                    setWrap((current) => ({ ...current, html: formatted }));
+                  }}
+                >
+                  <Icon icon={TextAlignLeftIcon} />
+                </Button>
+              </Tip>
+            ) : null}
+            <Tip label={text.wrap}>
+              <Button
+                size="icon-xs"
+                variant="ghost"
+                aria-label={text.wrap}
+                aria-pressed={wrap[tab]}
+                className="aria-pressed:bg-muted aria-pressed:text-foreground"
+                onClick={() => setWrap((current) => ({ ...current, [tab]: !current[tab] }))}
+              >
+                <Icon icon={TextWrapIcon} />
+              </Button>
+            </Tip>
             <Badge variant="outline" className="font-normal text-muted-foreground tabular-nums">
               {text.size(Math.round(new Blob([outputs[tab]]).size / 1024))}
             </Badge>
@@ -153,9 +203,8 @@ export function CodeView() {
             {rendered.warnings.map((warning) => warning.message).join(' ')}
           </div>
         ) : null}
-        <pre className="m-0 min-h-0 flex-1 overflow-auto rounded-lg border bg-card p-3.5 font-mono text-xs leading-relaxed break-all whitespace-pre-wrap">
-          <code>{outputs[tab]}</code>
-        </pre>
+        {/* Keyed by tab so each output opens at the top. */}
+        <CodeBlock key={tab} lines={lines} wrap={wrap[tab]} label={text[tab]} />
       </Tabs>
     </div>
   );

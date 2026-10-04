@@ -35,6 +35,7 @@ Theme it with `--meb-*` variables (shadcn's token names with a `meb-` prefix), o
 | `selection`, `selection-soft`, `selection-solid` | The selected block's outline, fill, and the solid color behind white text |
 | `ai`, `ai-soft` | Highlights for AI proposals |
 | `stage` | Background behind the email canvas |
+| `code-tag`, `code-attr`, `code-string`, `code-keyword`, `code-entity`, `code-comment`, `code-merge` | Syntax colors in the Code view (light and dark defaults included) |
 
 ## Tailwind CSS 4 + shadcn/ui apps: `core.css`
 

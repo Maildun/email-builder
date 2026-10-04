@@ -18,6 +18,14 @@
   --editor-ai: var(--meb-ai, oklch(0.541 0.281 293.009));
   --editor-ai-soft: var(--meb-ai-soft, oklch(0.541 0.281 293.009 / 0.08));
   --editor-stage: var(--meb-stage, color-mix(in oklch, var(--muted) 60%, var(--background)));
+  /* Code view syntax colors. */
+  --editor-code-tag: var(--meb-code-tag, #116329);
+  --editor-code-attr: var(--meb-code-attr, #0550ae);
+  --editor-code-string: var(--meb-code-string, #0a3069);
+  --editor-code-keyword: var(--meb-code-keyword, #cf222e);
+  --editor-code-entity: var(--meb-code-entity, #953800);
+  --editor-code-comment: var(--meb-code-comment, #6e7781);
+  --editor-code-merge: var(--meb-code-merge, #8250df);
 
   /* Native controls and scrollbars follow the editor's theme. */
   color-scheme: light;
@@ -43,6 +51,13 @@
   --editor-selection-soft: var(--meb-selection-soft, oklch(0.72 0.14 253.5 / 0.16));
   --editor-ai: var(--meb-ai, oklch(0.702 0.183 293.541));
   --editor-ai-soft: var(--meb-ai-soft, oklch(0.702 0.183 293.541 / 0.14));
+  --editor-code-tag: var(--meb-code-tag, #7ee787);
+  --editor-code-attr: var(--meb-code-attr, #79c0ff);
+  --editor-code-string: var(--meb-code-string, #a5d6ff);
+  --editor-code-keyword: var(--meb-code-keyword, #ff7b72);
+  --editor-code-entity: var(--meb-code-entity, #ffa657);
+  --editor-code-comment: var(--meb-code-comment, #8b949e);
+  --editor-code-merge: var(--meb-code-merge, #d2a8ff);
 }
 
 /* ---------- Canvas ---------- */
@@ -268,4 +283,42 @@
 
 .meb-backdrop .meb-block-toolbar[data-placement='bottom'] {
   transform-origin: top left;
+}
+
+/* ---------- Code view ---------- */
+
+.meb-code [data-token='punct'] {
+  color: var(--muted-foreground);
+}
+.meb-code :is([data-token='tag'], [data-token='selector']) {
+  color: var(--editor-code-tag);
+}
+.meb-code
+  :is([data-token='attr'], [data-token='property'], [data-token='key'], [data-token='number']) {
+  color: var(--editor-code-attr);
+}
+.meb-code :is([data-token='value'], [data-token='string']) {
+  color: var(--editor-code-string);
+}
+.meb-code :is([data-token='keyword'], [data-token='doctype'], [data-token='literal']) {
+  color: var(--editor-code-keyword);
+}
+.meb-code :is([data-token='entity'], [data-token='repeat']) {
+  color: var(--editor-code-entity);
+}
+.meb-code :is([data-token='comment'], [data-token='conditional']) {
+  color: var(--editor-code-comment);
+}
+/* Outlook-only markup: present, but easy to skip over. */
+.meb-code [data-token='conditional'] {
+  font-style: italic;
+}
+.meb-code [data-token='merge'] {
+  color: var(--editor-code-merge);
+  background: color-mix(in oklch, var(--editor-code-merge) 12%, transparent);
+  border-radius: 3px;
+}
+.meb-code [data-slot='code-repeat'] {
+  background: color-mix(in oklch, var(--editor-code-entity) 14%, transparent);
+  cursor: help;
 }

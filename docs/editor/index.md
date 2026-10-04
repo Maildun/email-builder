@@ -2,6 +2,8 @@
 
 `<EmailEditor>` is the visual editor: a palette of blocks and sections on the left, the email in the middle, an inspector on the right, and a top bar with views (design, preview, code), the mobile/desktop toggle and undo/redo.
 
+The code view shows the HTML, plain text and JSON with line numbers and syntax colors. HTML is indented for reading (toggle it off to see the output as sent); **Copy** always copies the exact output.
+
 ```tsx
 import { EmailEditor } from '@maildun/email-builder/editor';
 import '@maildun/email-builder/styles.css';
