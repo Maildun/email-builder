@@ -105,4 +105,4 @@ import { CancelCircleIcon, CheckmarkCircle02Icon, SparklesIcon } from '@hugeicon
 <EmailEditor icons={{ proposal: SparklesIcon, reject: CancelCircleIcon, accept: CheckmarkCircle02Icon }} />
 ```
 
-Icons: `proposal` (the review bar's mark), `reject`, `accept`. The rest keep the built-in icons.
+Icons: `proposal` (the review bar's mark), `reject`, `accept`, `generate` (the preheader button). The rest keep the built-in icons.

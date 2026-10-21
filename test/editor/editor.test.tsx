@@ -271,6 +271,51 @@ describe('<EmailEditor>', () => {
     expect(button.querySelector('path')?.getAttribute('d')).toBe('M1 1h22v22H1z');
   });
 
+  it('generates the preheader with the host callback', async () => {
+    const ref = createRef<EmailEditorHandle>();
+    const onGeneratePreheader = vi.fn(async () => 'Three new templates inside.');
+    render(
+      <EmailEditor ref={ref} defaultValue={doc()} onGeneratePreheader={onGeneratePreheader} />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Email' }));
+    const before = ref.current?.getDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Generate preheader' }));
+    });
+    expect(onGeneratePreheader).toHaveBeenCalledWith(before);
+    expect(ref.current?.getDocument().settings.preheader).toBe('Three new templates inside.');
+    expect(screen.getByLabelText<HTMLInputElement>('Preheader').value).toBe(
+      'Three new templates inside.',
+    );
+  });
+
+  it('shows why the preheader could not be generated', async () => {
+    const ref = createRef<EmailEditorHandle>();
+    render(
+      <EmailEditor
+        ref={ref}
+        defaultValue={doc()}
+        onGeneratePreheader={async () => {
+          throw new Error('Daily limit reached.');
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Email' }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Generate preheader' }));
+    });
+    expect(screen.getByText('Daily limit reached.')).toBeTruthy();
+    expect(ref.current?.getDocument().settings.preheader).toBeUndefined();
+  });
+
+  it('offers preheader generation only when the host handles it', () => {
+    const { rerender } = render(<EmailEditor defaultValue={doc()} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Email' }));
+    expect(screen.queryByRole('button', { name: 'Generate preheader' })).toBeNull();
+    rerender(<EmailEditor defaultValue={doc()} readOnly onGeneratePreheader={async () => 'x'} />);
+    expect(screen.queryByRole('button', { name: 'Generate preheader' })).toBeNull();
+  });
+
   it('composes a custom layout from the parts', () => {
     const ref = createRef<EmailEditorHandle>();
     render(

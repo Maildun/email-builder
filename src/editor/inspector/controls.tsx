@@ -1,4 +1,5 @@
 import {
+  AiEditingIcon,
   BracesIcon,
   Cancel01Icon,
   Image02Icon,
@@ -9,9 +10,9 @@ import {
 } from '@hugeicons/core-free-icons';
 import { type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { resolveColor } from '../../core/colors';
-import type { Theme } from '../../core/schema/document';
+import type { EmailDocument, Theme } from '../../core/schema/document';
 import { type Padding, resolvePadding, THEME_COLOR_TOKENS } from '../../core/schema/primitives';
-import { useEditorOptions, useMessages } from '../context';
+import { useEditorIcon, useEditorOptions, useMessages } from '../context';
 import { Button, cn, Icon, Input, NumberInput, Popover, Spinner, Textarea, Tip } from '../ui';
 import { FieldDescription, Field as FieldRoot, FieldTitle } from '../ui/field';
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../ui/input-group';
@@ -210,6 +211,78 @@ export function UrlInput({
         </InputGroupAddon>
       </InputGroup>
       {error ? <ErrorText id={errorId}>{error}</ErrorText> : null}
+    </>
+  );
+}
+
+/**
+ * The preheader field. With `onGeneratePreheader` it gains a button that asks
+ * the host to write one for `document` and commits the result.
+ */
+export function PreheaderInput({
+  id,
+  value,
+  document,
+  onCommit,
+}: {
+  id: string;
+  value: string | undefined;
+  document: EmailDocument;
+  onCommit: Commit<string | undefined>;
+}) {
+  const { onGeneratePreheader, readOnly, messages } = useEditorOptions();
+  const text = messages.inspector;
+  const generateIcon = useEditorIcon('generate', AiEditingIcon);
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<string | null>(null);
+  const { draft, error, change } = useDraft(value ?? '', (next) =>
+    onCommit(next === '' ? undefined : next),
+  );
+  const errorId = `${id}-error`;
+  const message = error ?? failure;
+
+  const generate = async () => {
+    if (!onGeneratePreheader) return;
+    setBusy(true);
+    setFailure(null);
+    try {
+      const result = await onGeneratePreheader(document);
+      if (result !== null) change(result);
+    } catch (reason) {
+      setFailure((reason as Error).message || text.generatePreheaderFailed);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <InputGroup className="h-8">
+        <InputGroupInput
+          id={id}
+          className="h-8 text-sm"
+          value={draft}
+          placeholder={text.preheaderPlaceholder}
+          aria-invalid={message ? true : undefined}
+          aria-describedby={message ? errorId : undefined}
+          onChange={(event) => change(event.target.value)}
+        />
+        {onGeneratePreheader && !readOnly ? (
+          <InputGroupAddon align="inline-end">
+            <Tip label={busy ? text.generatingPreheader : text.generatePreheader}>
+              <InputGroupButton
+                size="icon-xs"
+                aria-label={busy ? text.generatingPreheader : text.generatePreheader}
+                disabled={busy}
+                onClick={generate}
+              >
+                {busy ? <Spinner aria-hidden /> : <Icon icon={generateIcon} />}
+              </InputGroupButton>
+            </Tip>
+          </InputGroupAddon>
+        ) : null}
+      </InputGroup>
+      {message ? <ErrorText id={errorId}>{message}</ErrorText> : null}
     </>
   );
 }

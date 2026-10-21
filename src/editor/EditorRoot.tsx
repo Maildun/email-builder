@@ -58,6 +58,12 @@ export interface EditorRootProps {
   onUploadImage?: (file: File) => Promise<ImageResult>;
   /** Open your media library and resolve with the chosen image. Enables the Choose button. */
   onPickImage?: () => Promise<ImageResult | null>;
+  /**
+   * Write a preheader for the document, e.g. with your own AI, and resolve
+   * with it (or null to leave the field alone). Enables the generate button
+   * next to the preheader field; a rejection shows its message under it.
+   */
+  onGeneratePreheader?: (document: EmailDocument) => Promise<string | null>;
   /** Block types defined by your app (see `defineBlock`). */
   customBlocks?: CustomBlocks;
   /**
@@ -404,6 +410,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
     mergeTags: mergeTagsProp = NO_MERGE_TAGS,
     onUploadImage,
     onPickImage,
+    onGeneratePreheader,
     customBlocks: customBlocksProp = NO_CUSTOM_BLOCKS,
     assetsUrl = DEFAULT_OPTIONS.assetsUrl,
     blockTypes: blockTypesProp,
@@ -507,6 +514,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
   const views = useShallowStable(viewsProp) ?? DEFAULT_OPTIONS.views;
   const uploadImage = useLatestCallback(onUploadImage);
   const pickImage = useLatestCallback(onPickImage);
+  const generatePreheader = useLatestCallback(onGeneratePreheader);
   const messages = useResolvedMessages(messagesProp);
 
   useLayoutEffect(() => {
@@ -532,6 +540,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
       ...(icons ? { icons } : {}),
       ...(uploadImage ? { onUploadImage: uploadImage } : {}),
       ...(pickImage ? { onPickImage: pickImage } : {}),
+      ...(generatePreheader ? { onGeneratePreheader: generatePreheader } : {}),
       ...(blockTypes ? { blockTypes } : {}),
       ...(sections ? { sections } : {}),
     }),
@@ -546,6 +555,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
       icons,
       uploadImage,
       pickImage,
+      generatePreheader,
       blockTypes,
       sections,
     ],

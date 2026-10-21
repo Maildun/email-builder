@@ -2,6 +2,7 @@ import type { IconSvgElement } from '@hugeicons/react';
 import { createContext, type ReactNode, useContext, useSyncExternalStore } from 'react';
 import type { CustomBlockDefinition, CustomBlocks } from '../core/custom';
 import type { BlockType } from '../core/schema/blocks';
+import type { EmailDocument } from '../core/schema/document';
 import type { SectionName } from '../core/sections';
 import { DEFAULT_ASSETS_URL } from '../core/social';
 import { type EditorMessages, EN_MESSAGES } from './messages';
@@ -32,7 +33,7 @@ export type EditorSlot =
 export type EditorClassNames = Partial<Record<EditorSlot, string>>;
 
 /** Icons the host can swap, e.g. for another Hugeicons style. */
-export type EditorIconName = 'proposal' | 'reject' | 'accept';
+export type EditorIconName = 'proposal' | 'reject' | 'accept' | 'generate';
 
 /** Replacement icons (Hugeicons `IconSvgElement`s); the rest keep the built-in ones. */
 export type EditorIcons = Partial<Record<EditorIconName, IconSvgElement>>;
@@ -53,6 +54,7 @@ export interface EditorOptions {
   views: readonly EditorView[];
   onUploadImage?: (file: File) => Promise<ImageResult>;
   onPickImage?: () => Promise<ImageResult | null>;
+  onGeneratePreheader?: (document: EmailDocument) => Promise<string | null>;
   /** The UI text, already merged over the English defaults. */
   messages: EditorMessages;
   /** Where the social icons are hosted (see `RenderOptions.assetsUrl`). */

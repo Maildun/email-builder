@@ -114,6 +114,9 @@ export interface EditorMessages {
     preheader: string;
     preheaderHint: string;
     preheaderPlaceholder: string;
+    generatePreheader: string;
+    generatingPreheader: string;
+    generatePreheaderFailed: string;
     themeColors: string;
     typography: string;
     bodyFont: string;
@@ -327,6 +330,9 @@ export const EN_MESSAGES: EditorMessages = {
     preheader: 'Preheader',
     preheaderHint: 'Preview text shown after the subject line.',
     preheaderPlaceholder: 'A short summary…',
+    generatePreheader: 'Generate preheader',
+    generatingPreheader: 'Generating preheader…',
+    generatePreheaderFailed: 'Could not generate a preheader.',
     themeColors: 'Theme colors',
     typography: 'Typography',
     bodyFont: 'Body font',

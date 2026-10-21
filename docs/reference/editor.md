@@ -15,6 +15,7 @@ import { EmailEditor, type EmailEditorProps, type EmailEditorHandle } from '@mai
 | `mergeTags` | `{ key, label? }[]` | Offered in link fields and the text toolbar. |
 | `onUploadImage` | `(file: File) => Promise<{ url, alt? }>` | Enables **Upload** on image fields. |
 | `onPickImage` | `() => Promise<{ url, alt? } \| null>` | Opens your media library. Enables **Choose**. |
+| `onGeneratePreheader` | `(document) => Promise<string \| null>` | Writes a preheader, e.g. with your AI. Enables the generate button on the preheader field; a rejection shows its message. |
 | `customBlocks` | `CustomBlockDefinition[]` | Your block types. See [Custom blocks](/guide/custom-blocks). |
 | `assetsUrl` | `string` | Where the social icons are hosted. Defaults to jsDelivr. |
 | `blockTypes` | `BlockType[]` | Built-in blocks offered in the palette. All by default. |
@@ -26,7 +27,7 @@ import { EmailEditor, type EmailEditorProps, type EmailEditorHandle } from '@mai
 | `proposalActions` | `ReactNode \| (proposal) => ReactNode` | Extra controls in the proposal bar, before Reject. |
 | `appearance` | `'inherit' \| 'light' \| 'dark' \| 'system'` | Color scheme. `inherit` follows a `.dark` class on an ancestor. |
 | `classNames` | `Partial<Record<EditorSlot, string>>` | Extra classes for `root`, `topbar`, `sidebar`, `stage`, `canvas`, `inspector`, `proposal`, `block-toolbar`. |
-| `icons` | `Partial<Record<EditorIconName, IconSvgElement>>` | Replacement Hugeicons for `proposal` (the review bar's mark), `reject` and `accept`. Others keep the built-in icons. |
+| `icons` | `Partial<Record<EditorIconName, IconSvgElement>>` | Replacement Hugeicons for `proposal` (the review bar's mark), `reject`, `accept` and `generate` (the preheader button). Others keep the built-in icons. |
 | `messages` | `DeepPartial<EditorMessages>` | UI text. See [Translations](/editor/translations). |
 | `onSelectionChange` | `(id, block) => void` | The selected block changed. |
 | `onProposalChange` | `(proposal \| null) => void` | A proposal appeared, changed, or was resolved. |

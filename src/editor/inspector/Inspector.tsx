@@ -36,6 +36,7 @@ import {
   GroupField,
   ImageInput,
   PaddingInput,
+  PreheaderInput,
   Section,
   TextInput,
   UrlInput,
@@ -470,11 +471,11 @@ function EmailInspector() {
       <Section title={text.inbox}>
         <Field label={text.preheader} hint={text.preheaderHint}>
           {(id) => (
-            <TextInput
+            <PreheaderInput
               id={id}
               value={settings.preheader}
+              document={document}
               onCommit={setting('preheader')}
-              placeholder={text.preheaderPlaceholder}
             />
           )}
         </Field>
