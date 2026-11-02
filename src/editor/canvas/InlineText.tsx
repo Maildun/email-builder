@@ -10,13 +10,24 @@ import {
 } from '@hugeicons/core-free-icons';
 import { Link } from '@tiptap/extension-link';
 import { Markdown } from '@tiptap/markdown';
-import { EditorContent, useEditor, useEditorState } from '@tiptap/react';
+import { type Editor, EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
-import { type CSSProperties, useEffect, useState } from 'react';
-import { useEditorOptions } from '../context';
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
+import { useEditorOptions, useEditorStore } from '../context';
 import { Button, cn, Icon, Input, Popover, Separator, Tip } from '../ui';
+import { SlashMenu } from './SlashMenu';
+import {
+  buildSlashItems,
+  filterSlashItems,
+  findSlashQuery,
+  runBlockCommand,
+  type SlashItem,
+} from './slash';
 
 const MERGE_LINK_HOST = 'https://meb-merge.invalid/';
+
+/** The "/" menu's tallest size, in px. */
+const SLASH_MENU_HEIGHT = 420;
 
 /** Ghost format-bar buttons; `aria-pressed` marks the active formatting. */
 const FORMAT_BUTTON = 'aria-pressed:bg-muted aria-pressed:text-foreground';
@@ -59,6 +70,8 @@ export function fromEditorMarkdown(markdown: string): string {
 }
 
 export interface InlineTextProps {
+  /** The block being edited; the "/" menu adds blocks next to it. */
+  blockId: string;
   value: string;
   /** Headings are a single line of inline formatting. */
   singleLine?: boolean;
@@ -70,6 +83,7 @@ export interface InlineTextProps {
 
 /** In-place rich text editing that reads and writes restricted markdown. */
 export function InlineText({
+  blockId,
   value,
   singleLine,
   style,
@@ -77,8 +91,124 @@ export function InlineText({
   onChange,
   onDone,
 }: InlineTextProps) {
-  const { mergeTags, messages } = useEditorOptions();
+  const { mergeTags, messages, blockTypes, onCreateMergeTag } = useEditorOptions();
+  const store = useEditorStore();
   const text = messages.formatBar;
+  const wrapper = useRef<HTMLDivElement>(null);
+
+  /** The open "/" menu: the range of "/query" and where to show the menu. */
+  const [slash, setSlash] = useState<{
+    from: number;
+    to: number;
+    query: string;
+    left: number;
+    /** Distance from the editor's top to the menu's top, or its bottom when `above`. */
+    top: number;
+    above: boolean;
+    maxHeight: number;
+  } | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  /** Where Escape closed the menu, so it stays closed until the "/" goes. */
+  const dismissedAt = useRef<number | null>(null);
+
+  const allItems = useMemo(
+    () =>
+      buildSlashItems({
+        messages,
+        mergeTags,
+        singleLine: singleLine ?? false,
+        blockTypes,
+        canCreateField: onCreateMergeTag !== undefined,
+      }),
+    [messages, mergeTags, singleLine, blockTypes, onCreateMergeTag],
+  );
+  const items = useMemo(
+    () => (slash ? filterSlashItems(allItems, slash.query) : []),
+    [allItems, slash],
+  );
+
+  const detectSlash = (current: Editor) => {
+    const { selection } = current.state;
+    const { $from } = selection;
+    const query =
+      selection.empty && $from.parent.isTextblock
+        ? findSlashQuery($from.parent.textBetween(0, $from.parentOffset, undefined, '\ufffc'))
+        : null;
+    if (query === null) {
+      dismissedAt.current = null;
+      setSlash(null);
+      return;
+    }
+    const from = $from.pos - query.length - 1;
+    const box = wrapper.current?.getBoundingClientRect();
+    if (dismissedAt.current === from || !box) {
+      setSlash(null);
+      return;
+    }
+    const caret = current.view.coordsAtPos(from);
+    const spaceBelow = window.innerHeight - caret.bottom - 16;
+    const spaceAbove = caret.top - 16;
+    // Open upwards when the menu would not fit below the caret and fits better above.
+    const above = spaceBelow < SLASH_MENU_HEIGHT && spaceAbove > spaceBelow;
+    setSlash((previous) => {
+      if (previous?.query !== query) setActiveIndex(0);
+      return {
+        from,
+        to: $from.pos,
+        query,
+        left: caret.left - box.left,
+        top: above ? caret.top - box.top - 6 : caret.bottom - box.top + 6,
+        above,
+        maxHeight: Math.max(160, Math.min(SLASH_MENU_HEIGHT, above ? spaceAbove : spaceBelow)),
+      };
+    });
+  };
+
+  const choose = (item: SlashItem) => {
+    const current = editorRef.current;
+    if (!slash || !current) return;
+    setSlash(null);
+    current.chain().focus().deleteRange({ from: slash.from, to: slash.to }).run();
+    const { command } = item;
+    switch (command.kind) {
+      case 'bulletList':
+        current.chain().focus().toggleBulletList().run();
+        return;
+      case 'orderedList':
+        current.chain().focus().toggleOrderedList().run();
+        return;
+      case 'blockquote':
+        current.chain().focus().toggleBlockquote().run();
+        return;
+      case 'field':
+        current.chain().focus().insertContent(`{{ ${command.key} }}`).run();
+        return;
+      case 'addField': {
+        const at = current.state.selection.from;
+        void onCreateMergeTag?.().then((tag) => {
+          if (tag && !current.isDestroyed) {
+            current.chain().focus().insertContentAt(at, `{{ ${tag.key} }}`).run();
+          }
+        });
+        return;
+      }
+      default:
+        runBlockCommand(store, blockId, command, { empty: current.isEmpty, mergeTags });
+    }
+  };
+
+  /** Latest menu state for the editor's key handler, which is created once. */
+  const menu = useRef({ open: false, count: 0, activeIndex, choose: () => {} });
+  menu.current = {
+    open: slash !== null,
+    count: items.length,
+    activeIndex,
+    choose: () => {
+      const item = items[activeIndex];
+      if (item) choose(item);
+    },
+  };
+
   const editor = useEditor({
     immediatelyRender: false,
     autofocus: 'end',
@@ -86,12 +216,17 @@ export function InlineText({
       StarterKit.configure({
         heading: false,
         codeBlock: false,
-        blockquote: false,
         horizontalRule: false,
         underline: false,
         link: false,
         ...(singleLine
-          ? { bulletList: false, orderedList: false, listItem: false, listKeymap: false }
+          ? {
+              bulletList: false,
+              orderedList: false,
+              listItem: false,
+              listKeymap: false,
+              blockquote: false,
+            }
           : {}),
       }),
       Link.configure({ openOnClick: false, autolink: true, protocols: ['mailto', 'tel'] }),
@@ -102,6 +237,26 @@ export function InlineText({
     editorProps: {
       attributes: { class: cn('meb-inline-editor', className), spellcheck: 'true' },
       handleKeyDown: (_view, event) => {
+        const slashMenu = menu.current;
+        if (slashMenu.open) {
+          if (event.key === 'Escape') {
+            dismissedAt.current = editorRef.current
+              ? editorRef.current.state.selection.from - 1
+              : null;
+            setSlash(null);
+            return true;
+          }
+          if (slashMenu.count > 0 && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+            const step = event.key === 'ArrowDown' ? 1 : -1;
+            setActiveIndex((slashMenu.activeIndex + step + slashMenu.count) % slashMenu.count);
+            return true;
+          }
+          if (slashMenu.count > 0 && (event.key === 'Enter' || event.key === 'Tab')) {
+            event.preventDefault();
+            slashMenu.choose();
+            return true;
+          }
+        }
         if (event.key === 'Escape') {
           onDone();
           return true;
@@ -118,8 +273,12 @@ export function InlineText({
       let markdown = fromEditorMarkdown(current.getMarkdown());
       if (singleLine) markdown = markdown.replace(/\s*\n+\s*/g, ' ');
       onChange(markdown);
+      detectSlash(current);
     },
+    onSelectionUpdate: ({ editor: current }) => detectSlash(current),
   });
+  const editorRef = useRef(editor);
+  editorRef.current = editor;
 
   const active = useEditorState({
     editor,
@@ -155,7 +314,7 @@ export function InlineText({
   };
 
   return (
-    <div className="relative" style={style}>
+    <div ref={wrapper} className="relative" style={style}>
       <div
         data-slot="format-bar"
         className="absolute -top-10 left-0 z-7 flex h-9 items-center gap-px whitespace-nowrap rounded-md border bg-popover px-1 text-left font-normal font-sans text-popover-foreground text-xs not-italic leading-none tracking-normal normal-case shadow-md"
@@ -318,6 +477,20 @@ export function InlineText({
         </Button>
       </div>
       <EditorContent editor={editor} />
+      {slash ? (
+        <SlashMenu
+          items={items}
+          activeIndex={Math.min(activeIndex, Math.max(items.length - 1, 0))}
+          style={{
+            left: Math.max(slash.left, 0),
+            top: slash.top,
+            maxHeight: slash.maxHeight,
+            ...(slash.above ? { translate: '0 -100%' } : {}),
+          }}
+          onActiveChange={setActiveIndex}
+          onChoose={choose}
+        />
+      ) : null}
     </div>
   );
 }

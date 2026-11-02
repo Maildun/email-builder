@@ -88,6 +88,26 @@ const personalHtml = fill(html, { first_name: 'Ada', unsubscribe_url: link });
 const personalText = fill(text, { first_name: 'Ada', unsubscribe_url: link }, false);
 ```
 
+## Personalized sections
+
+A container with `props.visibleIf` is wrapped in comment markers, in both `html` and `text`:
+
+```html
+<!--meb:if:b_k3x9q2mf {"rules":[{"field":"plan","operator":"equals","value":"pro"}]}-->…<!--meb:endif:b_k3x9q2mf-->
+```
+
+Resolve them for each recipient before filling merge tags. `resolveConditions` keeps the sections the reader passes and removes the rest:
+
+```ts
+import { resolveConditions } from '@maildun/email-builder';
+
+const data = { first_name: 'Ada', plan: 'pro' };
+const personalHtml = fill(resolveConditions(html, data), data);
+const personalText = fill(resolveConditions(text, data), data, false);
+```
+
+Sending code in another language can do the same: match `<!--meb:if:ID JSON-->…<!--meb:endif:ID-->` (the ID pairs each start with its end, so sections nest), parse the JSON and apply the rules as described under [container](/reference/blocks#container). Hosts that skip this step send every section to everyone.
+
 ## Other languages
 
 The [CLI](/reference/cli) reads a document from a file or stdin and prints JSON, so a PHP, Python, Ruby or Go backend can render without a JavaScript runtime of its own beyond Node:

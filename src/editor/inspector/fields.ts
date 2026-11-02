@@ -35,7 +35,8 @@ export type FieldSpec =
   | (BaseField & { kind: 'json' })
   /** Fill, natural size or fixed px; `natural: false` hides the natural option. */
   | (BaseField & { kind: 'imageWidth'; natural?: boolean })
-  | (BaseField & { kind: 'socialLinks' });
+  | (BaseField & { kind: 'socialLinks' })
+  | (BaseField & { kind: 'visibleIf' });
 
 export interface FieldGroup {
   title: string;
@@ -506,7 +507,13 @@ export const BLOCK_FIELDS: Record<BlockType, FieldGroup[]> = {
     { title: 'Box', fields: BOX },
   ],
   custom: [{ title: 'Box', fields: [ALIGN, ...BOX] }],
-  container: [{ title: 'Box', fields: [CARD, ALIGN, ...BOX] }],
+  container: [
+    { title: 'Box', fields: [CARD, ALIGN, ...BOX] },
+    {
+      title: 'Personalize',
+      fields: [{ key: 'visibleIf', scope: 'props', label: 'Readers', kind: 'visibleIf' }],
+    },
+  ],
   columns: [
     {
       title: 'Columns',

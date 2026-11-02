@@ -171,6 +171,21 @@ Groups blocks with a shared background, border or padding. Style it and put bloc
 | Prop | Type | Description |
 | --- | --- | --- |
 | `card` | boolean | Style as a card: the theme's card radius, border and shadow (the block's own `borderRadius` and `border` win). |
+| `visibleIf` | `{ match?, rules }` | Makes it a personalized section only some readers see. See below. |
+
+A personalized section shows to readers whose merge data passes its rules. `match` is `all` (default) or `any`; each rule is `{ field, operator, value? }`:
+
+```json
+{ "visibleIf": { "rules": [{ "field": "plan", "operator": "equals", "value": "pro" }] } }
+```
+
+| Operator | Passes when the field… |
+| --- | --- |
+| `is_set` / `is_not_set` | has / has no non-empty value |
+| `equals` / `not_equals` | is / is not `value` |
+| `contains` / `not_contains` | contains / does not contain `value` |
+
+Comparisons ignore case and surrounding spaces, and missing fields count as empty. The renderer can't know who reads the email, so it wraps the section in markers your sending code resolves per recipient (see [Rendering and sending](/guide/rendering#personalized-sections)).
 
 ### columns
 

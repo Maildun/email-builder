@@ -2,6 +2,7 @@ import { type CustomBlocks, customBlockMap } from '../core/custom';
 import { hasChildren } from '../core/schema/blocks';
 import type { EmailDocument } from '../core/schema/document';
 import { SOCIAL_LABELS } from '../core/social';
+import { conditionEnd, conditionStart } from './conditions';
 import { inlineMarkdownToPlainText, markdownToPlainText } from './markdown';
 
 /** Plain-text alternative of the email for the text/plain MIME part. */
@@ -68,6 +69,19 @@ export function renderPlainText(
           } catch {
             // The HTML render reports the error; the text part just skips the block.
           }
+          break;
+        }
+        case 'container': {
+          const visibleIf = block.props.visibleIf;
+          if (!visibleIf?.rules.length) {
+            visit(block.children);
+            break;
+          }
+          // Collect the section's parts on their own so the markers wrap them as one part.
+          const before = parts.length;
+          visit(block.children);
+          const inner = parts.splice(before).join('\n\n');
+          parts.push(`${conditionStart(id, visibleIf)}\n${inner}\n${conditionEnd(id)}`);
           break;
         }
         default:

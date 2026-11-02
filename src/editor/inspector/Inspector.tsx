@@ -52,6 +52,7 @@ import {
   STYLE_OPTIONS,
 } from './fields';
 import { SocialLinksInput } from './SocialLinks';
+import { VisibleIfInput } from './VisibleIf';
 
 type Commit = (value: unknown) => string | null;
 
@@ -179,6 +180,10 @@ function FieldControl({
         {() => <SocialLinksInput value={value} commit={commit} />}
       </GroupField>
     );
+  }
+  if (field.kind === 'visibleIf') {
+    // The switch inside carries its own label.
+    return <VisibleIfInput value={value} commit={commit} />;
   }
   if (field.kind === 'padding') {
     return (

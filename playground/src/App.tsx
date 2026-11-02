@@ -58,6 +58,7 @@ export function App() {
   const [template, setTemplate] = useState<TemplateName>('newsletter');
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>('system');
   const [document, setDocument] = useState<EmailDocument>(() => TEMPLATES.newsletter.create());
+  const [mergeTags, setMergeTags] = useState(MERGE_TAGS);
   const [version, setVersion] = useState(0);
   const demo = useRef(0);
 
@@ -149,7 +150,14 @@ export function App() {
           ref={editor}
           value={document}
           onChange={setDocument}
-          mergeTags={MERGE_TAGS}
+          mergeTags={mergeTags}
+          onCreateMergeTag={async () => {
+            const label = window.prompt('Field name, e.g. Plan')?.trim();
+            if (!label) return null;
+            const tag = { key: label.toLowerCase().replace(/[^a-z0-9]+/g, '_'), label };
+            setMergeTags((tags) => [...tags, tag]);
+            return tag;
+          }}
           customBlocks={CUSTOM_BLOCKS}
           assetsUrl={ASSETS_URL}
           appearance={theme}
