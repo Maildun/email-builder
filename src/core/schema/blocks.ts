@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { VisibleIfSchema } from '../conditions';
 import { SOCIAL_NETWORKS } from '../social';
 import {
   AlignStyleShape,
@@ -43,7 +44,7 @@ export const TextProps = z.strictObject({
     .max(50_000)
     .optional()
     .describe(
-      'Body copy as restricted markdown: paragraphs (blank line), line breaks, **bold**, *italic*, ~~strike~~, `code`, [links](https://…), "- " bullet and "1. " numbered lists. Raw HTML is escaped; use an html block for custom markup.',
+      'Body copy as restricted markdown: paragraphs (blank line), line breaks, **bold**, *italic*, ~~strike~~, `code`, [links](https://…), "- " bullet and "1. " numbered lists, "> " quotes. Raw HTML is escaped; use an html block for custom markup.',
     ),
 });
 
@@ -156,7 +157,10 @@ const CardSchema = z
     "Style as a card with the theme's card radius, border and shadow. Give it a backgroundColor such as $surface or $background.",
   );
 
-export const ContainerProps = z.strictObject({ card: CardSchema });
+export const ContainerProps = z.strictObject({
+  card: CardSchema,
+  visibleIf: VisibleIfSchema.optional(),
+});
 
 export const ColumnsProps = z.strictObject({
   gap: z.number().int().min(0).max(80).optional().describe('Space between columns in px.'),
@@ -335,7 +339,8 @@ export const BLOCK_DEFINITIONS = {
   },
   container: {
     label: 'Container',
-    description: 'Groups blocks with a shared background, border or padding.',
+    description:
+      'Groups blocks with a shared background, border or padding. With props.visibleIf it becomes a personalized section only some readers see.',
     category: 'layout',
     props: ContainerProps,
     style: BoxAlignStyle,

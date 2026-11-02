@@ -7,6 +7,7 @@ export {
   type TypeStyle,
   typeDeclarations,
 } from './blocks';
+export { conditionEnd, conditionStart, resolveConditions } from './conditions';
 export { createRenderContext, innerWidth, type RenderContext } from './context';
 export { escapeHtml, protectMergeTags, safeUrl } from './escape';
 export {

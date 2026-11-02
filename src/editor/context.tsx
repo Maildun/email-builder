@@ -55,6 +55,7 @@ export interface EditorOptions {
   onUploadImage?: (file: File) => Promise<ImageResult>;
   onPickImage?: () => Promise<ImageResult | null>;
   onGeneratePreheader?: (document: EmailDocument) => Promise<string | null>;
+  onCreateMergeTag?: () => Promise<MergeTag | null>;
   /** The UI text, already merged over the English defaults. */
   messages: EditorMessages;
   /** Where the social icons are hosted (see `RenderOptions.assetsUrl`). */

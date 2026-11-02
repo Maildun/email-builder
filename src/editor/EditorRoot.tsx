@@ -64,6 +64,12 @@ export interface EditorRootProps {
    * next to the preheader field; a rejection shows its message under it.
    */
   onGeneratePreheader?: (document: EmailDocument) => Promise<string | null>;
+  /**
+   * Create a new merge tag, e.g. by asking for a name in your own dialog and
+   * saving it, and resolve with it (or null when cancelled). Enables "Add a
+   * field" in the "/" menu, which then inserts the new tag.
+   */
+  onCreateMergeTag?: () => Promise<MergeTag | null>;
   /** Block types defined by your app (see `defineBlock`). */
   customBlocks?: CustomBlocks;
   /**
@@ -411,6 +417,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
     onUploadImage,
     onPickImage,
     onGeneratePreheader,
+    onCreateMergeTag,
     customBlocks: customBlocksProp = NO_CUSTOM_BLOCKS,
     assetsUrl = DEFAULT_OPTIONS.assetsUrl,
     blockTypes: blockTypesProp,
@@ -515,6 +522,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
   const uploadImage = useLatestCallback(onUploadImage);
   const pickImage = useLatestCallback(onPickImage);
   const generatePreheader = useLatestCallback(onGeneratePreheader);
+  const createMergeTag = useLatestCallback(onCreateMergeTag);
   const messages = useResolvedMessages(messagesProp);
 
   useLayoutEffect(() => {
@@ -541,6 +549,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
       ...(uploadImage ? { onUploadImage: uploadImage } : {}),
       ...(pickImage ? { onPickImage: pickImage } : {}),
       ...(generatePreheader ? { onGeneratePreheader: generatePreheader } : {}),
+      ...(createMergeTag ? { onCreateMergeTag: createMergeTag } : {}),
       ...(blockTypes ? { blockTypes } : {}),
       ...(sections ? { sections } : {}),
     }),
@@ -556,6 +565,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
       uploadImage,
       pickImage,
       generatePreheader,
+      createMergeTag,
       blockTypes,
       sections,
     ],

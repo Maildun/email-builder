@@ -1,4 +1,5 @@
 import { contrastRatio, resolveColor } from './colors';
+import { conditionNeedsValue } from './conditions';
 import type { Block } from './schema/blocks';
 import { type EmailDocument, ROOT_ID } from './schema/document';
 import { walk } from './tree';
@@ -15,6 +16,7 @@ export interface LintWarning {
     | 'missing-preheader'
     | 'low-contrast'
     | 'empty-container'
+    | 'incomplete-condition'
     | 'placeholder-content';
   severity: 'warning' | 'info';
   message: string;
@@ -240,6 +242,19 @@ function lintBlock(
     }
     case 'container':
     case 'column':
+      if (
+        block.type === 'container' &&
+        block.props.visibleIf?.rules.some(
+          (rule) => conditionNeedsValue(rule.operator) && !rule.value?.trim(),
+        )
+      ) {
+        warnings.push({
+          code: 'incomplete-condition',
+          severity: 'warning',
+          blockId: id,
+          message: 'A personalized section has a rule with no value to compare.',
+        });
+      }
       if (block.children.length === 0) {
         warnings.push({
           code: 'empty-container',

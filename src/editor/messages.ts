@@ -1,3 +1,4 @@
+import type { ConditionOperator } from '../core/conditions';
 import { BLOCK_DEFINITIONS, BLOCK_TYPES, type BlockType } from '../core/schema/blocks';
 import { SECTION_NAMES, SECTIONS, type SectionName } from '../core/sections';
 
@@ -226,6 +227,46 @@ export interface EditorMessages {
     insertMergeTag: string;
     done: string;
   };
+  /** Personalized sections: containers only some readers see. */
+  personalize: {
+    title: string;
+    /** Switch that turns a container into a personalized section. */
+    onlySomeReaders: string;
+    /** Canvas label of a personalized section without rules yet. */
+    noRules: string;
+    /** Canvas label summarizing the rules, e.g. "plan equals pro". */
+    summary: (rules: string[], match: 'all' | 'any') => string;
+    matchAll: string;
+    matchAny: string;
+    match: string;
+    field: string;
+    condition: string;
+    value: string;
+    addRule: string;
+    removeRule: string;
+    noFields: string;
+    operators: Record<ConditionOperator, string>;
+  };
+  /** The menu typing "/" opens in a text block. */
+  slashMenu: {
+    label: string;
+    noResults: string;
+    text: string;
+    heading: (level: 1 | 2 | 3) => string;
+    bullets: string;
+    numbers: string;
+    quote: string;
+    divider: string;
+    image: string;
+    button: string;
+    box: string;
+    html: string;
+    personalize: string;
+    section: string;
+    sectionDescription: string;
+    fields: string;
+    addField: string;
+  };
   /** Built-in block names and palette descriptions. */
   blocks: Record<BlockType, LabelledItem>;
   /** Palette section names and descriptions. */
@@ -430,6 +471,49 @@ export const EN_MESSAGES: EditorMessages = {
     numberedList: 'Numbered list',
     insertMergeTag: 'Insert merge tag',
     done: 'Done',
+  },
+  personalize: {
+    title: 'Personalize',
+    onlySomeReaders: 'Only some readers see it',
+    noRules: 'Personalized · add a rule to choose readers',
+    summary: (rules, match) =>
+      `Only readers where ${rules.join(match === 'any' ? ' or ' : ' and ')}`,
+    matchAll: 'All rules',
+    matchAny: 'Any rule',
+    match: 'Show when',
+    field: 'Field',
+    condition: 'Condition',
+    value: 'Value',
+    addRule: 'Add rule',
+    removeRule: 'Remove rule',
+    noFields: 'Type a field key',
+    operators: {
+      is_set: 'is set',
+      is_not_set: 'is not set',
+      equals: 'is',
+      not_equals: 'is not',
+      contains: 'contains',
+      not_contains: 'does not contain',
+    },
+  },
+  slashMenu: {
+    label: 'Insert',
+    noResults: 'No matches',
+    text: 'Text',
+    heading: (level) => `Heading ${level}`,
+    bullets: 'Bullets',
+    numbers: 'Numbers',
+    quote: 'Quote',
+    divider: 'Divider',
+    image: 'Image',
+    button: 'Button',
+    box: 'Box',
+    html: 'HTML',
+    personalize: 'Personalize',
+    section: 'Section',
+    sectionDescription: 'Only some readers see it',
+    fields: 'Fields',
+    addField: 'Add a field',
   },
   blocks: Object.fromEntries(
     BLOCK_TYPES.map((type) => [

@@ -12,10 +12,11 @@ import { EmailEditor, type EmailEditorProps, type EmailEditorHandle } from '@mai
 | `defaultValue` | `EmailDocument` | Initial document when uncontrolled. Empty when omitted. |
 | `onChange` | `(document) => void` | Every committed change; never pending proposals. |
 | `readOnly` | `boolean` | Hides editing chrome. |
-| `mergeTags` | `{ key, label? }[]` | Offered in link fields and the text toolbar. |
+| `mergeTags` | `{ key, label? }[]` | Offered in link fields, the text toolbar, the "/" menu and personalized section rules. |
 | `onUploadImage` | `(file: File) => Promise<{ url, alt? }>` | Enables **Upload** on image fields. |
 | `onPickImage` | `() => Promise<{ url, alt? } \| null>` | Opens your media library. Enables **Choose**. |
 | `onGeneratePreheader` | `(document) => Promise<string \| null>` | Writes a preheader, e.g. with your AI. Enables the generate button on the preheader field; a rejection shows its message. |
+| `onCreateMergeTag` | `() => Promise<{ key, label? } \| null>` | Creates a merge tag, e.g. in your own dialog. Enables **Add a field** in the "/" menu, which inserts the new tag. |
 | `customBlocks` | `CustomBlockDefinition[]` | Your block types. See [Custom blocks](/guide/custom-blocks). |
 | `assetsUrl` | `string` | Where the social icons are hosted. Defaults to jsDelivr. |
 | `blockTypes` | `BlockType[]` | Built-in blocks offered in the palette. All by default. |

@@ -4,6 +4,7 @@ import type { Block, BlockOf } from '../core/schema/blocks';
 import type { BorderSchema, Padding } from '../core/schema/primitives';
 import { SOCIAL_LABELS, socialIconUrl } from '../core/social';
 import { videoThumbnail } from '../core/video';
+import { conditionEnd, conditionStart } from './conditions';
 import { innerWidth, type RenderContext } from './context';
 import { css, fontWeightCss, paddingCss, px } from './css';
 import { escapeHtml, safeUrl } from './escape';
@@ -172,13 +173,17 @@ export function renderBlock(
     case 'column': {
       const [style, extra] = block.props.card ? cardStyle(ctx, block.style) : [block.style, {}];
       const width = innerWidth(available, style?.padding, style?.border);
-      return box(
+      const html = box(
         ctx,
         id,
         style,
         block.children.map((child) => renderChild(child, width)).join(''),
         extra,
       );
+      const visibleIf = block.type === 'container' ? block.props.visibleIf : undefined;
+      return visibleIf?.rules.length
+        ? `${conditionStart(id, visibleIf)}${html}${conditionEnd(id)}`
+        : html;
     }
     case 'columns':
       return renderColumns(ctx, id, block, available, renderChild);

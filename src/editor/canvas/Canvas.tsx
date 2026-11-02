@@ -8,6 +8,7 @@ import {
   Delete02Icon,
   DragDropVerticalIcon,
   SquareDashedIcon,
+  UserGroupIcon,
 } from '@hugeicons/core-free-icons';
 import DOMPurify from 'dompurify';
 import {
@@ -41,6 +42,7 @@ import {
   useVisibleDocument,
 } from '../context';
 import { dropId, resolveDrop, useActiveDrag, useDropIndicator, useIsOver } from '../dnd';
+import { summarizeVisibleIf } from '../inspector/VisibleIf';
 import type { EditorMessages } from '../messages';
 import { BLOCK_ICONS, blockIcon, blockLabel } from '../meta';
 import { Button, cn, Icon, Tip } from '../ui';
@@ -409,6 +411,9 @@ const BlockView = memo(function BlockView({ id, styles, available, mobile }: Blo
     content = (
       <Suspense fallback={<LeafHtml html={leafHtml} />}>
         <InlineText
+          // A "/" command can turn the block into another type; start a fresh editor for it.
+          key={block.type}
+          blockId={id}
           value={block.type === 'heading' ? (block.props.text ?? '') : (block.props.markdown ?? '')}
           singleLine={block.type === 'heading'}
           style={{ ...box, ...type, ['--meb-link' as string]: ctx.linkColor }}
@@ -511,7 +516,7 @@ function ContainerView({
 }: BlockViewProps & { block: Extract<Block, { children: string[] }> }) {
   const width = innerWidth(available, block.style?.padding, block.style?.border);
   const boxStyle = toReactStyle(boxDeclarations(styles, block.style));
-  const { readOnly, messages } = useEditorOptions();
+  const { readOnly, messages, mergeTags } = useEditorOptions();
 
   if (block.type === 'columns') {
     return (
@@ -526,8 +531,29 @@ function ContainerView({
     );
   }
 
+  const visibleIf = block.type === 'container' ? block.props.visibleIf : undefined;
+
   return (
-    <div style={{ ...boxStyle, minHeight: block.children.length === 0 ? 48 : undefined }}>
+    <div
+      style={{ ...boxStyle, minHeight: block.children.length === 0 ? 48 : undefined }}
+      className={visibleIf ? 'relative' : undefined}
+      data-personalized={visibleIf ? true : undefined}
+    >
+      {visibleIf ? (
+        <>
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-[inherit] border border-editor-selection/60 border-dashed"
+          />
+          <span
+            data-slot="personalized-label"
+            className="pointer-events-none absolute top-0 right-2 z-1 flex max-w-[calc(100%-1rem)] -translate-y-1/2 items-center gap-1 rounded-full bg-editor-selection px-2 py-0.5 font-normal font-sans text-[11px] text-white not-italic leading-4 tracking-normal normal-case"
+          >
+            <Icon icon={UserGroupIcon} className="size-3 shrink-0" />
+            <span className="truncate">{summarizeVisibleIf(visibleIf, mergeTags, messages)}</span>
+          </span>
+        </>
+      ) : null}
       {block.children.map((childId) => (
         <BlockView key={childId} id={childId} styles={styles} available={width} mobile={mobile} />
       ))}
