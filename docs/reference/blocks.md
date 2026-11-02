@@ -171,21 +171,15 @@ Groups blocks with a shared background, border or padding. Style it and put bloc
 | Prop | Type | Description |
 | --- | --- | --- |
 | `card` | boolean | Style as a card: the theme's card radius, border and shadow (the block's own `borderRadius` and `border` win). |
-| `visibleIf` | `{ match?, rules }` | Makes it a personalized section only some readers see. See below. |
+| `visibleIf` | `{ match?, conditions }` | Makes it a personalized section only some readers see. See below. |
 
-A personalized section shows to readers whose merge data passes its rules. `match` is `all` (default) or `any`; each rule is `{ field, operator, value? }`:
+A personalized section shows to readers in groups your app defines, such as segments or tags. Each condition is `{ id, label?, not? }`: the reader must be in the group with that `id` (or, with `not: true`, must not be). `match` is `all` (default) or `any`. `label` keeps the group's name for display if your app stops offering it.
 
 ```json
-{ "visibleIf": { "rules": [{ "field": "plan", "operator": "equals", "value": "pro" }] } }
+{ "visibleIf": { "conditions": [{ "id": "tag:vip", "label": "VIP" }] } }
 ```
 
-| Operator | Passes when the field… |
-| --- | --- |
-| `is_set` / `is_not_set` | has / has no non-empty value |
-| `equals` / `not_equals` | is / is not `value` |
-| `contains` / `not_contains` | contains / does not contain `value` |
-
-Comparisons ignore case and surrounding spaces, and missing fields count as empty. The renderer can't know who reads the email, so it wraps the section in markers your sending code resolves per recipient (see [Rendering and sending](/guide/rendering#personalized-sections)).
+The renderer leaves personalized sections out unless you ask for markers, so an app that doesn't resolve them never sends one to the wrong reader. See [Rendering and sending](/guide/rendering#personalized-sections).
 
 ### columns
 

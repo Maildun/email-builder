@@ -1,4 +1,3 @@
-import type { ConditionOperator } from '../core/conditions';
 import { BLOCK_DEFINITIONS, BLOCK_TYPES, type BlockType } from '../core/schema/blocks';
 import { SECTION_NAMES, SECTIONS, type SectionName } from '../core/sections';
 
@@ -232,20 +231,24 @@ export interface EditorMessages {
     title: string;
     /** Switch that turns a container into a personalized section. */
     onlySomeReaders: string;
-    /** Canvas label of a personalized section without rules yet. */
-    noRules: string;
-    /** Canvas label summarizing the rules, e.g. "plan equals pro". */
-    summary: (rules: string[], match: 'all' | 'any') => string;
+    /** Canvas label of a personalized section without conditions yet. */
+    noConditions: string;
+    /** Canvas label summarizing the conditions, e.g. "Only readers in VIP". */
+    summary: (conditions: string[], match: 'all' | 'any') => string;
+    inGroup: (group: string) => string;
+    notInGroup: (group: string) => string;
     matchAll: string;
     matchAny: string;
     match: string;
-    field: string;
-    condition: string;
-    value: string;
-    addRule: string;
-    removeRule: string;
-    noFields: string;
-    operators: Record<ConditionOperator, string>;
+    group: string;
+    isIn: string;
+    isNotIn: string;
+    addCondition: string;
+    removeCondition: string;
+    /** Shown when the host offers no groups to target. */
+    noGroups: string;
+    /** A group the section targets that the host no longer offers. */
+    missingGroup: (label: string) => string;
   };
   /** The menu typing "/" opens in a text block. */
   slashMenu: {
@@ -475,26 +478,21 @@ export const EN_MESSAGES: EditorMessages = {
   personalize: {
     title: 'Personalize',
     onlySomeReaders: 'Only some readers see it',
-    noRules: 'Personalized · add a rule to choose readers',
-    summary: (rules, match) =>
-      `Only readers where ${rules.join(match === 'any' ? ' or ' : ' and ')}`,
-    matchAll: 'All rules',
-    matchAny: 'Any rule',
+    noConditions: 'Personalized · add a condition to choose readers',
+    summary: (conditions, match) =>
+      `Only readers ${conditions.join(match === 'any' ? ' or ' : ' and ')}`,
+    inGroup: (group) => `in ${group}`,
+    notInGroup: (group) => `not in ${group}`,
+    matchAll: 'All conditions',
+    matchAny: 'Any condition',
     match: 'Show when',
-    field: 'Field',
-    condition: 'Condition',
-    value: 'Value',
-    addRule: 'Add rule',
-    removeRule: 'Remove rule',
-    noFields: 'Type a field key',
-    operators: {
-      is_set: 'is set',
-      is_not_set: 'is not set',
-      equals: 'is',
-      not_equals: 'is not',
-      contains: 'contains',
-      not_contains: 'does not contain',
-    },
+    group: 'Readers',
+    isIn: 'are in',
+    isNotIn: 'are not in',
+    addCondition: 'Add condition',
+    removeCondition: 'Remove condition',
+    noGroups: 'Create a segment or tag to choose who sees this section.',
+    missingGroup: (label) => `${label} (removed)`,
   },
   slashMenu: {
     label: 'Insert',

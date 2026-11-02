@@ -12,7 +12,8 @@ import { EmailEditor, type EmailEditorProps, type EmailEditorHandle } from '@mai
 | `defaultValue` | `EmailDocument` | Initial document when uncontrolled. Empty when omitted. |
 | `onChange` | `(document) => void` | Every committed change; never pending proposals. |
 | `readOnly` | `boolean` | Hides editing chrome. |
-| `mergeTags` | `{ key, label? }[]` | Offered in link fields, the text toolbar, the "/" menu and personalized section rules. |
+| `mergeTags` | `{ key, label? }[]` | Offered in link fields, the text toolbar and the "/" menu. |
+| `conditions` | `{ id, label, group? }[]` | Reader groups (e.g. your segments and tags) personalized sections can target. Turns personalization on: the "/" menu offers **Section**, and `render()`, Preview and Code keep personalized sections as markers. Leave it out and they're left out of renders. |
 | `onUploadImage` | `(file: File) => Promise<{ url, alt? }>` | Enables **Upload** on image fields. |
 | `onPickImage` | `() => Promise<{ url, alt? } \| null>` | Opens your media library. Enables **Choose**. |
 | `onGeneratePreheader` | `(document) => Promise<string \| null>` | Writes a preheader, e.g. with your AI. Enables the generate button on the preheader field; a rejection shows its message. |

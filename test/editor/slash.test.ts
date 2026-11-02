@@ -13,12 +13,18 @@ const MERGE_TAGS = [
   { key: 'plan', label: 'Plan' },
 ];
 
+const CONDITIONS = [
+  { id: 'segment:pro', label: 'Pro customers', group: 'Segments' },
+  { id: 'tag:vip', label: 'VIP', group: 'Tags' },
+];
+
 function items(overrides: Partial<Parameters<typeof buildSlashItems>[0]> = {}) {
   return buildSlashItems({
     messages: EN_MESSAGES,
     mergeTags: MERGE_TAGS,
     singleLine: false,
     canCreateField: true,
+    canPersonalize: true,
     ...overrides,
   });
 }
@@ -68,17 +74,19 @@ describe('buildSlashItems', () => {
     ]);
   });
 
-  it('leaves out lists and quotes in headings, block types the host hides, and Add a field without a callback', () => {
+  it('leaves out lists and quotes in headings, hidden block types, Section without reader groups and Add a field without a callback', () => {
     const ids = items({
       singleLine: true,
-      blockTypes: ['text', 'heading'],
+      blockTypes: ['text', 'heading', 'container'],
       canCreateField: false,
+      canPersonalize: false,
     }).map((item) => item.id);
     expect(ids).toEqual([
       'text',
       'heading-1',
       'heading-2',
       'heading-3',
+      'box',
       'field-first_name',
       'field-plan',
     ]);
@@ -105,7 +113,7 @@ describe('runBlockCommand', () => {
       { kind: 'block', type: 'divider' },
       {
         empty: false,
-        mergeTags: MERGE_TAGS,
+        conditions: CONDITIONS,
       },
     );
     const { document, selectedId, editingId } = editor.getState();
@@ -124,7 +132,7 @@ describe('runBlockCommand', () => {
       { kind: 'heading', level: 1 },
       {
         empty: true,
-        mergeTags: MERGE_TAGS,
+        conditions: CONDITIONS,
       },
     );
     const { document, editingId } = editor.getState();
@@ -141,7 +149,7 @@ describe('runBlockCommand', () => {
       { kind: 'heading', level: 3 },
       {
         empty: false,
-        mergeTags: MERGE_TAGS,
+        conditions: CONDITIONS,
       },
     );
     expect(editor.getState().document.blocks.title).toMatchObject({
@@ -151,12 +159,12 @@ describe('runBlockCommand', () => {
 
   it('adds a personalized section with a starter rule and edits its text', () => {
     const editor = store();
-    runBlockCommand(editor, 'intro', { kind: 'section' }, { empty: false, mergeTags: MERGE_TAGS });
+    runBlockCommand(editor, 'intro', { kind: 'section' }, { empty: false, conditions: CONDITIONS });
     const { document, editingId } = editor.getState();
     const section = document.blocks[document.root[1] ?? ''];
     expect(section).toMatchObject({
       type: 'container',
-      props: { visibleIf: { rules: [{ field: 'first_name', operator: 'is_set' }] } },
+      props: { visibleIf: { conditions: [{ id: 'segment:pro', label: 'Pro customers' }] } },
     });
     expect(section && 'children' in section ? section.children : []).toEqual([editingId]);
     expect(document.blocks[editingId ?? '']).toMatchObject({

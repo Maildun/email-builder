@@ -329,7 +329,14 @@ function FieldControl({
 function fieldGroupsFor(
   block: Block,
   custom: ReturnType<typeof useEditorOptions>['customBlockMap'],
+  personalization: boolean,
 ): FieldGroup[] {
+  if (block.type === 'container' && !personalization && !block.props.visibleIf) {
+    // Personalizing needs reader groups from the host; keep a section the document already has editable.
+    return BLOCK_FIELDS.container.filter(
+      (group) => !group.fields.some((field) => field.kind === 'visibleIf'),
+    );
+  }
   if (block.type !== 'custom') return BLOCK_FIELDS[block.type];
   const definition = custom.get(block.props.name);
   return [...(definition ? customFieldGroups(definition) : []), ...BLOCK_FIELDS.custom];
@@ -338,7 +345,7 @@ function fieldGroupsFor(
 function BlockInspector({ id }: { id: string }) {
   const store = useEditorStore();
   const document = useVisibleDocument();
-  const { customBlockMap: custom, messages } = useEditorOptions();
+  const { customBlockMap: custom, messages, conditions } = useEditorOptions();
   const text = messages.inspector;
   const block = document.blocks[id];
   if (!block) return null;
@@ -404,7 +411,7 @@ function BlockInspector({ id }: { id: string }) {
           {text.unknownCustom(block.props.name)}
         </p>
       ) : null}
-      {fieldGroupsFor(block, custom).map((group) => (
+      {fieldGroupsFor(block, custom, conditions !== undefined).map((group) => (
         <Section key={group.title} title={translate(messages, group.title)}>
           {group.fields.map((field) => (
             <FieldControl

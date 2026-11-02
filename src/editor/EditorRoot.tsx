@@ -20,9 +20,11 @@ import type { Block, BlockType } from '../core/schema/blocks';
 import type { EmailDocument } from '../core/schema/document';
 import type { SectionName } from '../core/sections';
 import { findParent, walk } from '../core/tree';
+import type { PersonalizationMode } from '../render/conditions';
 import { type RenderResult, renderEmail } from '../render/html';
 import { duplicateBlock, removeBlock } from './actions';
 import {
+  type ConditionOption,
   DEFAULT_OPTIONS,
   type EditorClassNames,
   type EditorIcons,
@@ -54,6 +56,13 @@ export interface EditorRootProps {
   readOnly?: boolean;
   /** Merge tags offered in link fields and the text toolbar. */
   mergeTags?: MergeTag[];
+  /**
+   * Reader groups (e.g. your segments and tags) a personalized section can
+   * target. Passing it turns personalization on: the "/" menu offers a
+   * Section, and the editor's renders keep personalized sections as markers
+   * for your sending code to resolve. Without it they are left out.
+   */
+  conditions?: ConditionOption[];
   /** Upload a file and resolve with its public URL. Enables the Upload button. */
   onUploadImage?: (file: File) => Promise<ImageResult>;
   /** Open your media library and resolve with the chosen image. Enables the Choose button. */
@@ -414,6 +423,7 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
     onChange,
     readOnly = false,
     mergeTags: mergeTagsProp = NO_MERGE_TAGS,
+    conditions: conditionsProp,
     onUploadImage,
     onPickImage,
     onGeneratePreheader,
@@ -475,6 +485,9 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
 
   const assetsRef = useRef(assetsUrl);
   assetsRef.current = assetsUrl;
+  const personalization = conditionsProp ? 'markers' : 'omit';
+  const personalizationRef = useRef<PersonalizationMode>(personalization);
+  personalizationRef.current = personalization;
 
   useImperativeHandle(
     ref,
@@ -507,12 +520,14 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
         renderEmail(store.getState().document, {
           customBlocks: store.customBlocks,
           assetsUrl: assetsRef.current,
+          personalization: personalizationRef.current,
         }),
     }),
     [store],
   );
 
   const mergeTags = useStructural(mergeTagsProp);
+  const conditions = useStructural(conditionsProp);
   const slotClassNames = useStructural(classNames);
   const icons = useStructural(iconsProp);
   const customBlocks = useShallowStable(customBlocksProp) ?? NO_CUSTOM_BLOCKS;
@@ -539,6 +554,8 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
     () => ({
       readOnly,
       mergeTags,
+      ...(conditions ? { conditions } : {}),
+      personalization,
       customBlocks,
       customBlockMap: customBlockMap(customBlocks),
       views,
@@ -556,6 +573,8 @@ export const EditorRoot = forwardRef<EmailEditorHandle, EditorRootProps>(functio
     [
       readOnly,
       mergeTags,
+      conditions,
+      personalization,
       customBlocks,
       views,
       messages,

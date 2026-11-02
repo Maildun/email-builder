@@ -4,6 +4,7 @@ import { type ResolvedThemeStyles, resolveThemeStyles } from '../core/defaults';
 import type { EmailDocument, Theme } from '../core/schema/document';
 import { type Padding, resolveFontStack, resolvePadding } from '../core/schema/primitives';
 import { DEFAULT_ASSETS_URL } from '../core/social';
+import type { PersonalizationMode } from './conditions';
 
 export interface RenderWarning {
   code:
@@ -33,6 +34,8 @@ export interface RenderContext {
   lineHeight: number;
   /** When set, block wrappers carry `data-block-id` (used by the editor canvas). */
   annotate: boolean;
+  /** Whether personalized sections are left out or wrapped in markers. */
+  personalization: PersonalizationMode;
   /** Custom block definitions by name. */
   customBlocks: ReadonlyMap<string, CustomBlockDefinition>;
   /** Base URL of the bundled image assets (social icons). */
@@ -43,7 +46,12 @@ export interface RenderContext {
 
 export function createRenderContext(
   document: EmailDocument,
-  options: { annotate?: boolean; customBlocks?: CustomBlocks; assetsUrl?: string } = {},
+  options: {
+    annotate?: boolean;
+    customBlocks?: CustomBlocks;
+    assetsUrl?: string;
+    personalization?: PersonalizationMode;
+  } = {},
 ): RenderContext {
   const theme = document.theme;
   const color = (value: string | undefined, fallback?: string) =>
@@ -64,6 +72,7 @@ export function createRenderContext(
     fontSize: document.settings.fontSize,
     lineHeight: document.settings.lineHeight,
     annotate: options.annotate ?? false,
+    personalization: options.personalization ?? 'omit',
     customBlocks: customBlockMap(options.customBlocks),
     assetsUrl: options.assetsUrl ?? DEFAULT_ASSETS_URL,
     warnings: [],

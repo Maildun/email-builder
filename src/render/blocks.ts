@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import { mixColors } from '../core/colors';
+import { isPersonalized } from '../core/conditions';
 import type { Block, BlockOf } from '../core/schema/blocks';
 import type { BorderSchema, Padding } from '../core/schema/primitives';
 import { SOCIAL_LABELS, socialIconUrl } from '../core/social';
@@ -171,6 +172,9 @@ export function renderBlock(
       return renderCustom(ctx, id, block, available);
     case 'container':
     case 'column': {
+      const visibleIf = block.type === 'container' ? block.props.visibleIf : undefined;
+      const personalized = isPersonalized(visibleIf);
+      if (personalized && ctx.personalization === 'omit') return '';
       const [style, extra] = block.props.card ? cardStyle(ctx, block.style) : [block.style, {}];
       const width = innerWidth(available, style?.padding, style?.border);
       const html = box(
@@ -180,10 +184,7 @@ export function renderBlock(
         block.children.map((child) => renderChild(child, width)).join(''),
         extra,
       );
-      const visibleIf = block.type === 'container' ? block.props.visibleIf : undefined;
-      return visibleIf?.rules.length
-        ? `${conditionStart(id, visibleIf)}${html}${conditionEnd(id)}`
-        : html;
+      return personalized ? `${conditionStart(id, visibleIf)}${html}${conditionEnd(id)}` : html;
     }
     case 'columns':
       return renderColumns(ctx, id, block, available, renderChild);

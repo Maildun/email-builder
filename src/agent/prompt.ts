@@ -138,6 +138,11 @@ export interface SystemPromptOptions {
   customBlocks?: CustomBlocks;
   /** Merge tags the sending platform supports, e.g. `["first_name", "unsubscribe_url"]`. */
   mergeTags?: string[];
+  /**
+   * Reader groups (e.g. segments and tags) personalized sections may target.
+   * Without them the prompt tells the agent not to personalize.
+   */
+  conditions?: Array<{ id: string; label: string }>;
   /** Extra rules appended at the end. */
   extra?: string;
 }
@@ -150,6 +155,10 @@ export function buildSystemPrompt(options: SystemPromptOptions = {}): string {
   const mergeTags = options.mergeTags?.length
     ? `Available merge tags: ${options.mergeTags.map((tag) => `{{ ${tag} }}`).join(', ')}. Use only these.`
     : 'Merge tags look like {{ first_name }}; only use ones the user mentions, plus {{ unsubscribe_url }} in footers.';
+
+  const conditions = options.conditions?.length
+    ? `Personalized sections: a container with props.visibleIf = { match?, conditions: [{ id, label, not? }] } shows only to readers in (or, with not: true, not in) the listed groups. Available groups: ${options.conditions.map((condition) => `"${condition.id}" (${condition.label})`).join(', ')}. Use only these ids, with their label.`
+    : 'Do not set props.visibleIf: this platform does not personalize sections.';
 
   return `You design and edit HTML emails by calling tools that change a structured email document. You never write the email HTML yourself; the renderer produces Outlook-, Gmail- and mobile-safe HTML from the document.
 ${options.brief ? `\n## Brief\n${options.brief}\n` : ''}
@@ -173,6 +182,7 @@ ${options.brief ? `\n## Brief\n${options.brief}\n` : ''}
 - Padding is a number (all sides) or {top, right, bottom, left}. Use 24px side padding for content blocks so text lines up.
 - Ids: blocks you insert may carry your own readable id (e.g. "hero-title") so you can reference them in later calls.
 - ${mergeTags}
+- ${conditions}
 
 ## Blocks
 ${blockCatalog()}
