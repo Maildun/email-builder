@@ -1,4 +1,5 @@
 import { Add01Icon, Cancel01Icon } from '@hugeicons/core-free-icons';
+import { useId } from 'react';
 import type { SectionCondition, VisibleIf } from '../../core/conditions';
 import { type ConditionOption, useEditorOptions, useMessages } from '../context';
 import type { EditorMessages } from '../messages';
@@ -46,6 +47,7 @@ export function VisibleIfInput({ value, commit }: { value: unknown; commit: Comm
   const { conditions: options } = useEditorOptions();
   const messages = useMessages();
   const text = messages.personalize;
+  const switchId = useId();
   const visibleIf = value as VisibleIf | undefined;
   const conditions = visibleIf?.conditions ?? [];
 
@@ -56,9 +58,10 @@ export function VisibleIfInput({ value, commit }: { value: unknown; commit: Comm
 
   return (
     <div data-slot="visible-if" className="flex flex-col gap-3">
-      <label className="flex items-center justify-between gap-3">
+      <label htmlFor={switchId} className="flex items-center justify-between gap-3">
         <span className="text-sm">{text.onlySomeReaders}</span>
         <SwitchInput
+          id={switchId}
           checked={visibleIf !== undefined}
           onChange={(checked) =>
             commit(checked ? { match: 'all', conditions: starterConditions(options) } : undefined)
