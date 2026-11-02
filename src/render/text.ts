@@ -1,14 +1,15 @@
+import { isPersonalized } from '../core/conditions';
 import { type CustomBlocks, customBlockMap } from '../core/custom';
 import { hasChildren } from '../core/schema/blocks';
 import type { EmailDocument } from '../core/schema/document';
 import { SOCIAL_LABELS } from '../core/social';
-import { conditionEnd, conditionStart } from './conditions';
+import { conditionEnd, conditionStart, type PersonalizationMode } from './conditions';
 import { inlineMarkdownToPlainText, markdownToPlainText } from './markdown';
 
 /** Plain-text alternative of the email for the text/plain MIME part. */
 export function renderPlainText(
   document: EmailDocument,
-  options: { customBlocks?: CustomBlocks } = {},
+  options: { customBlocks?: CustomBlocks; personalization?: PersonalizationMode } = {},
 ): string {
   const parts: string[] = [];
   const customBlocks = customBlockMap(options.customBlocks);
@@ -73,10 +74,11 @@ export function renderPlainText(
         }
         case 'container': {
           const visibleIf = block.props.visibleIf;
-          if (!visibleIf?.rules.length) {
+          if (!isPersonalized(visibleIf)) {
             visit(block.children);
             break;
           }
+          if (options.personalization !== 'markers') break;
           // Collect the section's parts on their own so the markers wrap them as one part.
           const before = parts.length;
           visit(block.children);

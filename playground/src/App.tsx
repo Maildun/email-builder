@@ -9,6 +9,13 @@ import { CUSTOM_BLOCKS } from './blocks';
 // on npm; published installs load them from jsDelivr by default.
 const ASSETS_URL = window.location.origin;
 
+/** Reader groups a personalized section can target; a real app passes its segments and tags. */
+const CONDITIONS = [
+  { id: 'segment:customers', label: 'Customers', group: 'Segments' },
+  { id: 'segment:trial', label: 'On a trial', group: 'Segments' },
+  { id: 'tag:vip', label: 'VIP', group: 'Tags' },
+];
+
 const MERGE_TAGS = [
   { key: 'first_name', label: 'First name' },
   { key: 'last_name', label: 'Last name' },
@@ -151,6 +158,7 @@ export function App() {
           value={document}
           onChange={setDocument}
           mergeTags={mergeTags}
+          conditions={CONDITIONS}
           onCreateMergeTag={async () => {
             const label = window.prompt('Field name, e.g. Plan')?.trim();
             if (!label) return null;

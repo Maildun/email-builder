@@ -91,7 +91,7 @@ export function InlineText({
   onChange,
   onDone,
 }: InlineTextProps) {
-  const { mergeTags, messages, blockTypes, onCreateMergeTag } = useEditorOptions();
+  const { mergeTags, conditions, messages, blockTypes, onCreateMergeTag } = useEditorOptions();
   const store = useEditorStore();
   const text = messages.formatBar;
   const wrapper = useRef<HTMLDivElement>(null);
@@ -119,8 +119,9 @@ export function InlineText({
         singleLine: singleLine ?? false,
         blockTypes,
         canCreateField: onCreateMergeTag !== undefined,
+        canPersonalize: conditions !== undefined,
       }),
-    [messages, mergeTags, singleLine, blockTypes, onCreateMergeTag],
+    [messages, mergeTags, singleLine, blockTypes, onCreateMergeTag, conditions],
   );
   const items = useMemo(
     () => (slash ? filterSlashItems(allItems, slash.query) : []),
@@ -193,7 +194,7 @@ export function InlineText({
         return;
       }
       default:
-        runBlockCommand(store, blockId, command, { empty: current.isEmpty, mergeTags });
+        runBlockCommand(store, blockId, command, { empty: current.isEmpty, conditions });
     }
   };
 

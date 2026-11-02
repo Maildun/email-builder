@@ -18,8 +18,8 @@ import { createId } from '../../core/ids';
 import type { BlockType } from '../../core/schema/blocks';
 import type { BlockInput } from '../../core/schema/document';
 import { findParent } from '../../core/tree';
-import type { MergeTag } from '../context';
-import { starterRule } from '../inspector/VisibleIf';
+import type { ConditionOption, MergeTag } from '../context';
+import { starterConditions } from '../inspector/VisibleIf';
 import type { EditorMessages } from '../messages';
 import type { EditorStore } from '../store';
 
@@ -64,6 +64,7 @@ export function buildSlashItems({
   singleLine,
   blockTypes,
   canCreateField,
+  canPersonalize,
 }: {
   messages: EditorMessages;
   mergeTags: readonly MergeTag[];
@@ -72,6 +73,8 @@ export function buildSlashItems({
   /** Block types the host offers; all when undefined. */
   blockTypes?: readonly BlockType[] | undefined;
   canCreateField: boolean;
+  /** The host offers reader groups, so sections can be personalized. */
+  canPersonalize: boolean;
 }): SlashItem[] {
   const text = messages.slashMenu;
   const offers = (type: BlockType) => !blockTypes || blockTypes.includes(type);
@@ -184,18 +187,20 @@ export function buildSlashItems({
     },
     'html',
   );
-  add(
-    {
-      id: 'section',
-      group: 'personalize',
-      label: text.section,
-      description: text.sectionDescription,
-      icon: SquareDashedIcon,
-      keywords: 'personalize condition conditional if audience readers',
-      command: { kind: 'section' },
-    },
-    'container',
-  );
+  if (canPersonalize) {
+    add(
+      {
+        id: 'section',
+        group: 'personalize',
+        label: text.section,
+        description: text.sectionDescription,
+        icon: SquareDashedIcon,
+        keywords: 'personalize condition conditional if audience readers',
+        command: { kind: 'section' },
+      },
+      'container',
+    );
+  }
   for (const tag of mergeTags) {
     items.push({
       id: `field-${tag.key}`,
@@ -238,7 +243,7 @@ export function runBlockCommand(
   store: EditorStore,
   id: string,
   command: SlashCommand,
-  { empty, mergeTags }: { empty: boolean; mergeTags: readonly MergeTag[] },
+  { empty, conditions }: { empty: boolean; conditions?: readonly ConditionOption[] | undefined },
 ): void {
   const document = store.getState().document;
   const block = document.blocks[id];
@@ -267,7 +272,10 @@ export function runBlockCommand(
       editId = createId();
       input = {
         type: 'container',
-        props: command.kind === 'section' ? { visibleIf: { rules: [starterRule(mergeTags)] } } : {},
+        props:
+          command.kind === 'section'
+            ? { visibleIf: { conditions: starterConditions(conditions) } }
+            : {},
         children: [{ id: editId, type: 'text', props: { markdown: '' } }],
       };
       break;

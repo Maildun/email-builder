@@ -17,10 +17,10 @@ import { formatHtml, tokenizeHtml, tokenizeJson, tokenizeText, toLines } from '.
 export function Preview() {
   const document = useVisibleDocument();
   const viewport = useEditorState((state) => state.viewport);
-  const { customBlocks, assetsUrl, messages } = useEditorOptions();
+  const { customBlocks, assetsUrl, personalization, messages } = useEditorOptions();
   const { html } = useMemo(
-    () => renderEmail(document, { customBlocks, assetsUrl }),
-    [document, customBlocks, assetsUrl],
+    () => renderEmail(document, { customBlocks, assetsUrl, personalization }),
+    [document, customBlocks, assetsUrl, personalization],
   );
   const backdrop = useMemo(
     () =>
@@ -125,11 +125,11 @@ function CopyButton({ text }: { text: string }) {
 /** HTML, plain-text and JSON output. */
 export function CodeView() {
   const document = useVisibleDocument();
-  const { customBlocks, assetsUrl, messages } = useEditorOptions();
+  const { customBlocks, assetsUrl, personalization, messages } = useEditorOptions();
   const text = messages.code;
   const rendered = useMemo(
-    () => renderEmail(document, { customBlocks, assetsUrl }),
-    [document, customBlocks, assetsUrl],
+    () => renderEmail(document, { customBlocks, assetsUrl, personalization }),
+    [document, customBlocks, assetsUrl, personalization],
   );
   const json = useMemo(() => JSON.stringify(document, null, 2), [document]);
   const outputs = { html: rendered.html, text: rendered.text, json };

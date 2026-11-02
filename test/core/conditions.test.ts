@@ -2,23 +2,23 @@ import { describe, expect, it } from 'vitest';
 import {
   createDocument,
   lintDocument,
-  matchesRule,
   matchesVisibleIf,
   renderEmail,
   resolveConditions,
   type VisibleIf,
   validateDocument,
 } from '../../src';
+import { buildSystemPrompt } from '../../src/agent';
 
-const proOnly: VisibleIf = { rules: [{ field: 'plan', operator: 'equals', value: 'Pro' }] };
+const vipOnly: VisibleIf = { conditions: [{ id: 'tag:vip', label: 'VIP' }] };
 
-function personalized(visibleIf: VisibleIf, markdown = 'Pro perks') {
+function personalized(visibleIf: VisibleIf, markdown = 'VIP perks') {
   return createDocument({
     blocks: [
       { type: 'text', props: { markdown: 'Hello everyone' } },
       {
         type: 'container',
-        id: 'pro-perks',
+        id: 'vip-perks',
         props: { visibleIf },
         children: [{ type: 'text', props: { markdown } }],
       },
@@ -26,110 +26,98 @@ function personalized(visibleIf: VisibleIf, markdown = 'Pro perks') {
   });
 }
 
-describe('matchesRule', () => {
-  it('treats missing, empty and blank values as not set', () => {
-    for (const data of [{}, { plan: '' }, { plan: '  ' }, { plan: null }]) {
-      expect(matchesRule({ field: 'plan', operator: 'is_set' }, data)).toBe(false);
-      expect(matchesRule({ field: 'plan', operator: 'is_not_set' }, data)).toBe(true);
-    }
-    expect(matchesRule({ field: 'plan', operator: 'is_set' }, { plan: 0 })).toBe(true);
-  });
-
-  it('compares text ignoring case and surrounding spaces', () => {
-    const data = { plan: ' Pro Annual ' };
-    expect(matchesRule({ field: 'plan', operator: 'equals', value: 'pro annual' }, data)).toBe(
-      true,
-    );
-    expect(matchesRule({ field: 'plan', operator: 'not_equals', value: 'pro' }, data)).toBe(true);
-    expect(matchesRule({ field: 'plan', operator: 'contains', value: 'ANNUAL' }, data)).toBe(true);
-    expect(matchesRule({ field: 'plan', operator: 'not_contains', value: 'pro' }, data)).toBe(
-      false,
-    );
-  });
-});
+const markers = { personalization: 'markers' } as const;
 
 describe('matchesVisibleIf', () => {
-  const rules: VisibleIf['rules'] = [
-    { field: 'plan', operator: 'equals', value: 'pro' },
-    { field: 'country', operator: 'equals', value: 'ID' },
+  const conditions: VisibleIf['conditions'] = [
+    { id: 'segment:pro' },
+    { id: 'tag:churned', not: true },
   ];
 
-  it('requires every rule by default and one rule with match any', () => {
-    expect(matchesVisibleIf({ rules }, { plan: 'pro', country: 'SG' })).toBe(false);
-    expect(matchesVisibleIf({ match: 'any', rules }, { plan: 'pro', country: 'SG' })).toBe(true);
-    expect(matchesVisibleIf({ rules: [] }, {})).toBe(true);
+  it('requires every condition by default and one with match any', () => {
+    expect(matchesVisibleIf({ conditions }, new Set(['segment:pro']))).toBe(true);
+    expect(matchesVisibleIf({ conditions }, new Set(['segment:pro', 'tag:churned']))).toBe(false);
+    expect(matchesVisibleIf({ match: 'any', conditions }, new Set(['tag:churned']))).toBe(false);
+    expect(matchesVisibleIf({ match: 'any', conditions }, new Set())).toBe(true);
+    expect(matchesVisibleIf({ conditions: [] }, new Set())).toBe(true);
   });
 });
 
 describe('personalized sections', () => {
-  it('validates rules on containers and rejects bad field keys', () => {
-    expect(validateDocument(personalized(proOnly)).ok).toBe(true);
-    expect(() => personalized({ rules: [{ field: '{{ plan }}', operator: 'is_set' }] })).toThrow(
-      /merge tag key/,
-    );
+  it('validates conditions on containers and rejects bad ids', () => {
+    expect(validateDocument(personalized(vipOnly)).ok).toBe(true);
+    expect(() => personalized({ conditions: [{ id: '{{ vip }}' }] })).toThrow(/condition id/);
   });
 
-  it('wraps the section in markers that resolve per reader, in HTML and text', () => {
-    const { html, text } = renderEmail(personalized(proOnly));
-    expect(html).toContain('<!--meb:if:pro.perks {"rules":[');
-    expect(html).toContain('<!--meb:endif:pro.perks-->');
-
-    expect(resolveConditions(html, { plan: 'pro' })).toContain('Pro perks');
-    expect(resolveConditions(html, { plan: 'free' })).not.toContain('Pro perks');
-    expect(resolveConditions(html, { plan: 'free' })).toContain('Hello everyone');
-    expect(resolveConditions(text, { plan: 'free' }).trim()).toBe('Hello everyone');
-    expect(resolveConditions(text, { plan: 'pro' })).toContain('Pro perks');
+  it('leaves personalized sections out unless the host asks for markers', () => {
+    const { html, text } = renderEmail(personalized(vipOnly));
+    expect(html).not.toContain('VIP perks');
+    expect(html).not.toContain('meb:');
+    expect(text).toBe('Hello everyone');
   });
 
-  it('never lets rule values close the comment', () => {
+  it('wraps sections in markers that resolve per reader, in HTML and text', () => {
+    const { html, text } = renderEmail(personalized(vipOnly), markers);
+    expect(html).toContain('<!--meb:if:vip.perks {"conditions":[');
+    expect(html).toContain('<!--meb:endif:vip.perks-->');
+
+    expect(resolveConditions(html, ['tag:vip'])).toContain('VIP perks');
+    expect(resolveConditions(html, [])).not.toContain('VIP perks');
+    expect(resolveConditions(html, [])).toContain('Hello everyone');
+    expect(resolveConditions(text, []).trim()).toBe('Hello everyone');
+    expect(resolveConditions(text, ['tag:vip'])).toContain('VIP perks');
+  });
+
+  it('never lets a stored label close the comment', () => {
     const { html } = renderEmail(
-      personalized({ rules: [{ field: 'code', operator: 'equals', value: 'a-->b' }] }),
+      personalized({ conditions: [{ id: 'tag:vip', label: 'a-->b' }] }),
+      markers,
     );
-    const marker = html.match(/<!--meb:if:.*?-->/)?.[0] ?? '';
-    expect(marker).toContain('a\\u002d\\u002d>b');
-    expect(resolveConditions(html, { code: 'a-->b' })).toContain('Pro perks');
-    expect(resolveConditions(html, { code: 'x' })).not.toContain('Pro perks');
+    expect(html.match(/<!--meb:if:.*?-->/)?.[0]).toContain('a\\u002d\\u002d>b');
+    expect(resolveConditions(html, ['tag:vip'])).toContain('VIP perks');
   });
 
-  it('resolves nested sections', () => {
+  it('resolves nested sections and drops unreadable markers', () => {
     const document = createDocument({
       blocks: [
         {
           type: 'container',
           id: 'outer',
-          props: { visibleIf: { rules: [{ field: 'plan', operator: 'is_set' }] } },
+          props: { visibleIf: { conditions: [{ id: 'segment:customers' }] } },
           children: [
-            { type: 'text', props: { markdown: 'Any plan' } },
+            { type: 'text', props: { markdown: 'Customers' } },
             {
               type: 'container',
               id: 'inner',
-              props: { visibleIf: proOnly },
-              children: [{ type: 'text', props: { markdown: 'Pro only' } }],
+              props: { visibleIf: vipOnly },
+              children: [{ type: 'text', props: { markdown: 'VIP only' } }],
             },
           ],
         },
       ],
     });
-    const { html } = renderEmail(document);
-    const free = resolveConditions(html, { plan: 'free' });
-    expect(free).toContain('Any plan');
-    expect(free).not.toContain('Pro only');
-    expect(free).not.toContain('meb:');
-    expect(resolveConditions(html, {})).not.toContain('Any plan');
+    const { html } = renderEmail(document, markers);
+    const customer = resolveConditions(html, ['segment:customers']);
+    expect(customer).toContain('Customers');
+    expect(customer).not.toContain('VIP only');
+    expect(customer).not.toContain('meb:');
+    expect(resolveConditions(html, ['tag:vip'])).not.toContain('VIP only');
+    expect(resolveConditions('<!--meb:if:b_1 {nope}-->Secret<!--meb:endif:b_1-->', [])).toBe('');
   });
 
-  it('renders plain containers without markers', () => {
-    const { html } = renderEmail(personalized({ rules: [] }));
-    expect(html).not.toContain('meb:if');
-  });
-
-  it('warns about rules that need a value', () => {
-    const warnings = lintDocument(
-      personalized({ rules: [{ field: 'plan', operator: 'equals', value: ' ' }] }),
-    );
-    expect(warnings.map((warning) => warning.code)).toContain('incomplete-condition');
-    expect(lintDocument(personalized(proOnly)).map((warning) => warning.code)).not.toContain(
+  it('renders containers without conditions for everyone, and lint flags them', () => {
+    const document = personalized({ conditions: [] });
+    expect(renderEmail(document).html).toContain('VIP perks');
+    expect(lintDocument(document).map((warning) => warning.code)).toContain('incomplete-condition');
+    expect(lintDocument(personalized(vipOnly)).map((warning) => warning.code)).not.toContain(
       'incomplete-condition',
     );
+  });
+
+  it('tells the agent which groups it may target', () => {
+    expect(buildSystemPrompt({ conditions: [{ id: 'tag:vip', label: 'VIP' }] })).toContain(
+      '"tag:vip" (VIP)',
+    );
+    expect(buildSystemPrompt()).toContain('Do not set props.visibleIf');
   });
 });

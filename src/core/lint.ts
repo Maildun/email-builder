@@ -1,5 +1,4 @@
 import { contrastRatio, resolveColor } from './colors';
-import { conditionNeedsValue } from './conditions';
 import type { Block } from './schema/blocks';
 import { type EmailDocument, ROOT_ID } from './schema/document';
 import { walk } from './tree';
@@ -242,17 +241,12 @@ function lintBlock(
     }
     case 'container':
     case 'column':
-      if (
-        block.type === 'container' &&
-        block.props.visibleIf?.rules.some(
-          (rule) => conditionNeedsValue(rule.operator) && !rule.value?.trim(),
-        )
-      ) {
+      if (block.type === 'container' && block.props.visibleIf?.conditions.length === 0) {
         warnings.push({
           code: 'incomplete-condition',
           severity: 'warning',
           blockId: id,
-          message: 'A personalized section has a rule with no value to compare.',
+          message: 'A personalized section has no conditions, so every reader sees it.',
         });
       }
       if (block.children.length === 0) {

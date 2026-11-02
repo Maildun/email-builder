@@ -1,5 +1,6 @@
 export { Canvas } from './canvas/Canvas';
 export {
+  type ConditionOption,
   type EditorClassNames,
   type EditorIconName,
   type EditorIcons,

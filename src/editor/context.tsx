@@ -5,6 +5,7 @@ import type { BlockType } from '../core/schema/blocks';
 import type { EmailDocument } from '../core/schema/document';
 import type { SectionName } from '../core/sections';
 import { DEFAULT_ASSETS_URL } from '../core/social';
+import type { PersonalizationMode } from '../render/conditions';
 import { type EditorMessages, EN_MESSAGES } from './messages';
 import type { EditorState, EditorStore, EditorView } from './store';
 
@@ -12,6 +13,15 @@ export interface MergeTag {
   /** Tag key, rendered as `{{ key }}`. */
   key: string;
   label?: string;
+}
+
+/** A reader group a personalized section can target, such as a segment or a tag. */
+export interface ConditionOption {
+  /** Stored in the section and sent to your sending code, e.g. "segment:0b9c…". */
+  id: string;
+  label: string;
+  /** Heading the option is listed under, e.g. "Segments". */
+  group?: string;
 }
 
 export interface ImageResult {
@@ -41,6 +51,10 @@ export type EditorIcons = Partial<Record<EditorIconName, IconSvgElement>>;
 export interface EditorOptions {
   readOnly: boolean;
   mergeTags: MergeTag[];
+  /** Reader groups personalized sections can target; personalization is off when undefined. */
+  conditions?: readonly ConditionOption[];
+  /** How the editor's own renders treat personalized sections: kept as markers when `conditions` is set. */
+  personalization: PersonalizationMode;
   classNames?: EditorClassNames;
   icons?: EditorIcons;
   /** Host-defined block types, and the same list by name. */
@@ -66,6 +80,7 @@ const StoreContext = createContext<EditorStore | null>(null);
 export const DEFAULT_OPTIONS: EditorOptions = {
   readOnly: false,
   mergeTags: [],
+  personalization: 'omit',
   customBlocks: [],
   customBlockMap: new Map(),
   views: ['design', 'preview', 'code'],

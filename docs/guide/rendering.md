@@ -90,23 +90,24 @@ const personalText = fill(text, { first_name: 'Ada', unsubscribe_url: link }, fa
 
 ## Personalized sections
 
-A container with `props.visibleIf` is wrapped in comment markers, in both `html` and `text`:
+A container with `props.visibleIf` only goes to readers in the groups it lists. By default `renderEmail` leaves these sections out. Pass `personalization: 'markers'` to keep them, wrapped in comment markers in both `html` and `text`:
 
 ```html
-<!--meb:if:b_k3x9q2mf {"rules":[{"field":"plan","operator":"equals","value":"pro"}]}-->…<!--meb:endif:b_k3x9q2mf-->
+<!--meb:if:b_k3x9q2mf {"conditions":[{"id":"tag:vip","label":"VIP"}]}-->…<!--meb:endif:b_k3x9q2mf-->
 ```
 
-Resolve them for each recipient before filling merge tags. `resolveConditions` keeps the sections the reader passes and removes the rest:
+Resolve them for each recipient before filling merge tags. `resolveConditions` takes the ids of the groups the reader is in, keeps the sections they pass and removes the rest:
 
 ```ts
-import { resolveConditions } from '@maildun/email-builder';
+import { renderEmail, resolveConditions } from '@maildun/email-builder';
 
-const data = { first_name: 'Ada', plan: 'pro' };
-const personalHtml = fill(resolveConditions(html, data), data);
-const personalText = fill(resolveConditions(text, data), data, false);
+const { html, text } = renderEmail(design, { personalization: 'markers' });
+const groups = ['segment:pro-customers', 'tag:vip']; // this reader's groups
+const personalHtml = fill(resolveConditions(html, groups), data);
+const personalText = fill(resolveConditions(text, groups), data, false);
 ```
 
-Sending code in another language can do the same: match `<!--meb:if:ID JSON-->…<!--meb:endif:ID-->` (the ID pairs each start with its end, so sections nest), parse the JSON and apply the rules as described under [container](/reference/blocks#container). Hosts that skip this step send every section to everyone.
+Sending code in another language can do the same: match `<!--meb:if:ID JSON-->…<!--meb:endif:ID-->` (the ID pairs each start with its end, so sections nest), parse the JSON, and keep the content when the reader passes `all` (default) or `any` of the conditions. Drop sections whose JSON can't be read.
 
 ## Other languages
 

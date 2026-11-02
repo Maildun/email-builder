@@ -516,7 +516,7 @@ function ContainerView({
 }: BlockViewProps & { block: Extract<Block, { children: string[] }> }) {
   const width = innerWidth(available, block.style?.padding, block.style?.border);
   const boxStyle = toReactStyle(boxDeclarations(styles, block.style));
-  const { readOnly, messages, mergeTags } = useEditorOptions();
+  const { readOnly, messages, conditions } = useEditorOptions();
 
   if (block.type === 'columns') {
     return (
@@ -550,7 +550,7 @@ function ContainerView({
             className="pointer-events-none absolute top-0 right-2 z-1 flex max-w-[calc(100%-1rem)] -translate-y-1/2 items-center gap-1 rounded-full bg-editor-selection px-2 py-0.5 font-normal font-sans text-[11px] text-white not-italic leading-4 tracking-normal normal-case"
           >
             <Icon icon={UserGroupIcon} className="size-3 shrink-0" />
-            <span className="truncate">{summarizeVisibleIf(visibleIf, mergeTags, messages)}</span>
+            <span className="truncate">{summarizeVisibleIf(visibleIf, conditions, messages)}</span>
           </span>
         </>
       ) : null}

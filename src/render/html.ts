@@ -2,6 +2,7 @@ import type { CustomBlocks } from '../core/custom';
 import type { EmailDocument } from '../core/schema/document';
 import { resolvePadding } from '../core/schema/primitives';
 import { renderBlock } from './blocks';
+import type { PersonalizationMode } from './conditions';
 import { createRenderContext, type RenderContext, type RenderWarning } from './context';
 import { css, paddingCss, px } from './css';
 import { escapeHtml } from './escape';
@@ -17,6 +18,12 @@ export interface RenderOptions {
    * folder. Defaults to jsDelivr (`DEFAULT_ASSETS_URL`).
    */
   assetsUrl?: string;
+  /**
+   * `omit` (default) leaves personalized sections out. `markers` keeps them
+   * wrapped in markers for your sending code to resolve per recipient with
+   * `resolveConditions`.
+   */
+  personalization?: PersonalizationMode;
 }
 
 export type { RenderWarning };
@@ -42,6 +49,7 @@ export function renderEmail(document: EmailDocument, options: RenderOptions = {}
   const ctx = createRenderContext(document, {
     ...(options.customBlocks ? { customBlocks: options.customBlocks } : {}),
     ...(options.assetsUrl ? { assetsUrl: options.assetsUrl } : {}),
+    ...(options.personalization ? { personalization: options.personalization } : {}),
   });
   const html = renderDocumentHtml(ctx, options);
   const warnings: RenderWarning[] = [...ctx.warnings];

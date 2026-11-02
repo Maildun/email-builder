@@ -1,36 +1,25 @@
 import { z } from 'zod';
 
-export const CONDITION_OPERATORS = [
-  'is_set',
-  'is_not_set',
-  'equals',
-  'not_equals',
-  'contains',
-  'not_contains',
-] as const;
-
-export type ConditionOperator = (typeof CONDITION_OPERATORS)[number];
-
-/** Operators that compare against `value`; the others only check presence. */
-export function conditionNeedsValue(operator: ConditionOperator): boolean {
-  return operator !== 'is_set' && operator !== 'is_not_set';
-}
-
-export const ConditionRuleSchema = z.strictObject({
-  field: z
+/**
+ * One condition of a personalized section: the reader is (or, with `not`,
+ * is not) in a group the host app defines, such as a segment or a tag.
+ */
+export const SectionConditionSchema = z.strictObject({
+  id: z
     .string()
-    .regex(/^[a-zA-Z_][a-zA-Z0-9_.]*$/, 'Use a merge tag key, e.g. "first_name".')
-    .describe('Merge tag key the rule reads, without braces, e.g. "plan".'),
-  operator: z
-    .enum(CONDITION_OPERATORS)
-    .describe(
-      'is_set / is_not_set check for a non-empty value. equals, not_equals, contains and not_contains compare text, ignoring case and surrounding spaces.',
-    ),
-  value: z
+    .regex(
+      /^[A-Za-z0-9][\w:.-]{0,199}$/,
+      'Use a condition id the host app offers, e.g. "segment:0b9c…" or "tag:vip".',
+    )
+    .describe('Id of a reader group the host app offers, e.g. a segment or a tag.'),
+  label: z
     .string()
-    .max(500)
+    .max(200)
     .optional()
-    .describe('Text to compare with. Omit for is_set and is_not_set.'),
+    .describe(
+      'Name of the group when the section was set up, shown if the host no longer offers it.',
+    ),
+  not: z.boolean().optional().describe('true = the reader must NOT be in the group.'),
 });
 
 export const VisibleIfSchema = z
@@ -38,53 +27,33 @@ export const VisibleIfSchema = z
     match: z
       .enum(['all', 'any'])
       .optional()
-      .describe('all = every rule must pass (default), any = one passing rule is enough.'),
-    rules: z.array(ConditionRuleSchema).max(10),
+      .describe(
+        'all = every condition must pass (default), any = one passing condition is enough.',
+      ),
+    conditions: z.array(SectionConditionSchema).max(10),
   })
   .describe(
-    'Show this container only to readers whose merge data passes the rules; the sending platform decides per recipient. Omit to show it to everyone.',
+    'Show this container only to readers in (or not in) groups the host app offers, such as segments or tags. The sending platform decides per recipient. Omit to show it to everyone.',
   );
 
-export type ConditionRule = z.infer<typeof ConditionRuleSchema>;
+export type SectionCondition = z.infer<typeof SectionConditionSchema>;
 export type VisibleIf = z.infer<typeof VisibleIfSchema>;
 
-/** Reader data a condition is checked against: merge tag key to value. */
-export type ConditionData = Readonly<Record<string, unknown>>;
-
-function fieldText(data: ConditionData, field: string): string {
-  const value = data[field];
-  return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-    ? String(value).trim()
-    : '';
+/** Whether a personalized section has conditions, so not every reader sees it. */
+export function isPersonalized(visibleIf: VisibleIf | undefined): visibleIf is VisibleIf {
+  return (visibleIf?.conditions.length ?? 0) > 0;
 }
 
 /**
- * Whether a reader passes one rule. Missing fields count as empty. Hosts that
- * evaluate conditions themselves (e.g. in PHP) must follow the same rules.
+ * Whether a reader in the given groups sees a section with these conditions.
+ * No conditions means everyone does. Hosts that evaluate conditions
+ * themselves (e.g. in PHP) must follow the same rules.
  */
-export function matchesRule(rule: ConditionRule, data: ConditionData): boolean {
-  const actual = fieldText(data, rule.field).toLowerCase();
-  const expected = (rule.value ?? '').trim().toLowerCase();
-  switch (rule.operator) {
-    case 'is_set':
-      return actual !== '';
-    case 'is_not_set':
-      return actual === '';
-    case 'equals':
-      return actual === expected;
-    case 'not_equals':
-      return actual !== expected;
-    case 'contains':
-      return actual.includes(expected);
-    case 'not_contains':
-      return !actual.includes(expected);
-  }
-}
-
-/** Whether a reader sees a container with these rules. No rules means everyone does. */
-export function matchesVisibleIf(visibleIf: VisibleIf, data: ConditionData): boolean {
-  if (visibleIf.rules.length === 0) return true;
+export function matchesVisibleIf(visibleIf: VisibleIf, memberships: ReadonlySet<string>): boolean {
+  if (visibleIf.conditions.length === 0) return true;
+  const passes = (condition: SectionCondition) =>
+    memberships.has(condition.id) !== (condition.not === true);
   return visibleIf.match === 'any'
-    ? visibleIf.rules.some((rule) => matchesRule(rule, data))
-    : visibleIf.rules.every((rule) => matchesRule(rule, data));
+    ? visibleIf.conditions.some(passes)
+    : visibleIf.conditions.every(passes);
 }
